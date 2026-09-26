@@ -1,0 +1,6 @@
+appsettings.Development.json
+bin/
+obj/
+*.db
+*.db-shm
+*.db-wal
