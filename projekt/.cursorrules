@@ -1,0 +1,64 @@
+# VocabApp — Projekt szabályok (szakdolgozati MVP)
+
+## Projekt kontextus
+Ez egy szakdolgozati Walking Skeleton (MVP) projekt: MI-támogatott, adaptív szótanuló
+webalkalmazás. A dolgozatnak van egy teljes, megírt rendszerterve (User/Deck entitások,
+JWT auth, AICache, SM2/FSRS, SQL Server), de a MOSTANI kódbázis ennek csak egy
+tudatosan leszűkített, első vertikális szelete. Ne próbáld "kiegészíteni" a hiányzó
+részekkel — lásd lent.
+
+Solution felépítés:
+- `VocabApp.Api/` — backend, .NET 8 Web API (C#)
+- `vocab-client/` — frontend, Angular 18+ (TypeScript)
+
+## Tech stack — szigorúan tartsd magad ehhez
+- Backend: .NET 9, ASP.NET Core Web API, **Controller-alapú** (NE minimal API),
+  EF Core Code First + SQLite (Microsoft.EntityFrameworkCore.Sqlite).
+- Frontend: Angular 18+ **Standalone komponensek** (NE NgModule), `inject()` szintaxis,
+  `provideHttpClient()` az `app.config.ts`-ben.
+- UI: Bootstrap 5 osztályok, csak minimális saját CSS ha kell.
+
+## TUDATOS MVP-EGYSZERŰSÍTÉSEK — EZEKET NE EGÉSZÍTSD KI SAJÁT ÖTLETTEL
+Ha egy változtatás ezek valamelyikét feloldaná (pl. auth hozzáadása, cache tábla,
+User entitás), NE tedd meg kérés nélkül — kérdezz rá előbb.
+
+1. Nincs `User` és `Deck` entitás — egyetlen globális `Card` tábla van.
+2. Nincs `AICache` tábla — minden AI-kérés élesben megy ki az LLM-hez.
+3. Nincs JWT/Identity — a végpontok publikusak, CORS: `AllowAnyOrigin/AllowAnyMethod/AllowAnyHeader`.
+4. Egyszerű, lineáris SRS-logika (nem valódi SM2/FSRS). `EaseFactor` tárolva van,
+   de jelenleg nincs használva számításban.
+5. SQLite, nem SQL Server (a végleges beadás előtt vált majd `UseSqlServer`-re).
+6. Csak angol célnyelv — nincs `SourceLang`/`TargetLang` mező.
+
+## Adatmodell (jelenlegi állapot)
+- `Card`: `Id` (int, PK), `Term` (string), `Definition` (string), `Example` (string?)
+- `CardProgress`: `Id` (int, PK), `CardId` (int, FK, **1:1** a Card-hoz),
+  `NextReviewDate` (DateTime, default UtcNow), `EaseFactor` (float, default 2.5),
+  `Interval` (int, default 0), `Streak` (int, default 0), `IncorrectCount` (int, default 0)
+
+## API végpontok (ne nevezd át és ne bővítsd kérés nélkül)
+- `GET /api/study/next`
+- `POST /api/study/submit`
+- `POST /api/ai/generate/definition`
+- `POST /api/ai/generate/example`
+- `POST /api/ai/validate`
+
+## Kódolási konvenciók
+- C#: PascalCase osztály/metódusnevekhez, camelCase lokális változókhoz,
+  `async`/`await` minden I/O műveletnél (DB, HTTP), nullable reference types bekapcsolva.
+- DTO-k mindig a `DTOs/` mappában, `...Dto` végződéssel.
+- Controllerek vékonyak maradjanak — üzleti logika a `Services/` rétegben.
+- Angular: signal-alapú vagy egyszerű property state, explicit standalone `imports`,
+  semmi NgModule.
+- Ne generálj automatikusan teszteket, extra dokumentációs fájlokat vagy olyan
+  funkciót, amit nem kértek kifejezetten.
+
+## Biztonság (MVP szinten is)
+- Az AI API kulcsot MINDIG `appsettings.json` / `IConfiguration`-ből olvasd
+  (`AiSettings:ApiKey`, `AiSettings:Endpoint`) — soha ne hardkódold C# fájlba.
+
+## Munkamódszer
+- Lépésenként haladunk: egyszerre egy fájl vagy egy jól elhatárolt egység
+  (pl. "a két Model", "az összes DTO egyben"), utána megállunk.
+- Ha egy döntés bizonytalan (elnevezés, mappahely, hibakezelési stratégia),
+  kérdezz rá, ne találgass és ne dönts helyettem.

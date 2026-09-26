@@ -1,0 +1,465 @@
+using Microsoft.EntityFrameworkCore;
+using VocabApp.Api.Data;
+using VocabApp.Api.DTOs;
+using VocabApp.Api.Models;
+
+namespace VocabApp.Api.Services;
+
+public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answerToken) : IStudyService
+{
+    private const int LearnedStreakThreshold = 3;
+    private const int MaxAnswerDurationSeconds = 600;
+    public async Task<StudyNextDto> GetNextCardAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var dayStart = now.Date;
+        var user = await dbContext.Users
+            .AsNoTracking()
+            .Where(candidate => candidate.Id == userId)
+            .Select(candidate => new { candidate.DailyNewCardGoal, candidate.MinimumAnswerSeconds })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (user is null)
+        {
+            return new StudyNextDto { Status = "empty" };
+        }
+
+        var introducedToday = await dbContext.CardProgresses
+            .AsNoTracking()
+            .CountAsync(
+                progress => progress.Card.Deck.UserId == userId && progress.FirstReviewedAt >= dayStart,
+                cancellationToken);
+
+        var reviews = await SelectCards(dbContext.CardProgresses
+            .AsNoTracking()
+            .Where(progress =>
+                progress.Card.Deck.UserId == userId &&
+                progress.FirstReviewedAt != null &&
+                progress.NextReviewDate <= now))
+            .ToListAsync(cancellationToken);
+
+        var newCards = new List<StudyCardDto>();
+        if (introducedToday < user.DailyNewCardGoal)
+        {
+            newCards = await SelectCards(dbContext.CardProgresses
+                .AsNoTracking()
+                .Where(progress => progress.Card.Deck.UserId == userId && progress.FirstReviewedAt == null))
+                .ToListAsync(cancellationToken);
+        }
+
+        var pool = reviews.Concat(newCards).ToList();
+        if (pool.Count == 0)
+        {
+            var hasUnseenCards = introducedToday >= user.DailyNewCardGoal
+                && await dbContext.CardProgresses.AnyAsync(
+                    progress => progress.Card.Deck.UserId == userId && progress.FirstReviewedAt == null,
+                    cancellationToken);
+
+            return Envelope(
+                user.DailyNewCardGoal,
+                user.MinimumAnswerSeconds,
+                introducedToday,
+                hasUnseenCards ? "dailyLimitReached" : "empty",
+                null,
+                null);
+        }
+
+        var card = PickWeighted(pool);
+        return Envelope(
+            user.DailyNewCardGoal,
+            user.MinimumAnswerSeconds,
+            introducedToday,
+            "ready",
+            card,
+            answerToken.Create(userId, card.Id, now));
+    }
+
+    public async Task<StudyStatsDto> GetStatsAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var now = DateTime.UtcNow;
+        var today = now.Date;
+        var rows = await dbContext.CardProgresses
+            .AsNoTracking()
+            .Where(progress => progress.Card.Deck.UserId == userId)
+            .Select(progress => new
+            {
+                progress.Card.Term,
+                progress.IncorrectCount,
+                progress.CorrectCount,
+                progress.Streak,
+                progress.Interval,
+                progress.NextReviewDate,
+                progress.LearnedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var user = await dbContext.Users
+            .AsNoTracking()
+            .Where(candidate => candidate.Id == userId)
+            .Select(candidate => new
+            {
+                candidate.StudyDayStreak,
+                candidate.LongestStudyDayStreak,
+                candidate.LastStudyDate
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var studyDays = await dbContext.UserStudyDays
+            .AsNoTracking()
+            .Where(day => day.UserId == userId)
+            .Select(day => new { day.DayUtc, day.SecondsStudied })
+            .ToListAsync(cancellationToken);
+
+        var learnedAt = rows.Select(row => row.LearnedAt).ToList();
+
+        return new StudyStatsDto
+        {
+            TotalCards = rows.Count,
+            DueCards = rows.Count(row => row.NextReviewDate <= now),
+            TotalIncorrect = rows.Sum(row => row.IncorrectCount),
+            LearnedCards = rows.Count(row => row.LearnedAt != null),
+            StudyDayStreak = user is null
+                ? 0
+                : CurrentStudyDayStreak(user.StudyDayStreak, user.LastStudyDate, today),
+            LongestStudyDayStreak = user?.LongestStudyDayStreak ?? 0,
+            TotalStudySeconds = studyDays.Sum(day => day.SecondsStudied),
+            TodayStudySeconds = studyDays
+                .Where(day => day.DayUtc.Date == today)
+                .Sum(day => day.SecondsStudied),
+            Days = BuildLearnedDays(learnedAt, today),
+            Weeks = BuildLearnedWeeks(learnedAt, today),
+            Cards = rows
+                .Select(row =>
+                {
+                    var attempts = row.CorrectCount + row.IncorrectCount;
+                    return new StudyStatsCardDto
+                    {
+                        Term = row.Term,
+                        IncorrectCount = row.IncorrectCount,
+                        Streak = row.Streak,
+                        Interval = row.Interval,
+                        CorrectCount = row.CorrectCount,
+                        ErrorRate = attempts == 0 ? null : (double)row.IncorrectCount / attempts,
+                        IsLearned = row.LearnedAt != null
+                    };
+                })
+                .OrderBy(card => card.CorrectCount + card.IncorrectCount == 0)
+                .ThenByDescending(card => card.ErrorRate)
+                .ThenByDescending(card => card.IncorrectCount)
+                .ThenBy(card => card.Term, StringComparer.OrdinalIgnoreCase)
+                .ToList()
+        };
+    }
+
+    public async Task<StudySettingsDto?> GetSettingsAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        return await dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => new StudySettingsDto
+            {
+                DailyNewCardGoal = user.DailyNewCardGoal,
+                MinimumAnswerSeconds = user.MinimumAnswerSeconds
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<StudySettingsDto?> UpdateSettingsAsync(
+        int userId,
+        StudySettingsDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await dbContext.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        if (user is null)
+        {
+            return null;
+        }
+
+        user.DailyNewCardGoal = request.DailyNewCardGoal;
+        user.MinimumAnswerSeconds = request.MinimumAnswerSeconds;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return new StudySettingsDto
+        {
+            DailyNewCardGoal = user.DailyNewCardGoal,
+            MinimumAnswerSeconds = user.MinimumAnswerSeconds
+        };
+    }
+
+    public async Task<StudySubmitResult> SubmitAsync(
+        int userId,
+        StudySubmitDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var progress = await dbContext.CardProgresses
+            .SingleOrDefaultAsync(
+                item => item.CardId == request.CardId && item.Card.Deck.UserId == userId,
+                cancellationToken);
+
+        if (progress is null)
+        {
+            return StudySubmitResult.Fail(StatusCodes.Status404NotFound, "Card not found");
+        }
+
+        var user = await dbContext.Users
+            .SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+
+        if (user is null)
+        {
+            return StudySubmitResult.Fail(StatusCodes.Status404NotFound, "User not found");
+        }
+
+        var now = DateTime.UtcNow;
+        var evaluation = answerToken.Evaluate(
+            request.AnswerToken,
+            userId,
+            request.CardId,
+            user.MinimumAnswerSeconds,
+            now);
+
+        if (evaluation.Status == StudyAnswerTokenStatus.Invalid)
+        {
+            return StudySubmitResult.Fail(StatusCodes.Status400BadRequest, "Invalid answer token");
+        }
+
+        if (evaluation.Status == StudyAnswerTokenStatus.TooEarly)
+        {
+            return StudySubmitResult.Fail(StatusCodes.Status400BadRequest, "Answer submitted too early");
+        }
+
+        if (progress.FirstReviewedAt is null)
+        {
+            progress.FirstReviewedAt = now;
+        }
+
+        if (request.IsCorrect)
+        {
+            progress.CorrectCount = SaturatingIncrement(progress.CorrectCount);
+            var previousInterval = progress.Interval;
+            progress.EaseFactor = Sm2Scheduler.NextEaseFactor(progress.EaseFactor, isCorrect: true);
+            progress.Streak = SaturatingIncrement(progress.Streak);
+            progress.Interval = Sm2Scheduler.NextInterval(progress.Streak, previousInterval, progress.EaseFactor);
+            var availableDays = Math.Max(0, (DateTime.MaxValue - now).TotalDays);
+            progress.NextReviewDate = progress.Interval > availableDays
+                ? DateTime.MaxValue
+                : now.AddDays(progress.Interval);
+            if (progress.LearnedAt is null && progress.Streak >= LearnedStreakThreshold)
+            {
+                progress.LearnedAt = now;
+            }
+        }
+        else
+        {
+            progress.EaseFactor = Sm2Scheduler.NextEaseFactor(progress.EaseFactor, isCorrect: false);
+            progress.Streak = 0;
+            progress.Interval = 0;
+            progress.IncorrectCount = SaturatingIncrement(progress.IncorrectCount);
+            progress.NextReviewDate = now;
+        }
+
+        var today = now.Date;
+        var studiedSeconds = evaluation.ShownAtUtc is DateTime shownAt
+            ? ClampAnswerSeconds(shownAt, now)
+            : 0;
+        ApplyStudyDayStreak(user, today);
+        await RecordStudyDayAsync(userId, today, studiedSeconds, request.IsCorrect, cancellationToken);
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return StudySubmitResult.Success(new CardProgressDto
+        {
+            CardId = progress.CardId,
+            NextReviewDate = progress.NextReviewDate,
+            EaseFactor = progress.EaseFactor,
+            Interval = progress.Interval,
+            Streak = progress.Streak,
+            IncorrectCount = progress.IncorrectCount
+        });
+    }
+
+    private static IQueryable<StudyCardDto> SelectCards(IQueryable<CardProgress> progresses) =>
+        progresses.Select(progress => new StudyCardDto
+        {
+            Id = progress.CardId,
+            Term = progress.Card.Term,
+            Definition = progress.Card.Definition,
+            Example = progress.Card.Example,
+            NextReviewDate = progress.NextReviewDate,
+            EaseFactor = progress.EaseFactor,
+            Interval = progress.Interval,
+            Streak = progress.Streak,
+            IncorrectCount = progress.IncorrectCount
+        });
+
+    private static StudyNextDto Envelope(
+        int dailyNewCardGoal,
+        int minimumAnswerSeconds,
+        int newCardsIntroducedToday,
+        string status,
+        StudyCardDto? card,
+        string? answerToken) =>
+        new()
+        {
+            DailyNewCardGoal = dailyNewCardGoal,
+            MinimumAnswerSeconds = minimumAnswerSeconds,
+            NewCardsIntroducedToday = newCardsIntroducedToday,
+            Status = status,
+            Card = card,
+            AnswerToken = answerToken
+        };
+
+    private static StudyCardDto PickWeighted(IReadOnlyList<StudyCardDto> cards)
+    {
+        var totalWeight = cards.Aggregate(0L, (sum, card) => sum + card.IncorrectCount + 1L);
+        var roll = Random.Shared.NextInt64(totalWeight);
+        var cursor = 0L;
+        foreach (var card in cards)
+        {
+            cursor += card.IncorrectCount + 1L;
+            if (roll < cursor)
+            {
+                return card;
+            }
+        }
+
+        return cards[^1];
+    }
+
+    private async Task RecordStudyDayAsync(
+        int userId,
+        DateTime today,
+        int studiedSeconds,
+        bool isCorrect,
+        CancellationToken cancellationToken)
+    {
+        var day = await dbContext.UserStudyDays
+            .SingleOrDefaultAsync(
+                item => item.UserId == userId && item.DayUtc == today,
+                cancellationToken);
+
+        if (day is null)
+        {
+            day = new UserStudyDay
+            {
+                UserId = userId,
+                DayUtc = today
+            };
+            dbContext.UserStudyDays.Add(day);
+        }
+
+        day.SecondsStudied = SaturatingAdd(day.SecondsStudied, studiedSeconds);
+        day.AnswerCount = SaturatingIncrement(day.AnswerCount);
+        if (isCorrect)
+        {
+            day.CorrectCount = SaturatingIncrement(day.CorrectCount);
+        }
+        else
+        {
+            day.IncorrectCount = SaturatingIncrement(day.IncorrectCount);
+        }
+    }
+
+    private static void ApplyStudyDayStreak(User user, DateTime today)
+    {
+        var lastDay = user.LastStudyDate?.Date;
+        if (lastDay == today.AddDays(-1))
+        {
+            user.StudyDayStreak = SaturatingIncrement(user.StudyDayStreak);
+        }
+        else if (lastDay != today)
+        {
+            user.StudyDayStreak = 1;
+        }
+
+        user.LastStudyDate = today;
+        if (user.StudyDayStreak > user.LongestStudyDayStreak)
+        {
+            user.LongestStudyDayStreak = user.StudyDayStreak;
+        }
+    }
+
+    private static int CurrentStudyDayStreak(int storedStreak, DateTime? lastStudyDate, DateTime today)
+    {
+        var lastDay = lastStudyDate?.Date;
+        if (lastDay == today || lastDay == today.AddDays(-1))
+        {
+            return storedStreak;
+        }
+
+        return 0;
+    }
+
+    private static List<StudyStatsDayDto> BuildLearnedDays(IReadOnlyList<DateTime?> learnedAt, DateTime today)
+    {
+        var windowStart = today.AddDays(-13);
+        var cumulative = learnedAt.Count(value => value is DateTime learned && learned < windowStart);
+        var days = new List<StudyStatsDayDto>(14);
+        for (var index = 0; index < 14; index++)
+        {
+            var date = windowStart.AddDays(index);
+            var next = date.AddDays(1);
+            var added = learnedAt.Count(value => value is DateTime learned && learned >= date && learned < next);
+            cumulative += added;
+            days.Add(new StudyStatsDayDto
+            {
+                Date = date,
+                NewLearned = added,
+                CumulativeLearned = cumulative
+            });
+        }
+
+        return days;
+    }
+
+    private static List<StudyStatsWeekDto> BuildLearnedWeeks(IReadOnlyList<DateTime?> learnedAt, DateTime today)
+    {
+        var currentWeek = StartOfUtcWeek(today);
+        var weeks = new List<StudyStatsWeekDto>(4);
+        for (var index = 3; index >= 0; index--)
+        {
+            var start = currentWeek.AddDays(-7 * index);
+            var end = start.AddDays(7);
+            weeks.Add(new StudyStatsWeekDto
+            {
+                WeekStart = start,
+                NewLearned = learnedAt.Count(value => value is DateTime learned && learned >= start && learned < end)
+            });
+        }
+
+        return weeks;
+    }
+
+    private static DateTime StartOfUtcWeek(DateTime day)
+    {
+        var daysSinceMonday = day.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)day.DayOfWeek - 1;
+        return day.AddDays(-daysSinceMonday);
+    }
+
+    private static int ClampAnswerSeconds(DateTime shownAtUtc, DateTime now)
+    {
+        var seconds = (long)Math.Floor((now - shownAtUtc).TotalSeconds);
+        if (seconds < 0)
+        {
+            return 0;
+        }
+
+        if (seconds > MaxAnswerDurationSeconds)
+        {
+            return MaxAnswerDurationSeconds;
+        }
+
+        return (int)seconds;
+    }
+
+    private static int SaturatingIncrement(int value) =>
+        value == int.MaxValue ? int.MaxValue : value + 1;
+
+    private static int SaturatingAdd(int value, int addend)
+    {
+        if (addend <= 0)
+        {
+            return value;
+        }
+
+        return value > int.MaxValue - addend ? int.MaxValue : value + addend;
+    }
+}

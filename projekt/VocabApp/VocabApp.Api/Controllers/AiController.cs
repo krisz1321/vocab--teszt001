@@ -1,0 +1,108 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using VocabApp.Api.DTOs;
+using VocabApp.Api.Services;
+
+namespace VocabApp.Api.Controllers;
+
+[Authorize]
+[ApiController]
+[Route("api/ai")]
+public sealed class AiController(IAiService aiService) : ControllerBase
+{
+    [HttpPost("generate/definition")]
+    public async Task<ActionResult<GenerateDefinitionResponseDto>> GenerateDefinition(
+        GenerateDefinitionRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        if (!RequireText(request.Term, nameof(request.Term)))
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            return Ok(await aiService.GenerateDefinitionAsync(request, cancellationToken));
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
+    [HttpPost("generate/example")]
+    public async Task<ActionResult<GenerateExampleResponseDto>> GenerateExample(
+        GenerateExampleRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var isValid = RequireText(request.Term, nameof(request.Term));
+        isValid &= RequireText(request.Definition, nameof(request.Definition));
+        if (!isValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            return Ok(await aiService.GenerateExampleAsync(request, cancellationToken));
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
+    [HttpPost("validate")]
+    public async Task<ActionResult<ValidateAnswerResponseDto>> Validate(
+        ValidateAnswerRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var isValid = RequireText(request.Term, nameof(request.Term));
+        isValid &= RequireText(request.Definition, nameof(request.Definition));
+        isValid &= RequireText(request.Answer, nameof(request.Answer));
+        if (!isValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            return Ok(await aiService.ValidateAnswerAsync(request, cancellationToken));
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
+    private bool RequireText(string value, string propertyName)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        ModelState.AddModelError(propertyName, $"{propertyName} must not be empty or whitespace.");
+        return false;
+    }
+
+    private ActionResult MapAiException(AiServiceException exception)
+    {
+        var (status, title) = exception.Kind switch
+        {
+            AiServiceErrorKind.Configuration =>
+                (StatusCodes.Status503ServiceUnavailable, "AI service unavailable"),
+            AiServiceErrorKind.Upstream =>
+                (StatusCodes.Status502BadGateway, "AI provider error"),
+            _ =>
+                (StatusCodes.Status502BadGateway, "Invalid AI response")
+        };
+
+        return StatusCode(status, new ProblemDetails
+        {
+            Status = status,
+            Title = title,
+            Detail = "The AI request could not be completed."
+        });
+    }
+}

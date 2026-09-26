@@ -1,0 +1,12 @@
+using VocabApp.Api.DTOs;
+
+namespace VocabApp.Api.Services;
+
+public interface IStudyService
+{
+    Task<StudyNextDto> GetNextCardAsync(int userId, CancellationToken cancellationToken = default);
+    Task<StudySubmitResult> SubmitAsync(int userId, StudySubmitDto request, CancellationToken cancellationToken = default);
+    Task<StudyStatsDto> GetStatsAsync(int userId, CancellationToken cancellationToken = default);
+    Task<StudySettingsDto?> GetSettingsAsync(int userId, CancellationToken cancellationToken = default);
+    Task<StudySettingsDto?> UpdateSettingsAsync(int userId, StudySettingsDto request, CancellationToken cancellationToken = default);
+}

@@ -1,6 +1,46 @@
 @VocabApp.Api_HostAddress = http://localhost:5152
 
-GET {{VocabApp.Api_HostAddress}}/weatherforecast/
+GET {{VocabApp.Api_HostAddress}}/api/study/next
 Accept: application/json
+
+###
+
+POST {{VocabApp.Api_HostAddress}}/api/study/submit
+Content-Type: application/json
+
+{
+  "cardId": 1,
+  "isCorrect": true
+}
+
+###
+
+POST {{VocabApp.Api_HostAddress}}/api/ai/generate/definition
+Content-Type: application/json
+
+{
+  "term": "resilient"
+}
+
+###
+
+POST {{VocabApp.Api_HostAddress}}/api/ai/generate/example
+Content-Type: application/json
+
+{
+  "term": "resilient",
+  "definition": "Able to recover quickly from difficulty or change."
+}
+
+###
+
+POST {{VocabApp.Api_HostAddress}}/api/ai/validate
+Content-Type: application/json
+
+{
+  "term": "resilient",
+  "definition": "Able to recover quickly from difficulty or change.",
+  "answer": "It means someone can recover quickly after problems."
+}
 
 ###
