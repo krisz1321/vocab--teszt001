@@ -75,29 +75,49 @@ interface ImportResult {
           <div class="list-group mb-4">
             @for (deck of decks; track deck.id) {
               <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
-                <button
-                  type="button"
-                  class="btn btn-link text-start text-decoration-none p-0"
-                  [class.fw-semibold]="selectedDeckId === deck.id"
-                  (click)="selectDeck(deck.id)">
-                  {{ deck.name }}
-                </button>
-                <div class="d-flex gap-2">
+                @if (renamingDeckId === deck.id) {
+                  <form class="d-flex flex-grow-1 gap-2" (ngSubmit)="renameDeck(deck)">
+                    <input
+                      class="form-control form-control-sm"
+                      maxlength="100"
+                      [name]="'rename-' + deck.id"
+                      [attr.aria-label]="'Pakli új neve'"
+                      [(ngModel)]="renameDraft"
+                      [disabled]="isRenaming">
+                    <button type="submit" class="btn btn-primary btn-sm" [disabled]="isRenaming">Mentés</button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="isRenaming" (click)="cancelRename()">Mégse</button>
+                  </form>
+                } @else {
                   <button
                     type="button"
-                    class="btn btn-outline-secondary btn-sm"
-                    [disabled]="sharingDeckId === deck.id"
-                    (click)="toggleShare(deck)">
-                    {{ deck.isPublic ? 'Megosztás visszavonása' : 'Megosztás' }}
+                    class="btn btn-link text-start text-decoration-none p-0"
+                    [class.fw-semibold]="selectedDeckId === deck.id"
+                    (click)="selectDeck(deck.id)">
+                    {{ deck.name }}
                   </button>
-                  <button
-                    type="button"
-                    class="btn btn-outline-danger btn-sm"
-                    [disabled]="deletingDeckId === deck.id"
-                    (click)="deleteDeck(deck)">
-                    Törlés
-                  </button>
-                </div>
+                  <div class="d-flex flex-wrap justify-content-end gap-2">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      (click)="startRename(deck)">
+                      Átnevezés
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      [disabled]="sharingDeckId === deck.id"
+                      (click)="toggleShare(deck)">
+                      {{ deck.isPublic ? 'Megosztás visszavonása' : 'Megosztás' }}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-outline-danger btn-sm"
+                      [disabled]="deletingDeckId === deck.id"
+                      (click)="deleteDeck(deck)">
+                      Törlés
+                    </button>
+                  </div>
+                }
               </div>
             }
           </div>
@@ -245,6 +265,8 @@ export class DecksComponent implements OnInit {
   cards: VocabCard[] = [];
   selectedDeckId: number | null = null;
   newDeckName = '';
+  renamingDeckId: number | null = null;
+  renameDraft = '';
   publicQuery = '';
   term = '';
   definition = '';
@@ -254,6 +276,7 @@ export class DecksComponent implements OnInit {
   isLoadingDecks = false;
   isLoadingCards = false;
   isSavingDeck = false;
+  isRenaming = false;
   isSavingCard = false;
   deletingDeckId: number | null = null;
   deletingCardId: number | null = null;
@@ -367,6 +390,44 @@ export class DecksComponent implements OnInit {
     });
   }
 
+  startRename(deck: Deck): void {
+    this.renamingDeckId = deck.id;
+    this.renameDraft = deck.name;
+    this.errorMessage = null;
+  }
+
+  cancelRename(): void {
+    this.renamingDeckId = null;
+    this.renameDraft = '';
+  }
+
+  renameDeck(deck: Deck): void {
+    const name = this.renameDraft.trim();
+    if (!name || name.length > 100) {
+      this.errorMessage = 'A pakli neve kötelező, és legfeljebb 100 karakter lehet.';
+      return;
+    }
+
+    this.errorMessage = null;
+    this.isRenaming = true;
+    this.http.put<Deck>(`/api/decks/${deck.id}`, { name }).pipe(
+      finalize(() => {
+        this.isRenaming = false;
+      }),
+    ).subscribe({
+      next: (updated) => {
+        this.decks = this.decks.map(item => item.id === updated.id ? updated : item);
+        this.cancelRename();
+        if (updated.isPublic) {
+          this.searchPublicDecks();
+        }
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage = this.readError(error, 'A pakli átnevezése sikertelen.');
+      },
+    });
+  }
+
   toggleShare(deck: Deck): void {
     this.errorMessage = null;
     this.sharingDeckId = deck.id;
@@ -430,6 +491,9 @@ export class DecksComponent implements OnInit {
     ).subscribe({
       next: () => {
         this.decks = this.decks.filter(item => item.id !== deck.id);
+        if (this.renamingDeckId === deck.id) {
+          this.cancelRename();
+        }
         if (this.selectedDeckId === deck.id) {
           this.selectedDeckId = null;
           this.cards = [];

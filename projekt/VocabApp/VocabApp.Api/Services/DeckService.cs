@@ -42,6 +42,35 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         return DeckCardResult<DeckDto>.Success(ToDto(deck));
     }
 
+    public async Task<DeckCardResult<DeckDto>> RenameAsync(
+        int userId,
+        int deckId,
+        RenameDeckDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var name = request.Name?.Trim();
+        if (string.IsNullOrEmpty(name))
+        {
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "Name is required.");
+        }
+
+        if (name.Length > MaxNameLength)
+        {
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "Name must be at most 100 characters.");
+        }
+
+        var deck = await dbContext.Decks
+            .FirstOrDefaultAsync(candidate => candidate.Id == deckId && candidate.UserId == userId, cancellationToken);
+        if (deck is null)
+        {
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+        }
+
+        deck.Name = name;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return DeckCardResult<DeckDto>.Success(ToDto(deck));
+    }
+
     public async Task<bool> DeleteAsync(int userId, int deckId, CancellationToken cancellationToken = default)
     {
         var deck = await dbContext.Decks

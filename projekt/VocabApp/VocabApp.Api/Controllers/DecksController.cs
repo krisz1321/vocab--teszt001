@@ -37,6 +37,18 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
         return ToActionResult(await deckService.CreateAsync(userId.Value, request, cancellationToken));
     }
 
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<DeckDto>> Rename(int id, RenameDeckDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await deckService.RenameAsync(userId.Value, id, request, cancellationToken));
+    }
+
     [HttpPut("{id:int}/share")]
     public async Task<ActionResult<DeckDto>> Share(int id, ShareDeckDto request, CancellationToken cancellationToken)
     {

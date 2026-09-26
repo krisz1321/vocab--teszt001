@@ -8,6 +8,8 @@ public interface IDeckService
 
     Task<DeckCardResult<DeckDto>> CreateAsync(int userId, CreateDeckDto request, CancellationToken cancellationToken = default);
 
+    Task<DeckCardResult<DeckDto>> RenameAsync(int userId, int deckId, RenameDeckDto request, CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAsync(int userId, int deckId, CancellationToken cancellationToken = default);
 
     Task<DeckCardResult<DeckDto>> ShareAsync(int userId, int deckId, ShareDeckDto request, CancellationToken cancellationToken = default);
