@@ -20,6 +20,7 @@ interface StudySubmitRequest {
   cardId: number;
   isCorrect: boolean;
   answerToken: string;
+  typedAnswer?: string;
 }
 
 interface StudyNextResponse {
@@ -38,6 +39,7 @@ interface CardProgress {
   interval: number;
   streak: number;
   incorrectCount: number;
+  confusedWithTerm: string | null;
 }
 
 interface DefinitionResponse {
@@ -264,6 +266,11 @@ type StudyMode = 'definition' | 'recognition';
                       [class.alert-success]="recognitionCorrect"
                       [class.alert-danger]="!recognitionCorrect">
                       <strong>{{ recognitionCorrect ? 'Helyes válasz.' : 'Még nem pontos.' }}</strong>
+                      @if (!recognitionCorrect) {
+                        @if (updatedProgress?.confusedWithTerm; as confusedWithTerm) {
+                          <span> Ezt a szót a(z) „{{ confusedWithTerm }}” szóval keverted.</span>
+                        }
+                      }
                     </div>
                   }
                   <div class="d-flex flex-wrap gap-2 mt-3">
@@ -479,7 +486,11 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     const isCorrect = this.normalizeText(trimmedAnswer) === this.normalizeText(this.card.term);
     this.recognitionCorrect = isCorrect;
     this.isRecognitionRevealed = true;
-    this.submitResult(isCorrect, false);
+    if (isCorrect) {
+      this.submitResult(true, false);
+    } else {
+      this.submitResult(false, false, trimmedAnswer);
+    }
   }
 
   giveUpRecognition(): void {
@@ -580,7 +591,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     return value.trim().toLowerCase().replace(/\s+/g, ' ');
   }
 
-  private submitResult(isCorrect: boolean, evaluatedByAi: boolean): void {
+  private submitResult(isCorrect: boolean, evaluatedByAi: boolean, typedAnswer?: string): void {
     if (!this.card || !this.answerToken) {
       return;
     }
@@ -590,6 +601,9 @@ export class StudyCardComponent implements OnInit, OnDestroy {
       isCorrect,
       answerToken: this.answerToken,
     };
+    if (typedAnswer !== undefined) {
+      request.typedAnswer = typedAnswer;
+    }
     this.isSubmitting = true;
     this.http.post<CardProgress>(`${this.apiBaseUrl}/study/submit`, request)
       .pipe(finalize(() => this.isSubmitting = false))

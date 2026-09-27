@@ -11,4 +11,7 @@ public sealed class StudySubmitDto
 
     [Required]
     public string AnswerToken { get; set; } = string.Empty;
+
+    [MaxLength(100)]
+    public string? TypedAnswer { get; set; }
 }

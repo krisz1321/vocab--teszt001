@@ -24,6 +24,12 @@ interface StudyStatsWeek {
   newLearned: number;
 }
 
+interface StudyStatsConfusion {
+  term: string;
+  confusedWithTerm: string;
+  count: number;
+}
+
 interface StudyStats {
   totalCards: number;
   dueCards: number;
@@ -36,6 +42,7 @@ interface StudyStats {
   days: StudyStatsDay[];
   weeks: StudyStatsWeek[];
   cards: StudyStatsCard[];
+  confusions: StudyStatsConfusion[];
 }
 
 @Component({
@@ -168,6 +175,32 @@ interface StudyStats {
                       <td>{{ card.streak }}</td>
                       <td>{{ card.isLearned ? 'Igen' : 'Nem' }}</td>
                       <td>{{ card.interval }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          <h2 class="h5 mb-3 mt-4">Összetévesztett szavak</h2>
+          @if (stats.confusions.length === 0) {
+            <div class="alert alert-info">Még nincs olyan hibás válasz, ami egy másik kártyád szava lett volna.</div>
+          } @else {
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th scope="col">Kérdezett szó</th>
+                    <th scope="col">Beírt szó</th>
+                    <th scope="col">Alkalom</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (confusion of stats.confusions; track $index) {
+                    <tr>
+                      <td>{{ confusion.term }}</td>
+                      <td>{{ confusion.confusedWithTerm }}</td>
+                      <td>{{ confusion.count }}</td>
                     </tr>
                   }
                 </tbody>

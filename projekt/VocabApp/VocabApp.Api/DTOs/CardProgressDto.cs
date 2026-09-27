@@ -8,4 +8,5 @@ public sealed class CardProgressDto
     public int Interval { get; set; }
     public int Streak { get; set; }
     public int IncorrectCount { get; set; }
+    public string? ConfusedWithTerm { get; set; }
 }

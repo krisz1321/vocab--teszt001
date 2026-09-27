@@ -9,6 +9,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     public DbSet<AiCache> AiCaches => Set<AiCache>();
     public DbSet<Card> Cards => Set<Card>();
+    public DbSet<CardConfusion> CardConfusions => Set<CardConfusion>();
     public DbSet<CardProgress> CardProgresses => Set<CardProgress>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserStudyDay> UserStudyDays => Set<UserStudyDay>();
@@ -75,6 +76,25 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         card.HasOne(c => c.Progress)
             .WithOne(cp => cp.Card)
             .HasForeignKey<CardProgress>(cp => cp.CardId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var confusion = modelBuilder.Entity<CardConfusion>();
+        confusion.Property(item => item.Count).HasDefaultValue(1);
+        confusion.HasIndex(item => new { item.UserId, item.CardId, item.ConfusedWithCardId }).IsUnique();
+        confusion.HasOne(item => item.User)
+            .WithMany()
+            .HasForeignKey(item => item.UserId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        confusion.HasOne(item => item.Card)
+            .WithMany()
+            .HasForeignKey(item => item.CardId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        confusion.HasOne(item => item.ConfusedWithCard)
+            .WithMany()
+            .HasForeignKey(item => item.ConfusedWithCardId)
             .IsRequired()
             .OnDelete(DeleteBehavior.Cascade);
 

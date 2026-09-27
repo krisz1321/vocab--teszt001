@@ -9,6 +9,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
 {
     private const int LearnedStreakThreshold = 3;
     private const int MaxAnswerDurationSeconds = 600;
+    private const int MaxConfusionBonus = 10;
     public async Task<StudyNextDto> GetNextCardAsync(int userId, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
@@ -64,7 +65,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 null);
         }
 
-        var card = PickWeighted(pool);
+        var card = PickWeighted(pool, await LoadConfusionBonusesAsync(userId, cancellationToken));
         return Envelope(
             user.DailyNewCardGoal,
             user.MinimumAnswerSeconds,
@@ -147,7 +148,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 .ThenByDescending(card => card.ErrorRate)
                 .ThenByDescending(card => card.IncorrectCount)
                 .ThenBy(card => card.Term, StringComparer.OrdinalIgnoreCase)
-                .ToList()
+                .ToList(),
+            Confusions = await LoadTopConfusionsAsync(userId, cancellationToken)
         };
     }
 
@@ -262,6 +264,9 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             : 0;
         ApplyStudyDayStreak(user, today);
         await RecordStudyDayAsync(userId, today, studiedSeconds, request.IsCorrect, cancellationToken);
+        var confusedWithTerm = request.IsCorrect
+            ? null
+            : await RecordConfusionAsync(userId, progress.CardId, request.TypedAnswer, now, cancellationToken);
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -272,7 +277,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             EaseFactor = progress.EaseFactor,
             Interval = progress.Interval,
             Streak = progress.Streak,
-            IncorrectCount = progress.IncorrectCount
+            IncorrectCount = progress.IncorrectCount,
+            ConfusedWithTerm = confusedWithTerm
         });
     }
 
@@ -307,14 +313,16 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             AnswerToken = answerToken
         };
 
-    private static StudyCardDto PickWeighted(IReadOnlyList<StudyCardDto> cards)
+    private static StudyCardDto PickWeighted(
+        IReadOnlyList<StudyCardDto> cards,
+        IReadOnlyDictionary<int, int> confusionBonuses)
     {
-        var totalWeight = cards.Aggregate(0L, (sum, card) => sum + card.IncorrectCount + 1L);
+        var totalWeight = cards.Aggregate(0L, (sum, card) => sum + CardWeight(card, confusionBonuses));
         var roll = Random.Shared.NextInt64(totalWeight);
         var cursor = 0L;
         foreach (var card in cards)
         {
-            cursor += card.IncorrectCount + 1L;
+            cursor += CardWeight(card, confusionBonuses);
             if (roll < cursor)
             {
                 return card;
@@ -322,6 +330,133 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         }
 
         return cards[^1];
+    }
+
+    private static long CardWeight(StudyCardDto card, IReadOnlyDictionary<int, int> confusionBonuses)
+    {
+        var bonus = 0;
+        if (confusionBonuses.TryGetValue(card.Id, out var rawBonus))
+        {
+            bonus = Math.Min(rawBonus, MaxConfusionBonus);
+        }
+
+        return card.IncorrectCount + 1L + bonus;
+    }
+
+    private async Task<Dictionary<int, int>> LoadConfusionBonusesAsync(
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var rows = await dbContext.CardConfusions
+            .AsNoTracking()
+            .Where(confusion => confusion.UserId == userId)
+            .Select(confusion => new { confusion.CardId, confusion.ConfusedWithCardId, confusion.Count })
+            .ToListAsync(cancellationToken);
+
+        var bonuses = new Dictionary<int, int>();
+        foreach (var row in rows)
+        {
+            AddConfusionBonus(bonuses, row.CardId, row.Count);
+            AddConfusionBonus(bonuses, row.ConfusedWithCardId, row.Count);
+        }
+
+        return bonuses;
+    }
+
+    private static void AddConfusionBonus(Dictionary<int, int> bonuses, int cardId, int count)
+    {
+        bonuses.TryGetValue(cardId, out var current);
+        bonuses[cardId] = SaturatingAdd(current, count);
+    }
+
+    private async Task<List<StudyStatsConfusionDto>> LoadTopConfusionsAsync(
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        return await dbContext.CardConfusions
+            .AsNoTracking()
+            .Where(confusion => confusion.UserId == userId)
+            .OrderByDescending(confusion => confusion.Count)
+            .ThenBy(confusion => confusion.Card.Term)
+            .Take(10)
+            .Select(confusion => new StudyStatsConfusionDto
+            {
+                Term = confusion.Card.Term,
+                ConfusedWithTerm = confusion.ConfusedWithCard.Term,
+                Count = confusion.Count
+            })
+            .ToListAsync(cancellationToken);
+    }
+
+    private async Task<string?> RecordConfusionAsync(
+        int userId,
+        int cardId,
+        string? typedAnswer,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(typedAnswer))
+        {
+            return null;
+        }
+
+        var normalized = NormalizeTerm(typedAnswer);
+        if (normalized.Length == 0)
+        {
+            return null;
+        }
+
+        var cards = await dbContext.Cards
+            .AsNoTracking()
+            .Where(card => card.Deck.UserId == userId)
+            .Select(card => new { card.Id, card.Term })
+            .ToListAsync(cancellationToken);
+
+        var asked = cards.FirstOrDefault(card => card.Id == cardId);
+        if (asked is null || NormalizeTerm(asked.Term) == normalized)
+        {
+            return null;
+        }
+
+        var match = cards
+            .Where(card => card.Id != cardId && NormalizeTerm(card.Term) == normalized)
+            .OrderBy(card => card.Id)
+            .FirstOrDefault();
+        if (match is null)
+        {
+            return null;
+        }
+
+        var existing = await dbContext.CardConfusions.SingleOrDefaultAsync(
+            confusion => confusion.UserId == userId
+                && confusion.CardId == cardId
+                && confusion.ConfusedWithCardId == match.Id,
+            cancellationToken);
+
+        if (existing is null)
+        {
+            dbContext.CardConfusions.Add(new CardConfusion
+            {
+                UserId = userId,
+                CardId = cardId,
+                ConfusedWithCardId = match.Id,
+                Count = 1,
+                LastConfusedAt = now
+            });
+        }
+        else
+        {
+            existing.Count = SaturatingIncrement(existing.Count);
+            existing.LastConfusedAt = now;
+        }
+
+        return match.Term;
+    }
+
+    private static string NormalizeTerm(string value)
+    {
+        var parts = value.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(' ', parts).ToLowerInvariant();
     }
 
     private async Task RecordStudyDayAsync(

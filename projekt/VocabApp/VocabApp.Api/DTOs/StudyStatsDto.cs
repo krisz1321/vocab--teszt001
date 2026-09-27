@@ -13,6 +13,14 @@ public sealed class StudyStatsDto
     public List<StudyStatsDayDto> Days { get; set; } = [];
     public List<StudyStatsWeekDto> Weeks { get; set; } = [];
     public List<StudyStatsCardDto> Cards { get; set; } = [];
+    public List<StudyStatsConfusionDto> Confusions { get; set; } = [];
+}
+
+public sealed class StudyStatsConfusionDto
+{
+    public string Term { get; set; } = string.Empty;
+    public string ConfusedWithTerm { get; set; } = string.Empty;
+    public int Count { get; set; }
 }
 
 public sealed class StudyStatsDayDto
