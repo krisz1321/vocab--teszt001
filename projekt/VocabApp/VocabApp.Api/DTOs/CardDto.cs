@@ -11,4 +11,6 @@ public sealed class CardDto
     public string Definition { get; set; } = string.Empty;
 
     public string? Example { get; set; }
+
+    public string? TargetMeanings { get; set; }
 }

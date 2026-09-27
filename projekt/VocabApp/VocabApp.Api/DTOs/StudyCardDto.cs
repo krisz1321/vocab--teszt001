@@ -6,6 +6,7 @@ public sealed class StudyCardDto
     public string Term { get; set; } = string.Empty;
     public string Definition { get; set; } = string.Empty;
     public string? Example { get; set; }
+    public string? TargetMeanings { get; set; }
     public DateTime NextReviewDate { get; set; }
     public float EaseFactor { get; set; }
     public int Interval { get; set; }

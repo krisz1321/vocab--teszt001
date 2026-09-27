@@ -23,6 +23,7 @@ interface VocabCard {
   term: string;
   definition: string;
   example: string | null;
+  targetMeanings: string | null;
 }
 
 interface ProblemDetails {
@@ -157,8 +158,30 @@ interface ImportResult {
                 <input id="term" name="term" class="form-control" maxlength="100" [(ngModel)]="term" [disabled]="isSavingCard">
               </div>
               <div class="mb-3">
-                <label class="form-label" for="definition">Jelentés</label>
+                <label class="form-label" for="definition">Angol definíció</label>
                 <textarea id="definition" name="definition" class="form-control" rows="2" maxlength="500" [(ngModel)]="definition" [disabled]="isSavingCard"></textarea>
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="targetMeanings">Célnyelvi jelentés</label>
+                <textarea
+                  id="targetMeanings"
+                  name="targetMeanings"
+                  class="form-control"
+                  rows="2"
+                  maxlength="200"
+                  [(ngModel)]="targetMeanings"
+                  [disabled]="isSavingCard || isGeneratingTargetMeaning"></textarea>
+                <div class="form-text">Most magyar. Elfogadott alakok vesszővel: étel, kaja</div>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm mt-2"
+                  (click)="generateTargetMeaning()"
+                  [disabled]="isGeneratingTargetMeaning || isSavingCard || !term.trim() || !definition.trim()">
+                  @if (isGeneratingTargetMeaning) {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                  }
+                  Generálás
+                </button>
               </div>
               <div class="mb-3">
                 <label class="form-label" for="example">Példa</label>
@@ -188,6 +211,9 @@ interface ImportResult {
                       <div>
                         <div class="fw-semibold">{{ card.term }}</div>
                         <div>{{ card.definition }}</div>
+                        @if (card.targetMeanings) {
+                          <div>{{ card.targetMeanings }}</div>
+                        }
                         @if (card.example) {
                           <div class="text-body-secondary">{{ card.example }}</div>
                         }
@@ -271,6 +297,7 @@ export class DecksComponent implements OnInit {
   term = '';
   definition = '';
   example = '';
+  targetMeanings = '';
   editingCardId: number | null = null;
   errorMessage: string | null = null;
   isLoadingDecks = false;
@@ -278,6 +305,7 @@ export class DecksComponent implements OnInit {
   isSavingDeck = false;
   isRenaming = false;
   isSavingCard = false;
+  isGeneratingTargetMeaning = false;
   deletingDeckId: number | null = null;
   deletingCardId: number | null = null;
   sharingDeckId: number | null = null;
@@ -511,6 +539,7 @@ export class DecksComponent implements OnInit {
     this.term = card.term;
     this.definition = card.definition;
     this.example = card.example ?? '';
+    this.targetMeanings = card.targetMeanings ?? '';
     this.errorMessage = null;
   }
 
@@ -519,14 +548,16 @@ export class DecksComponent implements OnInit {
     this.term = '';
     this.definition = '';
     this.example = '';
+    this.targetMeanings = '';
   }
 
   saveCard(): void {
     const term = this.term.trim();
     const definition = this.definition.trim();
     const example = this.example.trim();
-    if (!term || term.length > 100 || !definition || definition.length > 500 || example.length > 500) {
-      this.errorMessage = 'A szó és a jelentés kötelező. A szó legfeljebb 100, a jelentés és a példa legfeljebb 500 karakter.';
+    const targetMeanings = this.targetMeanings.trim();
+    if (!term || term.length > 100 || !definition || definition.length > 500 || example.length > 500 || targetMeanings.length > 200) {
+      this.errorMessage = 'A szó és az angol definíció kötelező. A szó legfeljebb 100, a definíció és a példa legfeljebb 500, a célnyelvi jelentés legfeljebb 200 karakter.';
       return;
     }
 
@@ -536,7 +567,7 @@ export class DecksComponent implements OnInit {
 
     this.errorMessage = null;
     this.isSavingCard = true;
-    const body = { term, definition, example: example || null };
+    const body = { term, definition, example: example || null, targetMeanings: targetMeanings || null };
     const request = this.editingCardId === null
       ? this.http.post<VocabCard>('/api/cards', { deckId: this.selectedDeckId, ...body })
       : this.http.put<VocabCard>(`/api/cards/${this.editingCardId}`, body);
@@ -556,6 +587,35 @@ export class DecksComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readError(error, 'A kártya mentése sikertelen.');
+      },
+    });
+  }
+
+  generateTargetMeaning(): void {
+    const term = this.term.trim();
+    const definition = this.definition.trim();
+    if (!term || !definition || this.isGeneratingTargetMeaning || this.isSavingCard) {
+      return;
+    }
+
+    this.errorMessage = null;
+    this.isGeneratingTargetMeaning = true;
+    this.http.post<{ meanings: string }>('/api/ai/generate/target-meaning', { term, definition }).pipe(
+      finalize(() => {
+        this.isGeneratingTargetMeaning = false;
+      }),
+    ).subscribe({
+      next: (response) => {
+        const combined = this.appendMeanings(this.targetMeanings, response.meanings ?? '');
+        if (combined.length > 200) {
+          this.errorMessage = 'A célnyelvi jelentés legfeljebb 200 karakter.';
+          return;
+        }
+
+        this.targetMeanings = combined;
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage = this.readAiError(error, 'A célnyelvi jelentés generálása');
       },
     });
   }
@@ -673,6 +733,32 @@ export class DecksComponent implements OnInit {
         this.errorMessage = this.readError(error, 'A kártyák betöltése sikertelen.');
       },
     });
+  }
+
+  private appendMeanings(current: string, generated: string): string {
+    const existing = current.trim();
+    const addition = generated.trim();
+    if (!addition) {
+      return existing;
+    }
+
+    if (!existing) {
+      return addition;
+    }
+
+    return `${existing}, ${addition}`;
+  }
+
+  private readAiError(error: HttpErrorResponse, context: string): string {
+    if (error.status === 503) {
+      return `${context} sikertelen: az MI-szolgáltatás nincs konfigurálva.`;
+    }
+
+    if (error.status === 502) {
+      return `${context} sikertelen: az MI-szolgáltató nem adott megfelelő választ.`;
+    }
+
+    return `${context} sikertelen. Kérlek, próbáld újra.`;
   }
 
   private readError(error: HttpErrorResponse, fallback: string): string {

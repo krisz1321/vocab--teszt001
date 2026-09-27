@@ -52,6 +52,28 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         }
     }
 
+    [HttpPost("generate/target-meaning")]
+    public async Task<ActionResult<GenerateTargetMeaningResponseDto>> GenerateTargetMeaning(
+        GenerateTargetMeaningRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var isValid = RequireText(request.Term, nameof(request.Term));
+        isValid &= RequireText(request.Definition, nameof(request.Definition));
+        if (!isValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            return Ok(await aiService.GenerateTargetMeaningAsync(request, cancellationToken));
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
     [HttpPost("validate")]
     public async Task<ActionResult<ValidateAnswerResponseDto>> Validate(
         ValidateAnswerRequestDto request,

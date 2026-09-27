@@ -9,4 +9,6 @@ public sealed class CreateCardDto
     public string? Definition { get; set; }
 
     public string? Example { get; set; }
+
+    public string? TargetMeanings { get; set; }
 }

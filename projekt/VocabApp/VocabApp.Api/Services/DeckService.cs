@@ -159,6 +159,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Term = card.Term,
                 Definition = card.Definition,
                 Example = card.Example,
+                TargetMeanings = card.TargetMeanings,
                 Progress = new CardProgress
                 {
                     EaseFactor = 2.5f,
@@ -192,13 +193,13 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             .AsNoTracking()
             .Where(card => card.DeckId == deckId)
             .OrderBy(card => card.Id)
-            .Select(card => new { card.Term, card.Definition, card.Example })
+            .Select(card => new { card.Term, card.Definition, card.Example, card.TargetMeanings })
             .ToListAsync(cancellationToken);
 
         return DeckCardResult<DeckCsvFile>.Success(new DeckCsvFile
         {
             FileName = DeckCsv.ToFileName(deck.Name),
-            Content = DeckCsv.Write(cards.Select(card => new DeckCsvRow(card.Term, card.Definition, card.Example)))
+            Content = DeckCsv.Write(cards.Select(card => new DeckCsvRow(card.Term, card.Definition, card.Example, card.TargetMeanings)))
         });
     }
 
@@ -229,6 +230,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Term = row.Term,
                 Definition = row.Definition,
                 Example = row.Example,
+                TargetMeanings = row.TargetMeanings,
                 Progress = new CardProgress
                 {
                     EaseFactor = 2.5f,

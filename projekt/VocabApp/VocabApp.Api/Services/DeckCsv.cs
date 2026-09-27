@@ -10,14 +10,18 @@ public sealed class DeckCsvFile
     public required string Content { get; init; }
 }
 
-public readonly record struct DeckCsvRow(string Term, string Definition, string? Example);
+public readonly record struct DeckCsvRow(string Term, string Definition, string? Example, string? TargetMeanings);
 
 public static partial class DeckCsv
 {
     public const string Header = "term,definition,example";
+    public const string HeaderWithTargetMeanings = "term,definition,example,targetMeanings";
     public const int MaxDataRows = 200;
     private const int MaxTermLength = 100;
     private const int MaxTextLength = 500;
+    private const int MaxTargetMeaningsLength = 200;
+    private const string HeaderError =
+        "CSV header must be term,definition,example or term,definition,example,targetMeanings.";
 
     public static string ToFileName(string deckName)
     {
@@ -32,7 +36,7 @@ public static partial class DeckCsv
 
     public static string Write(IEnumerable<DeckCsvRow> rows)
     {
-        var builder = new StringBuilder(Header);
+        var builder = new StringBuilder(HeaderWithTargetMeanings);
         foreach (var row in rows)
         {
             builder.Append('\n');
@@ -41,6 +45,8 @@ public static partial class DeckCsv
             builder.Append(Quote(row.Definition));
             builder.Append(',');
             builder.Append(Quote(row.Example));
+            builder.Append(',');
+            builder.Append(Quote(row.TargetMeanings));
         }
 
         return builder.ToString();
@@ -53,7 +59,7 @@ public static partial class DeckCsv
 
         if (string.IsNullOrWhiteSpace(csv))
         {
-            error = "CSV header must be term,definition,example.";
+            error = HeaderError;
             return false;
         }
 
@@ -64,9 +70,16 @@ public static partial class DeckCsv
         }
 
         var contentRecords = records.Where(record => !string.IsNullOrWhiteSpace(record)).ToList();
-        if (contentRecords.Count == 0 || contentRecords[0] != Header)
+        if (contentRecords.Count == 0)
         {
-            error = "CSV header must be term,definition,example.";
+            error = HeaderError;
+            return false;
+        }
+
+        var includeTargetMeanings = contentRecords[0] == HeaderWithTargetMeanings;
+        if (contentRecords[0] != Header && !includeTargetMeanings)
+        {
+            error = HeaderError;
             return false;
         }
 
@@ -79,7 +92,7 @@ public static partial class DeckCsv
 
         for (var index = 0; index < dataRecords.Count; index++)
         {
-            if (!TryParseRow(dataRecords[index], index + 1, out var row, out error))
+            if (!TryParseRow(dataRecords[index], index + 1, includeTargetMeanings, out var row, out error))
             {
                 rows = [];
                 return false;
@@ -148,7 +161,12 @@ public static partial class DeckCsv
         return true;
     }
 
-    private static bool TryParseRow(string record, int rowNumber, out DeckCsvRow row, out string? error)
+    private static bool TryParseRow(
+        string record,
+        int rowNumber,
+        bool includeTargetMeanings,
+        out DeckCsvRow row,
+        out string? error)
     {
         row = default;
         if (!TryParseFields(record, out var fields, out error))
@@ -156,9 +174,12 @@ public static partial class DeckCsv
             return false;
         }
 
-        if (fields.Count != 3)
+        var expectedCount = includeTargetMeanings ? 4 : 3;
+        if (fields.Count != expectedCount)
         {
-            error = $"CSV row {rowNumber} must have term, definition and example.";
+            error = includeTargetMeanings
+                ? $"CSV row {rowNumber} must have term, definition, example and target meanings."
+                : $"CSV row {rowNumber} must have term, definition and example.";
             return false;
         }
 
@@ -195,7 +216,20 @@ public static partial class DeckCsv
             return false;
         }
 
-        row = new DeckCsvRow(term, definition, example.Length == 0 ? null : example);
+        string? targetMeanings = null;
+        if (includeTargetMeanings)
+        {
+            var meanings = fields[3].Trim();
+            if (meanings.Length > MaxTargetMeaningsLength)
+            {
+                error = $"CSV row {rowNumber}: Target meanings must be at most 200 characters.";
+                return false;
+            }
+
+            targetMeanings = meanings.Length == 0 ? null : meanings;
+        }
+
+        row = new DeckCsvRow(term, definition, example.Length == 0 ? null : example, targetMeanings);
         error = null;
         return true;
     }

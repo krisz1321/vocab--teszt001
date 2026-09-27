@@ -9,6 +9,7 @@ interface StudyCard {
   term: string;
   definition: string;
   example: string | null;
+  targetMeanings: string | null;
   nextReviewDate: string;
   easeFactor: number;
   interval: number;
@@ -42,6 +43,18 @@ interface CardProgress {
   confusedWithTerm: string | null;
 }
 
+interface SavedCard {
+  id: number;
+  term: string;
+  definition: string;
+  example: string | null;
+  targetMeanings: string | null;
+}
+
+interface TargetMeaningResponse {
+  meanings: string;
+}
+
 interface DefinitionResponse {
   definition: string;
 }
@@ -55,7 +68,10 @@ interface ValidationResponse {
   feedback: string;
 }
 
-type StudyMode = 'definition' | 'recognition';
+type StudyMode = 'meaning' | 'definition' | 'recognition';
+
+const hungarianAccents = 'áéíóöőúüű';
+const hungarianPlain = 'aeiooouuu';
 
 @Component({
   selector: 'app-study-card',
@@ -67,7 +83,16 @@ type StudyMode = 'definition' | 'recognition';
         <header class="mb-4 text-center">
           <h1 class="display-6 fw-semibold">VocabApp</h1>
           <p class="text-body-secondary mb-3">MI-támogatott angol szókártyák</p>
-          <div class="btn-group" role="group" aria-label="Tanulási mód">
+          <div class="d-flex flex-wrap justify-content-center gap-2" role="group" aria-label="Tanulási mód">
+            <button
+              type="button"
+              class="btn"
+              [class.btn-primary]="mode === 'meaning'"
+              [class.btn-outline-primary]="mode !== 'meaning'"
+              (click)="setMode('meaning')"
+              [disabled]="isInteractionLocked">
+              Jelentés beírása
+            </button>
             <button
               type="button"
               class="btn"
@@ -117,7 +142,7 @@ type StudyMode = 'definition' | 'recognition';
           <section class="card border-0 shadow-sm">
             <div class="card-body p-4 p-md-5">
               <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
-                @if (mode === 'definition' || isRecognitionRevealed) {
+                @if (mode !== 'recognition' || isRecognitionRevealed) {
                   <h2 class="h1 mb-0">{{ card.term }}</h2>
                 } @else {
                   <h2 class="h3 mb-0">Körülírás</h2>
@@ -134,7 +159,97 @@ type StudyMode = 'definition' | 'recognition';
                 <p class="text-body-secondary">Még {{ secondsUntilAnswer }} mp a válaszadásig.</p>
               }
 
-              @if (mode === 'definition') {
+              @if (mode === 'meaning') {
+                @if (hasTargetMeanings) {
+                  <p class="text-body-secondary">Ehhez a szóhoz már van célnyelvi jelentés.</p>
+                  <label for="meaning-answer" class="form-label fw-semibold">Írd be a magyar jelentést.</label>
+                  <textarea
+                    id="meaning-answer"
+                    class="form-control"
+                    rows="4"
+                    maxlength="1000"
+                    [(ngModel)]="answer"
+                    [disabled]="isSubmitting || updatedProgress !== null || isMeaningRevealed"
+                    placeholder="pl. kaja"></textarea>
+
+                  @if (!isMeaningRevealed) {
+                    <div class="d-grid d-sm-flex gap-2 mt-3">
+                      <button
+                        type="button"
+                        class="btn btn-primary"
+                        (click)="checkMeaningAnswer()"
+                        [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isSubmitting || updatedProgress !== null">
+                        @if (isSubmitting) {
+                          <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Válasz ellenőrzése
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary"
+                        (click)="giveUpMeaning()"
+                        [disabled]="secondsUntilAnswer > 0 || isSubmitting || updatedProgress !== null">
+                        Nem tudom
+                      </button>
+                    </div>
+                  }
+
+                  @if (isMeaningRevealed) {
+                    <div class="mt-4 p-3 bg-body-tertiary rounded">
+                      <h3 class="h6">Célnyelvi jelentés</h3>
+                      <p class="mb-2">{{ card.targetMeanings }}</p>
+                      <p class="mb-2">{{ card.definition }}</p>
+                      @if (card.example) {
+                        <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
+                      }
+                    </div>
+                    @if (meaningCorrect !== null) {
+                      <div
+                        class="alert mt-3 mb-0"
+                        [class.alert-success]="meaningCorrect"
+                        [class.alert-danger]="!meaningCorrect">
+                        <strong>{{ meaningCorrect ? 'Helyes válasz.' : 'Még nem pontos.' }}</strong>
+                      </div>
+                    }
+                  }
+                } @else {
+                  <div class="alert alert-warning" role="status">
+                    Ehhez a szóhoz még nincs célnyelvi jelentés. Amit ide írsz, azt a Mentés rögzíti elfogadott alakként. A felelés csak a mentés után indul.
+                  </div>
+                  <label for="target-meanings" class="form-label fw-semibold">Elfogadott alakok</label>
+                  <textarea
+                    id="target-meanings"
+                    class="form-control"
+                    rows="3"
+                    maxlength="200"
+                    [(ngModel)]="targetMeaningsDraft"
+                    [disabled]="isGeneratingTargetMeaning || isSavingTargetMeaning"
+                    placeholder="étel, kaja"></textarea>
+                  <div class="form-text">Most magyar. Elfogadott alakok vesszővel: étel, kaja</div>
+                  <div class="d-grid d-sm-flex gap-2 mt-3">
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary"
+                      (click)="generateTargetMeaning()"
+                      [disabled]="isGeneratingTargetMeaning || isSavingTargetMeaning">
+                      @if (isGeneratingTargetMeaning) {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                      }
+                      Generálás
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-primary"
+                      (click)="saveTargetMeaning()"
+                      [disabled]="!targetMeaningsDraft.trim() || isGeneratingTargetMeaning || isSavingTargetMeaning">
+                      @if (isSavingTargetMeaning) {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                      }
+                      Mentés
+                    </button>
+                  </div>
+                }
+              } @else if (mode === 'definition') {
                 <label for="answer" class="form-label fw-semibold">Mit jelent a szó?</label>
                 <textarea
                   id="answer"
@@ -321,7 +436,7 @@ type StudyMode = 'definition' | 'recognition';
                     type="button"
                     class="btn btn-success"
                     (click)="continueToNext()"
-                    [disabled]="isGeneratingDefinition || isGeneratingExample || isLoadingPrompt || isValidating || isSubmitting">
+                    [disabled]="isGeneratingDefinition || isGeneratingExample || isGeneratingTargetMeaning || isSavingTargetMeaning || isLoadingPrompt || isValidating || isSubmitting">
                     Következő kártya
                   </button>
                 </div>
@@ -338,20 +453,25 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   private readonly apiBaseUrl = '/api';
 
   card: StudyCard | null = null;
-  mode: StudyMode = 'definition';
+  mode: StudyMode = 'meaning';
   answer = '';
+  targetMeaningsDraft = '';
   generatedDefinition: string | null = null;
   generatedExample: string | null = null;
   promptDefinition: string | null = null;
+  meaningCorrect: boolean | null = null;
   recognitionCorrect: boolean | null = null;
   validationResult: ValidationResponse | null = null;
   updatedProgress: CardProgress | null = null;
   isDefinitionRevealed = false;
+  isMeaningRevealed = false;
   isRecognitionRevealed = false;
   isLoadingCard = false;
   isLoadingPrompt = false;
   isGeneratingDefinition = false;
   isGeneratingExample = false;
+  isGeneratingTargetMeaning = false;
+  isSavingTargetMeaning = false;
   isValidating = false;
   isSubmitting = false;
   errorMessage: string | null = null;
@@ -364,11 +484,17 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   private answerUnlockTimer: ReturnType<typeof setInterval> | null = null;
   private loadGeneration = 0;
 
+  get hasTargetMeanings(): boolean {
+    return !!this.card?.targetMeanings?.trim();
+  }
+
   get isInteractionLocked(): boolean {
     return this.isLoadingCard ||
       this.isLoadingPrompt ||
       this.isGeneratingDefinition ||
       this.isGeneratingExample ||
+      this.isGeneratingTargetMeaning ||
+      this.isSavingTargetMeaning ||
       this.isValidating ||
       this.isSubmitting;
   }
@@ -467,6 +593,126 @@ export class StudyCardComponent implements OnInit, OnDestroy {
           }
 
           this.setHttpError(error, 'Az MI-definíció generálása');
+        },
+      });
+  }
+
+  checkMeaningAnswer(): void {
+    const stored = this.card?.targetMeanings?.trim() ?? '';
+    if (!stored || this.isMeaningRevealed || this.secondsUntilAnswer > 0 || this.isSubmitting) {
+      return;
+    }
+
+    const trimmedAnswer = this.answer.trim();
+    if (!trimmedAnswer) {
+      this.errorMessage = 'A válasz nem lehet üres.';
+      return;
+    }
+
+    this.errorMessage = null;
+    const isCorrect = this.matchesTargetMeaning(trimmedAnswer, stored);
+    this.meaningCorrect = isCorrect;
+    this.isMeaningRevealed = true;
+    this.submitResult(isCorrect, false);
+  }
+
+  giveUpMeaning(): void {
+    if (!this.card?.targetMeanings?.trim() || this.isMeaningRevealed || this.isSubmitting || this.secondsUntilAnswer > 0) {
+      return;
+    }
+
+    this.errorMessage = null;
+    this.meaningCorrect = false;
+    this.isMeaningRevealed = true;
+    this.submitResult(false, false);
+  }
+
+  generateTargetMeaning(): void {
+    if (!this.card || this.isGeneratingTargetMeaning || this.isSavingTargetMeaning || this.hasTargetMeanings) {
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    const cardId = this.card.id;
+    this.errorMessage = null;
+    this.isGeneratingTargetMeaning = true;
+    this.http.post<TargetMeaningResponse>(
+      `${this.apiBaseUrl}/ai/generate/target-meaning`,
+      { term: this.card.term, definition: this.card.definition },
+    )
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration && this.card?.id === cardId) {
+          this.isGeneratingTargetMeaning = false;
+        }
+      }))
+      .subscribe({
+        next: response => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId || this.hasTargetMeanings) {
+            return;
+          }
+
+          const combined = this.appendMeanings(this.targetMeaningsDraft, response.meanings ?? '');
+          if (combined.length > 200) {
+            this.errorMessage = 'A célnyelvi jelentés legfeljebb 200 karakter.';
+            return;
+          }
+
+          this.targetMeaningsDraft = combined;
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.setHttpError(error, 'A célnyelvi jelentés generálása');
+        },
+      });
+  }
+
+  saveTargetMeaning(): void {
+    if (!this.card || this.isSavingTargetMeaning || this.isGeneratingTargetMeaning || this.hasTargetMeanings) {
+      return;
+    }
+
+    const meanings = this.targetMeaningsDraft.trim();
+    if (!meanings) {
+      return;
+    }
+
+    if (meanings.length > 200) {
+      this.errorMessage = 'A célnyelvi jelentés legfeljebb 200 karakter.';
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    const cardId = this.card.id;
+    this.errorMessage = null;
+    this.isSavingTargetMeaning = true;
+    this.http.put<SavedCard>(`${this.apiBaseUrl}/cards/${cardId}`, {
+      term: this.card.term,
+      definition: this.card.definition,
+      example: this.card.example,
+      targetMeanings: meanings,
+    })
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration && this.card?.id === cardId) {
+          this.isSavingTargetMeaning = false;
+        }
+      }))
+      .subscribe({
+        next: saved => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.card.targetMeanings = saved.targetMeanings?.trim() ? saved.targetMeanings : null;
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.setHttpError(error, 'A célnyelvi jelentés mentése');
         },
       });
   }
@@ -580,6 +826,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     if (this.updatedProgress &&
         !this.isGeneratingDefinition &&
         !this.isGeneratingExample &&
+        !this.isGeneratingTargetMeaning &&
+        !this.isSavingTargetMeaning &&
         !this.isLoadingPrompt &&
         !this.isValidating &&
         !this.isSubmitting) {
@@ -589,6 +837,50 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
   private normalizeText(value: string): string {
     return value.trim().toLowerCase().replace(/\s+/g, ' ');
+  }
+
+  private matchesTargetMeaning(answer: string, stored: string): boolean {
+    const normalizedAnswer = this.normalizeTargetMeaning(answer);
+    if (!normalizedAnswer) {
+      return false;
+    }
+
+    return this.targetMeaningPieces(stored).includes(normalizedAnswer);
+  }
+
+  private targetMeaningPieces(stored: string): string[] {
+    return stored
+      .split(/[,;\n\r]+/)
+      .map(piece => this.normalizeTargetMeaning(piece))
+      .filter(piece => piece.length > 0);
+  }
+
+  private normalizeTargetMeaning(value: string): string {
+    const lower = value.trim().toLocaleLowerCase('hu-HU');
+    let withoutAccents = '';
+    for (const character of lower) {
+      const index = hungarianAccents.indexOf(character);
+      withoutAccents += index >= 0 ? hungarianPlain[index] : character;
+    }
+
+    return withoutAccents
+      .replace(/[^\p{L}\p{N}\s]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  private appendMeanings(current: string, generated: string): string {
+    const existing = current.trim();
+    const addition = generated.trim();
+    if (!addition) {
+      return existing;
+    }
+
+    if (!existing) {
+      return addition;
+    }
+
+    return `${existing}, ${addition}`;
   }
 
   private submitResult(isCorrect: boolean, evaluatedByAi: boolean, typedAnswer?: string): void {
@@ -615,6 +907,10 @@ export class StudyCardComponent implements OnInit, OnDestroy {
             if (this.mode === 'recognition') {
               this.isRecognitionRevealed = false;
               this.recognitionCorrect = null;
+            }
+            if (this.mode === 'meaning') {
+              this.isMeaningRevealed = false;
+              this.meaningCorrect = null;
             }
             return;
           }
@@ -654,15 +950,20 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
   private resetCardState(): void {
     this.answer = '';
+    this.targetMeaningsDraft = '';
     this.generatedDefinition = null;
     this.generatedExample = null;
     this.promptDefinition = null;
+    this.meaningCorrect = null;
     this.recognitionCorrect = null;
     this.validationResult = null;
     this.updatedProgress = null;
     this.isDefinitionRevealed = false;
+    this.isMeaningRevealed = false;
     this.isRecognitionRevealed = false;
     this.isLoadingPrompt = false;
+    this.isGeneratingTargetMeaning = false;
+    this.isSavingTargetMeaning = false;
     this.errorMessage = null;
     this.answerToken = null;
     this.secondsUntilAnswer = 0;

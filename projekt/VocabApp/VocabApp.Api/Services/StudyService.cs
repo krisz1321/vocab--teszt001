@@ -289,6 +289,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             Term = progress.Card.Term,
             Definition = progress.Card.Definition,
             Example = progress.Card.Example,
+            TargetMeanings = progress.Card.TargetMeanings,
             NextReviewDate = progress.NextReviewDate,
             EaseFactor = progress.EaseFactor,
             Interval = progress.Interval,

@@ -15,6 +15,9 @@ public sealed class Card
     [MaxLength(500)]
     public string? Example { get; set; }
 
+    [MaxLength(200)]
+    public string? TargetMeanings { get; set; }
+
     public int DeckId { get; set; }
 
     public Deck Deck { get; set; } = null!;

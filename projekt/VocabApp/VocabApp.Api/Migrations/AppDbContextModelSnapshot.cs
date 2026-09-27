@@ -32,6 +32,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.Property<int>("DeckId").HasColumnType("INTEGER");
             entity.Property<string>("Definition").IsRequired().HasMaxLength(500).HasColumnType("TEXT");
             entity.Property<string>("Example").HasMaxLength(500).HasColumnType("TEXT");
+            entity.Property<string>("TargetMeanings").HasMaxLength(200).HasColumnType("TEXT");
             entity.Property<string>("Term").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
             entity.HasKey("Id");
             entity.HasIndex("DeckId");

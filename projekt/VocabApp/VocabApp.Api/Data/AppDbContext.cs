@@ -68,6 +68,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         card.Property(c => c.Term).IsRequired().HasMaxLength(100);
         card.Property(c => c.Definition).IsRequired().HasMaxLength(500);
         card.Property(c => c.Example).HasMaxLength(500);
+        card.Property(c => c.TargetMeanings).HasMaxLength(200);
         card.HasOne(c => c.Deck)
             .WithMany(d => d.Cards)
             .HasForeignKey(c => c.DeckId)

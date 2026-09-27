@@ -9,6 +9,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
 {
     private const int MaxTermLength = 100;
     private const int MaxTextLength = 500;
+    private const int MaxTargetMeaningsLength = 200;
 
     public async Task<DeckCardResult<IReadOnlyList<CardDto>>> GetByDeckAsync(
         int userId,
@@ -32,7 +33,8 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
                 DeckId = card.DeckId,
                 Term = card.Term,
                 Definition = card.Definition,
-                Example = card.Example
+                Example = card.Example,
+                TargetMeanings = card.TargetMeanings
             })
             .ToListAsync(cancellationToken);
 
@@ -44,7 +46,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         CreateCardDto request,
         CancellationToken cancellationToken = default)
     {
-        var validationError = ValidateText(request.Term, request.Definition, request.Example);
+        var validationError = ValidateText(request.Term, request.Definition, request.Example, request.TargetMeanings);
         if (validationError is not null)
         {
             return DeckCardResult<CardDto>.Fail(StatusCodes.Status400BadRequest, validationError);
@@ -62,7 +64,8 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             DeckId = request.DeckId,
             Term = request.Term!.Trim(),
             Definition = request.Definition!.Trim(),
-            Example = NormalizeExample(request.Example),
+            Example = NormalizeOptional(request.Example),
+            TargetMeanings = NormalizeOptional(request.TargetMeanings),
             Progress = new CardProgress
             {
                 NextReviewDate = DateTime.UtcNow,
@@ -84,7 +87,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         UpdateCardDto request,
         CancellationToken cancellationToken = default)
     {
-        var validationError = ValidateText(request.Term, request.Definition, request.Example);
+        var validationError = ValidateText(request.Term, request.Definition, request.Example, request.TargetMeanings);
         if (validationError is not null)
         {
             return DeckCardResult<CardDto>.Fail(StatusCodes.Status400BadRequest, validationError);
@@ -99,7 +102,8 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
 
         card.Term = request.Term!.Trim();
         card.Definition = request.Definition!.Trim();
-        card.Example = NormalizeExample(request.Example);
+        card.Example = NormalizeOptional(request.Example);
+        card.TargetMeanings = NormalizeOptional(request.TargetMeanings);
         await dbContext.SaveChangesAsync(cancellationToken);
         return DeckCardResult<CardDto>.Success(ToDto(card));
     }
@@ -118,7 +122,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         return true;
     }
 
-    private static string? ValidateText(string? term, string? definition, string? example)
+    private static string? ValidateText(string? term, string? definition, string? example, string? targetMeanings)
     {
         var normalizedTerm = term?.Trim();
         if (string.IsNullOrEmpty(normalizedTerm))
@@ -148,12 +152,18 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             return "Example must be at most 500 characters.";
         }
 
+        var normalizedMeanings = targetMeanings?.Trim();
+        if (!string.IsNullOrEmpty(normalizedMeanings) && normalizedMeanings.Length > MaxTargetMeaningsLength)
+        {
+            return "Target meanings must be at most 200 characters.";
+        }
+
         return null;
     }
 
-    private static string? NormalizeExample(string? example)
+    private static string? NormalizeOptional(string? value)
     {
-        var normalized = example?.Trim();
+        var normalized = value?.Trim();
         return string.IsNullOrEmpty(normalized) ? null : normalized;
     }
 
@@ -163,6 +173,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         DeckId = card.DeckId,
         Term = card.Term,
         Definition = card.Definition,
-        Example = card.Example
+        Example = card.Example,
+        TargetMeanings = card.TargetMeanings
     };
 }

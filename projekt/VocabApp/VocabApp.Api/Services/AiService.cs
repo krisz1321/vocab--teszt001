@@ -90,6 +90,45 @@ public sealed class AiService(
         return stored is null ? result : DeserializeCached<GenerateExampleResponseDto>(stored);
     }
 
+    public async Task<GenerateTargetMeaningResponseDto> GenerateTargetMeaningAsync(
+        GenerateTargetMeaningRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var promptHash = HashPrompt(
+            $"target-meaning\n{request.Term.Trim().ToLowerInvariant()}\n{request.Definition.Trim()}");
+        var cached = await FindCachedAsync<GenerateTargetMeaningResponseDto>(promptHash, cancellationToken);
+        if (cached is not null)
+        {
+            return cached;
+        }
+
+        const string systemPrompt =
+            "The learner's target language is Hungarian. Give two to five short Hungarian equivalents " +
+            "of the English term, separated by commas. Do not include any English text. " +
+            "Return only a JSON object with exactly one string property: meanings.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            request.Term,
+            request.Definition
+        });
+
+        var content = await SendChatRequestAsync(systemPrompt, userPrompt, cancellationToken);
+        var result = DeserializeContent<GenerateTargetMeaningResponseDto>(content);
+        result.Meanings = result.Meanings.Trim();
+
+        if (string.IsNullOrWhiteSpace(result.Meanings) ||
+            result.Meanings.Length > 200 ||
+            ContainsTokenSequence(result.Meanings, request.Term))
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI target meaning did not satisfy the response contract.");
+        }
+
+        var stored = await SaveCacheAsync(promptHash, JsonSerializer.Serialize(result, SerializerOptions), cancellationToken);
+        return stored is null ? result : DeserializeCached<GenerateTargetMeaningResponseDto>(stored);
+    }
+
     public async Task<ValidateAnswerResponseDto> ValidateAnswerAsync(
         ValidateAnswerRequestDto request,
         CancellationToken cancellationToken = default)
