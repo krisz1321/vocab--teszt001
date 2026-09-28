@@ -17,7 +17,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var user = await dbContext.Users
             .AsNoTracking()
             .Where(candidate => candidate.Id == userId)
-            .Select(candidate => new { candidate.DailyNewCardGoal, candidate.MinimumAnswerSeconds })
+            .Select(candidate => new { candidate.DailyNewCardGoal, candidate.MinimumAnswerSeconds, candidate.AutomaticAiCheck })
             .SingleOrDefaultAsync(cancellationToken);
 
         if (user is null)
@@ -59,6 +59,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             return Envelope(
                 user.DailyNewCardGoal,
                 user.MinimumAnswerSeconds,
+                user.AutomaticAiCheck,
                 introducedToday,
                 hasUnseenCards ? "dailyLimitReached" : "empty",
                 null,
@@ -69,6 +70,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         return Envelope(
             user.DailyNewCardGoal,
             user.MinimumAnswerSeconds,
+            user.AutomaticAiCheck,
             introducedToday,
             "ready",
             card,
@@ -161,7 +163,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             .Select(user => new StudySettingsDto
             {
                 DailyNewCardGoal = user.DailyNewCardGoal,
-                MinimumAnswerSeconds = user.MinimumAnswerSeconds
+                MinimumAnswerSeconds = user.MinimumAnswerSeconds,
+                AutomaticAiCheck = user.AutomaticAiCheck
             })
             .SingleOrDefaultAsync(cancellationToken);
     }
@@ -179,11 +182,13 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
 
         user.DailyNewCardGoal = request.DailyNewCardGoal;
         user.MinimumAnswerSeconds = request.MinimumAnswerSeconds;
+        user.AutomaticAiCheck = request.AutomaticAiCheck;
         await dbContext.SaveChangesAsync(cancellationToken);
         return new StudySettingsDto
         {
             DailyNewCardGoal = user.DailyNewCardGoal,
-            MinimumAnswerSeconds = user.MinimumAnswerSeconds
+            MinimumAnswerSeconds = user.MinimumAnswerSeconds,
+            AutomaticAiCheck = user.AutomaticAiCheck
         };
     }
 
@@ -300,6 +305,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
     private static StudyNextDto Envelope(
         int dailyNewCardGoal,
         int minimumAnswerSeconds,
+        bool automaticAiCheck,
         int newCardsIntroducedToday,
         string status,
         StudyCardDto? card,
@@ -308,6 +314,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         {
             DailyNewCardGoal = dailyNewCardGoal,
             MinimumAnswerSeconds = minimumAnswerSeconds,
+            AutomaticAiCheck = automaticAiCheck,
             NewCardsIntroducedToday = newCardsIntroducedToday,
             Status = status,
             Card = card,

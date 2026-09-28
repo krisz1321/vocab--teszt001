@@ -29,6 +29,7 @@ interface ProfileResponse {
 interface StudySettings {
   dailyNewCardGoal: number;
   minimumAnswerSeconds: number;
+  automaticAiCheck: boolean;
 }
 
 @Component({
@@ -261,6 +262,17 @@ interface StudySettings {
                 [disabled]="isSavingStudySettings">
               <div class="form-text">Ennyi másodpercig kell a kártyának látszania, mielőtt a válasz menthető (0–120).</div>
             </div>
+            <div class="form-check mb-3">
+              <input
+                id="automaticAiCheck"
+                name="automaticAiCheck"
+                type="checkbox"
+                class="form-check-input"
+                [(ngModel)]="automaticAiCheck"
+                [disabled]="isSavingStudySettings">
+              <label class="form-check-label" for="automaticAiCheck">Automatikus MI-ellenőrzés</label>
+              <div class="form-text">Ha a beírt jelentés nem egyezik a mentett alakkal, az MI automatikusan kiértékeli. Kikapcsolva ez csak a hibás válasznál, kézzel indítható.</div>
+            </div>
             <button type="submit" class="btn btn-primary" [disabled]="isSavingStudySettings">Mentés</button>
           </form>
           <form (ngSubmit)="changePassword()">
@@ -320,6 +332,7 @@ export class AppComponent implements OnInit {
   isChangingPassword = false;
   dailyNewCardGoal = 20;
   minimumAnswerSeconds = 0;
+  automaticAiCheck = false;
   isSavingStudySettings = false;
   private userId: number | null = null;
 
@@ -464,6 +477,7 @@ export class AppComponent implements OnInit {
     this.http.put<StudySettings>('/api/study/settings', {
       dailyNewCardGoal: goal,
       minimumAnswerSeconds: seconds,
+      automaticAiCheck: this.automaticAiCheck,
     }).pipe(
       finalize(() => {
         this.isSavingStudySettings = false;
@@ -472,6 +486,7 @@ export class AppComponent implements OnInit {
       next: (settings) => {
         this.dailyNewCardGoal = settings.dailyNewCardGoal;
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
+        this.automaticAiCheck = settings.automaticAiCheck;
         this.profileMessage = 'A tanulási beállítások mentve.';
       },
       error: (error: HttpErrorResponse) => {
@@ -537,6 +552,7 @@ export class AppComponent implements OnInit {
       next: (settings) => {
         this.dailyNewCardGoal = settings.dailyNewCardGoal;
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
+        this.automaticAiCheck = settings.automaticAiCheck;
       },
       error: (error: HttpErrorResponse) => {
         this.profileError = this.readProblem(error, 'A tanulási beállítások betöltése sikertelen.');

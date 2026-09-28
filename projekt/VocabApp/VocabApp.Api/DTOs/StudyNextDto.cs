@@ -7,5 +7,6 @@ public sealed class StudyNextDto
     public int NewCardsIntroducedToday { get; set; }
     public int DailyNewCardGoal { get; set; }
     public int MinimumAnswerSeconds { get; set; }
+    public bool AutomaticAiCheck { get; set; }
     public string Status { get; set; } = "empty";
 }

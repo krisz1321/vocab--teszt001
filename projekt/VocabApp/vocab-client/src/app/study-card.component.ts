@@ -30,6 +30,7 @@ interface StudyNextResponse {
   newCardsIntroducedToday: number;
   dailyNewCardGoal: number;
   minimumAnswerSeconds: number;
+  automaticAiCheck: boolean;
   status: 'ready' | 'dailyLimitReached' | 'empty';
 }
 
@@ -203,12 +204,36 @@ const hungarianPlain = 'aeiooouuu';
                         <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
                       }
                     </div>
-                    @if (meaningCorrect !== null) {
+                    @if (meaningCorrect !== null && !validationResult && !isValidating) {
                       <div
                         class="alert mt-3 mb-0"
                         [class.alert-success]="meaningCorrect"
                         [class.alert-danger]="!meaningCorrect">
                         <strong>{{ meaningCorrect ? 'Helyes válasz.' : 'Még nem pontos.' }}</strong>
+                      </div>
+                    }
+                    @if (isValidating) {
+                      <p class="text-body-secondary mt-3 mb-0" role="status">
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        Az MI ellenőrzi a választ…
+                      </p>
+                    }
+                    @if (meaningAwaitingGrade && !isValidating) {
+                      <div class="d-flex flex-wrap gap-2 mt-3">
+                        <button
+                          type="button"
+                          class="btn btn-outline-primary"
+                          (click)="evaluateMeaningWithAi()"
+                          [disabled]="isSubmitting">
+                          MI-ellenőrzés
+                        </button>
+                        <button
+                          type="button"
+                          class="btn btn-success"
+                          (click)="skipMeaningAiCheck()"
+                          [disabled]="isSubmitting">
+                          Következő kártya
+                        </button>
                       </div>
                     }
                   }
@@ -454,6 +479,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
   card: StudyCard | null = null;
   mode: StudyMode = 'meaning';
+  automaticAiCheck = false;
+  meaningAwaitingGrade = false;
   answer = '';
   targetMeaningsDraft = '';
   generatedDefinition: string | null = null;
@@ -483,6 +510,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   private answerUnlockedAt = 0;
   private answerUnlockTimer: ReturnType<typeof setInterval> | null = null;
   private loadGeneration = 0;
+  private continueAfterMeaningSubmit = false;
 
   get hasTargetMeanings(): boolean {
     return !!this.card?.targetMeanings?.trim();
@@ -537,6 +565,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
           this.newCardsIntroducedToday = response.newCardsIntroducedToday;
           this.dailyNewCardGoal = response.dailyNewCardGoal;
+          this.automaticAiCheck = response.automaticAiCheck;
           this.studyStatus = response.status;
           this.answerToken = response.answerToken;
           if (response.status !== 'ready' || !response.card || !response.answerToken) {
@@ -613,7 +642,74 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     const isCorrect = this.matchesTargetMeaning(trimmedAnswer, stored);
     this.meaningCorrect = isCorrect;
     this.isMeaningRevealed = true;
-    this.submitResult(isCorrect, false);
+    if (isCorrect) {
+      this.meaningAwaitingGrade = false;
+      this.submitResult(true, false);
+      return;
+    }
+
+    if (this.automaticAiCheck) {
+      this.evaluateMeaningWithAi();
+      return;
+    }
+
+    this.meaningAwaitingGrade = true;
+  }
+
+  evaluateMeaningWithAi(): void {
+    const trimmedAnswer = this.answer.trim();
+    if (!this.card || !trimmedAnswer || this.isValidating || this.isSubmitting || this.updatedProgress) {
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    const cardId = this.card.id;
+    this.errorMessage = null;
+    this.meaningAwaitingGrade = false;
+    this.isValidating = true;
+    this.http.post<ValidationResponse>(
+      `${this.apiBaseUrl}/ai/validate`,
+      {
+        term: this.card.term,
+        definition: this.card.targetMeanings ?? '',
+        answer: trimmedAnswer,
+      },
+    )
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration && this.card?.id === cardId) {
+          this.isValidating = false;
+        }
+      }))
+      .subscribe({
+        next: result => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.validationResult = result;
+          this.meaningCorrect = result.isCorrect;
+          this.meaningAwaitingGrade = false;
+          this.submitResult(result.isCorrect, true);
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.meaningAwaitingGrade = true;
+          this.setHttpError(error, 'A válasz ellenőrzése');
+        },
+      });
+  }
+
+  skipMeaningAiCheck(): void {
+    if (!this.meaningAwaitingGrade || this.isSubmitting || this.isValidating) {
+      return;
+    }
+
+    this.meaningAwaitingGrade = false;
+    this.continueAfterMeaningSubmit = true;
+    this.submitResult(false, false);
   }
 
   giveUpMeaning(): void {
@@ -900,10 +996,17 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.http.post<CardProgress>(`${this.apiBaseUrl}/study/submit`, request)
       .pipe(finalize(() => this.isSubmitting = false))
       .subscribe({
-        next: progress => this.updatedProgress = progress,
+        next: progress => {
+          this.updatedProgress = progress;
+          if (this.continueAfterMeaningSubmit) {
+            this.continueAfterMeaningSubmit = false;
+            this.loadNextCard();
+          }
+        },
         error: (error: HttpErrorResponse) => {
           if (error.status === 400) {
             this.errorMessage = 'A válasz még nem menthető. Várd meg a beállított minimum időt, majd próbáld újra.';
+            this.continueAfterMeaningSubmit = false;
             if (this.mode === 'recognition') {
               this.isRecognitionRevealed = false;
               this.recognitionCorrect = null;
@@ -911,8 +1014,15 @@ export class StudyCardComponent implements OnInit, OnDestroy {
             if (this.mode === 'meaning') {
               this.isMeaningRevealed = false;
               this.meaningCorrect = null;
+              this.meaningAwaitingGrade = false;
+              this.validationResult = null;
             }
             return;
+          }
+
+          if (this.continueAfterMeaningSubmit) {
+            this.continueAfterMeaningSubmit = false;
+            this.meaningAwaitingGrade = true;
           }
 
           this.setHttpError(error, 'Az eredmény mentése');
@@ -955,6 +1065,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.generatedExample = null;
     this.promptDefinition = null;
     this.meaningCorrect = null;
+    this.meaningAwaitingGrade = false;
+    this.continueAfterMeaningSubmit = false;
     this.recognitionCorrect = null;
     this.validationResult = null;
     this.updatedProgress = null;

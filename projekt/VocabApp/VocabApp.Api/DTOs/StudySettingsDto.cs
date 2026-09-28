@@ -9,4 +9,6 @@ public sealed class StudySettingsDto
 
     [Range(0, 120)]
     public int MinimumAnswerSeconds { get; set; }
+
+    public bool AutomaticAiCheck { get; set; }
 }

@@ -127,6 +127,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
         {
             entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
                 .HasAnnotation("Sqlite:Autoincrement", true);
+            entity.Property<bool>("AutomaticAiCheck").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(false);
             entity.Property<int>("DailyNewCardGoal").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(20);
             entity.Property<string>("DisplayName").HasMaxLength(80).HasColumnType("TEXT");
             entity.Property<string>("Email").IsRequired().HasMaxLength(256).HasColumnType("TEXT");

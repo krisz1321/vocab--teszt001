@@ -30,6 +30,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.DisplayName).HasMaxLength(80);
         user.Property(u => u.DailyNewCardGoal).HasDefaultValue(20);
         user.Property(u => u.MinimumAnswerSeconds).HasDefaultValue(0);
+        user.Property(u => u.AutomaticAiCheck).HasDefaultValue(false);
         user.Property(u => u.StudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.LongestStudyDayStreak).HasDefaultValue(0);
         user.HasIndex(u => u.Email).IsUnique();

@@ -19,6 +19,8 @@ public sealed class User
 
     public int MinimumAnswerSeconds { get; set; }
 
+    public bool AutomaticAiCheck { get; set; }
+
     public int StudyDayStreak { get; set; }
 
     public int LongestStudyDayStreak { get; set; }
