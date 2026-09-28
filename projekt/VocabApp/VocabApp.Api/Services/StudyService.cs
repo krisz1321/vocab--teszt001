@@ -166,6 +166,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 MinimumAnswerSeconds = user.MinimumAnswerSeconds,
                 AutomaticAiCheck = user.AutomaticAiCheck,
                 ReuseSavedExamples = user.ReuseSavedExamples,
+                GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
                 ExampleLevel = user.ExampleLevel
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -192,6 +193,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.MinimumAnswerSeconds = request.MinimumAnswerSeconds;
         user.AutomaticAiCheck = request.AutomaticAiCheck;
         user.ReuseSavedExamples = request.ReuseSavedExamples;
+        user.GenerateAlternateDefinitions = request.GenerateAlternateDefinitions;
         user.ExampleLevel = exampleLevel;
         await dbContext.SaveChangesAsync(cancellationToken);
         return StudySettingsResult.Success(new StudySettingsDto
@@ -200,6 +202,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             MinimumAnswerSeconds = user.MinimumAnswerSeconds,
             AutomaticAiCheck = user.AutomaticAiCheck,
             ReuseSavedExamples = user.ReuseSavedExamples,
+            GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
             ExampleLevel = user.ExampleLevel
         });
     }

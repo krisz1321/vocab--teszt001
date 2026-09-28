@@ -17,6 +17,12 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         GenerateDefinitionRequestDto request,
         CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
         if (!RequireText(request.Term, nameof(request.Term)))
         {
             return ValidationProblem(ModelState);
@@ -24,7 +30,14 @@ public sealed class AiController(IAiService aiService) : ControllerBase
 
         try
         {
-            return Ok(await aiService.GenerateDefinitionAsync(request, cancellationToken));
+            var result = await aiService.GenerateDefinitionAsync(userId.Value, request, cancellationToken);
+            return result is null
+                ? NotFound(new ProblemDetails
+                {
+                    Title = "Card not found",
+                    Status = StatusCodes.Status404NotFound
+                })
+                : Ok(result);
         }
         catch (AiServiceException exception)
         {

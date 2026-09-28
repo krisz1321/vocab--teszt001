@@ -14,6 +14,8 @@ public sealed class StudySettingsDto
 
     public bool ReuseSavedExamples { get; set; }
 
+    public bool GenerateAlternateDefinitions { get; set; }
+
     [Required, MaxLength(2)]
     public string ExampleLevel { get; set; } = string.Empty;
 }

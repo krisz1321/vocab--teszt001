@@ -31,6 +31,7 @@ interface StudySettings {
   minimumAnswerSeconds: number;
   automaticAiCheck: boolean;
   reuseSavedExamples: boolean;
+  generateAlternateDefinitions: boolean;
   exampleLevel: string;
 }
 
@@ -284,7 +285,18 @@ interface StudySettings {
                 [(ngModel)]="reuseSavedExamples"
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="reuseSavedExamples">Mentett példamondatok újrafelhasználása</label>
-              <div class="form-text">Bekapcsolva, ha már van mentett mondat, kettőből egyszer egy korábbit ad vissza, API-hívás nélkül. Kikapcsolva minden kérés új mondatot kér.</div>
+              <div class="form-text">Bekapcsolva, ha már van mentett mondat vagy definíció, kettőből egyszer egy korábbit ad vissza, API-hívás nélkül. Kikapcsolva minden kérés új mondatot vagy definíciót kér.</div>
+            </div>
+            <div class="form-check mb-3">
+              <input
+                id="generateAlternateDefinitions"
+                name="generateAlternateDefinitions"
+                type="checkbox"
+                class="form-check-input"
+                [(ngModel)]="generateAlternateDefinitions"
+                [disabled]="isSavingStudySettings">
+              <label class="form-check-label" for="generateAlternateDefinitions">Váltakozó definíció</label>
+              <div class="form-text">Bekapcsolva új angol definíció készül a mondatszint szerint. Kikapcsolva mindig a kártyán tárolt definíció jelenik meg.</div>
             </div>
             <div class="mb-3">
               <label class="form-label" for="exampleLevel">Mondatszint</label>
@@ -361,6 +373,7 @@ export class AppComponent implements OnInit {
   minimumAnswerSeconds = 0;
   automaticAiCheck = false;
   reuseSavedExamples = true;
+  generateAlternateDefinitions = true;
   readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
   exampleLevel = 'B1';
   isSavingStudySettings = false;
@@ -514,6 +527,7 @@ export class AppComponent implements OnInit {
       minimumAnswerSeconds: seconds,
       automaticAiCheck: this.automaticAiCheck,
       reuseSavedExamples: this.reuseSavedExamples,
+      generateAlternateDefinitions: this.generateAlternateDefinitions,
       exampleLevel: this.exampleLevel,
     }).pipe(
       finalize(() => {
@@ -525,6 +539,7 @@ export class AppComponent implements OnInit {
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
         this.reuseSavedExamples = settings.reuseSavedExamples;
+        this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.exampleLevel = settings.exampleLevel;
         this.profileMessage = 'A tanulási beállítások mentve.';
       },
@@ -593,6 +608,7 @@ export class AppComponent implements OnInit {
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
         this.reuseSavedExamples = settings.reuseSavedExamples;
+        this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.exampleLevel = settings.exampleLevel;
       },
       error: (error: HttpErrorResponse) => {

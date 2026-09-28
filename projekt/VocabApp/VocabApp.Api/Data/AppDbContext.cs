@@ -15,6 +15,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<UserStudyDay> UserStudyDays => Set<UserStudyDay>();
     public DbSet<Deck> Decks => Set<Deck>();
     public DbSet<SavedExample> SavedExamples => Set<SavedExample>();
+    public DbSet<SavedDefinition> SavedDefinitions => Set<SavedDefinition>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -33,6 +34,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.MinimumAnswerSeconds).HasDefaultValue(0);
         user.Property(u => u.AutomaticAiCheck).HasDefaultValue(false);
         user.Property(u => u.ReuseSavedExamples).HasDefaultValue(true);
+        user.Property(u => u.GenerateAlternateDefinitions).HasDefaultValue(true);
         user.Property(u => u.ExampleLevel).IsRequired().HasMaxLength(2).HasDefaultValue(ExampleLevels.Default);
         user.Property(u => u.StudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.LongestStudyDayStreak).HasDefaultValue(0);
@@ -70,6 +72,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         savedExample.Property(item => item.Level).IsRequired().HasMaxLength(2).HasDefaultValue(ExampleLevels.Default);
         savedExample.Property(item => item.Sentence).IsRequired().HasMaxLength(500);
         savedExample.HasIndex(item => new { item.TermKey, item.DefinitionKey, item.Level, item.Sentence }).IsUnique();
+
+        var savedDefinition = modelBuilder.Entity<SavedDefinition>();
+        savedDefinition.Property(item => item.TermKey).IsRequired().HasMaxLength(100);
+        savedDefinition.Property(item => item.Level).IsRequired().HasMaxLength(2);
+        savedDefinition.Property(item => item.Definition).IsRequired().HasMaxLength(500);
+        savedDefinition.HasIndex(item => new { item.TermKey, item.Level, item.Definition }).IsUnique();
 
         var deck = modelBuilder.Entity<Deck>();
         deck.Property(d => d.Name).IsRequired().HasMaxLength(100);

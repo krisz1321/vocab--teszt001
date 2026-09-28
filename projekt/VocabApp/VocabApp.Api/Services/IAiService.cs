@@ -4,7 +4,8 @@ namespace VocabApp.Api.Services;
 
 public interface IAiService
 {
-    Task<GenerateDefinitionResponseDto> GenerateDefinitionAsync(
+    Task<GenerateDefinitionResponseDto?> GenerateDefinitionAsync(
+        int userId,
         GenerateDefinitionRequestDto request,
         CancellationToken cancellationToken = default);
 

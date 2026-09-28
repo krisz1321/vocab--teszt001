@@ -21,36 +21,100 @@ public sealed class AiService(
         PropertyNameCaseInsensitive = true
     };
 
-    public async Task<GenerateDefinitionResponseDto> GenerateDefinitionAsync(
+    public async Task<GenerateDefinitionResponseDto?> GenerateDefinitionAsync(
+        int userId,
         GenerateDefinitionRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var promptHash = HashPrompt($"definition\n{request.Term.Trim().ToLowerInvariant()}");
-        var cached = await FindCachedAsync<GenerateDefinitionResponseDto>(promptHash, cancellationToken);
-        if (cached is not null)
+        var owned = await dbContext.Cards
+            .AsNoTracking()
+            .Where(card => card.Id == request.CardId && card.Deck.UserId == userId)
+            .Select(card => new
+            {
+                card.Definition,
+                DeckLevel = card.Deck.ExampleLevel,
+                AccountLevel = card.Deck.User.ExampleLevel,
+                card.Deck.User.ReuseSavedExamples,
+                card.Deck.User.GenerateAlternateDefinitions
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (owned is null)
         {
-            return cached;
+            return null;
         }
 
-        const string systemPrompt =
-            "Write one concise, one-sentence English definition. Do not use the given term, its root, " +
-            "or an obvious inflected form. Return only a JSON object with exactly one string property: definition.";
-        var userPrompt = $"Define this English term: {JsonSerializer.Serialize(request.Term)}";
+        if (!owned.GenerateAlternateDefinitions)
+        {
+            return new GenerateDefinitionResponseDto
+            {
+                Definition = owned.Definition,
+                FromCard = true
+            };
+        }
+
+        string level;
+        if (ExampleLevels.IsAllowed(owned.DeckLevel))
+        {
+            level = owned.DeckLevel;
+        }
+        else if (ExampleLevels.IsAllowed(owned.AccountLevel))
+        {
+            level = owned.AccountLevel;
+        }
+        else
+        {
+            level = ExampleLevels.Default;
+        }
+
+        var termKey = request.Term.Trim().ToLowerInvariant();
+        if (owned.ReuseSavedExamples)
+        {
+            var savedDefinitions = await dbContext.SavedDefinitions
+                .AsNoTracking()
+                .Where(item => item.TermKey == termKey && item.Level == level)
+                .Select(item => item.Definition)
+                .ToListAsync(cancellationToken);
+
+            if (savedDefinitions.Count > 0 && Random.Shared.Next(2) == 0)
+            {
+                return new GenerateDefinitionResponseDto
+                {
+                    Definition = savedDefinitions[Random.Shared.Next(savedDefinitions.Count)],
+                    Reused = true
+                };
+            }
+        }
+
+        var systemPrompt =
+            "Write one short English sentence that defines the supplied term. " +
+            $"The requested CEFR level is {level}; treat it as a recommendation and prefer that level's vocabulary. " +
+            "Do not use the given term, its root, or an obvious inflected form. " +
+            "Return only a JSON object with exactly one string property: definition.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            request.Term,
+            Level = level
+        });
 
         var content = await SendChatRequestAsync(systemPrompt, userPrompt, cancellationToken);
-        var result = DeserializeContent<GenerateDefinitionResponseDto>(content);
+        var generated = DeserializeContent<GeneratedDefinitionContent>(content);
+        var definition = generated.Definition.Trim();
 
-        if (string.IsNullOrWhiteSpace(result.Definition) ||
-            result.Definition.Length > 500 ||
-            ContainsForbiddenTermOrStem(result.Definition, request.Term))
+        if (string.IsNullOrWhiteSpace(definition) ||
+            definition.Length > 500 ||
+            ContainsForbiddenTermOrStem(definition, request.Term))
         {
             throw new AiServiceException(
                 AiServiceErrorKind.InvalidResponse,
                 "The AI definition did not satisfy the response contract.");
         }
 
-        var stored = await SaveCacheAsync(promptHash, JsonSerializer.Serialize(result, SerializerOptions), cancellationToken);
-        return stored is null ? result : DeserializeCached<GenerateDefinitionResponseDto>(stored);
+        await SaveDefinitionAsync(termKey, level, definition, cancellationToken);
+        return new GenerateDefinitionResponseDto
+        {
+            Definition = definition
+        };
     }
 
     public async Task<GenerateExampleResponseDto?> GenerateExampleAsync(
@@ -210,9 +274,69 @@ public sealed class AiService(
         return result;
     }
 
+    private sealed class GeneratedDefinitionContent
+    {
+        public string Definition { get; set; } = string.Empty;
+    }
+
     private sealed class GeneratedExampleContent
     {
         public string Example { get; set; } = string.Empty;
+    }
+
+    private async Task SaveDefinitionAsync(
+        string termKey,
+        string level,
+        string definition,
+        CancellationToken cancellationToken)
+    {
+        var exists = await dbContext.SavedDefinitions
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.TermKey == termKey &&
+                        item.Level == level &&
+                        item.Definition == definition,
+                cancellationToken);
+
+        if (exists)
+        {
+            return;
+        }
+
+        dbContext.SavedDefinitions.Add(new SavedDefinition
+        {
+            TermKey = termKey,
+            Level = level,
+            Definition = definition
+        });
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            foreach (var entry in dbContext.ChangeTracker.Entries<SavedDefinition>().ToList())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    entry.State = EntityState.Detached;
+                }
+            }
+
+            var stored = await dbContext.SavedDefinitions
+                .AsNoTracking()
+                .AnyAsync(
+                    item => item.TermKey == termKey &&
+                            item.Level == level &&
+                            item.Definition == definition,
+                    cancellationToken);
+
+            if (!stored)
+            {
+                throw;
+            }
+        }
     }
 
     private async Task SaveExampleAsync(

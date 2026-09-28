@@ -124,6 +124,18 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.ToTable("Decks");
         });
 
+        modelBuilder.Entity("VocabApp.Api.Models.SavedDefinition", entity =>
+        {
+            entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
+                .HasAnnotation("Sqlite:Autoincrement", true);
+            entity.Property<string>("Definition").IsRequired().HasMaxLength(500).HasColumnType("TEXT");
+            entity.Property<string>("Level").IsRequired().HasMaxLength(2).HasColumnType("TEXT");
+            entity.Property<string>("TermKey").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
+            entity.HasKey("Id");
+            entity.HasIndex("TermKey", "Level", "Definition").IsUnique();
+            entity.ToTable("SavedDefinitions");
+        });
+
         modelBuilder.Entity("VocabApp.Api.Models.SavedExample", entity =>
         {
             entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
@@ -146,6 +158,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.Property<string>("DisplayName").HasMaxLength(80).HasColumnType("TEXT");
             entity.Property<string>("Email").IsRequired().HasMaxLength(256).HasColumnType("TEXT");
             entity.Property<string>("ExampleLevel").IsRequired().ValueGeneratedOnAdd().HasMaxLength(2).HasColumnType("TEXT").HasDefaultValue("B1");
+            entity.Property<bool>("GenerateAlternateDefinitions").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(true);
             entity.Property<DateTime?>("LastStudyDate").HasColumnType("TEXT");
             entity.Property<int>("LongestStudyDayStreak").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<int>("MinimumAnswerSeconds").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);

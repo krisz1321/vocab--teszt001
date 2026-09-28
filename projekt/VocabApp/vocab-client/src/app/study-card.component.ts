@@ -58,6 +58,8 @@ interface TargetMeaningResponse {
 
 interface DefinitionResponse {
   definition: string;
+  fromCard: boolean;
+  reused: boolean;
 }
 
 interface ExampleResponse {
@@ -436,7 +438,7 @@ const hungarianPlain = 'aeiooouuu';
 
               @if (generatedDefinition) {
                 <div class="alert alert-info mt-3 mb-0">
-                  <strong>MI-definíció:</strong> {{ generatedDefinition }}
+                  <strong>{{ generatedDefinitionLabel() }}:</strong> {{ generatedDefinition }}
                 </div>
               }
 
@@ -490,6 +492,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   answer = '';
   targetMeaningsDraft = '';
   generatedDefinition: string | null = null;
+  generatedDefinitionFromCard = false;
+  generatedDefinitionReused = false;
   generatedExample: string | null = null;
   generatedExampleReused = false;
   promptDefinition: string | null = null;
@@ -610,7 +614,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.isLoadingPrompt = true;
     this.http.post<DefinitionResponse>(
       `${this.apiBaseUrl}/ai/generate/definition`,
-      { term: this.card.term },
+      { term: this.card.term, cardId: this.card.id },
     )
       .pipe(finalize(() => {
         if (generation === this.loadGeneration && this.card?.id === cardId) {
@@ -865,6 +869,14 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.submitResult(false, false);
   }
 
+  generatedDefinitionLabel(): string {
+    if (this.generatedDefinitionFromCard) {
+      return 'Definíció';
+    }
+
+    return this.generatedDefinitionReused ? 'Mentett definíció' : 'MI-definíció';
+  }
+
   generateDefinition(): void {
     if (!this.card || this.isGeneratingDefinition || this.definitionPenaltyPending || this.isSubmitting || this.isValidating) {
       return;
@@ -892,11 +904,15 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.isGeneratingDefinition = true;
     this.http.post<DefinitionResponse>(
       `${this.apiBaseUrl}/ai/generate/definition`,
-      { term: this.card.term },
+      { term: this.card.term, cardId: this.card.id },
     )
       .pipe(finalize(() => this.isGeneratingDefinition = false))
       .subscribe({
-        next: response => this.generatedDefinition = response.definition,
+        next: response => {
+          this.generatedDefinition = response.definition;
+          this.generatedDefinitionFromCard = response.fromCard;
+          this.generatedDefinitionReused = response.reused;
+        },
         error: (error: HttpErrorResponse) => this.setHttpError(error, 'Az MI-definíció generálása'),
       });
   }
@@ -1108,6 +1124,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.answer = '';
     this.targetMeaningsDraft = '';
     this.generatedDefinition = null;
+    this.generatedDefinitionFromCard = false;
+    this.generatedDefinitionReused = false;
     this.generatedExample = null;
     this.generatedExampleReused = false;
     this.promptDefinition = null;

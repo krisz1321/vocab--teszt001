@@ -23,6 +23,8 @@ public sealed class User
 
     public bool ReuseSavedExamples { get; set; } = true;
 
+    public bool GenerateAlternateDefinitions { get; set; } = true;
+
     [Required, MaxLength(2)]
     public string ExampleLevel { get; set; } = ExampleLevels.Default;
 
