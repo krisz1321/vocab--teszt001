@@ -8,6 +8,7 @@ interface Deck {
   id: number;
   name: string;
   isPublic: boolean;
+  exampleLevel: string | null;
 }
 
 interface PublicDeck {
@@ -96,7 +97,23 @@ interface ImportResult {
                     (click)="selectDeck(deck.id)">
                     {{ deck.name }}
                   </button>
-                  <div class="d-flex flex-wrap justify-content-end gap-2">
+                  <div class="d-flex flex-wrap justify-content-end align-items-center gap-2">
+                    <label class="d-flex align-items-center gap-1 mb-0 small" [attr.for]="'exampleLevel-' + deck.id">
+                      Szint
+                      <select
+                        class="form-select form-select-sm"
+                        style="width: auto;"
+                        [id]="'exampleLevel-' + deck.id"
+                        [name]="'exampleLevel-' + deck.id"
+                        [ngModel]="deck.exampleLevel ?? ''"
+                        (ngModelChange)="saveExampleLevel(deck, $event)"
+                        [disabled]="savingLevelDeckId === deck.id">
+                        <option value="">Fiók szintje</option>
+                        @for (level of exampleLevels; track level) {
+                          <option [value]="level">{{ level }}</option>
+                        }
+                      </select>
+                    </label>
                     <button
                       type="button"
                       class="btn btn-outline-secondary btn-sm"
@@ -346,6 +363,8 @@ export class DecksComponent implements OnInit {
   deletingCardId: number | null = null;
   sharingDeckId: number | null = null;
   copyingDeckId: number | null = null;
+  savingLevelDeckId: number | null = null;
+  readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
   isLoadingPublic = false;
   isLoadingPreview = false;
   private previewRequest = 0;
@@ -490,6 +509,38 @@ export class DecksComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readError(error, 'A pakli átnevezése sikertelen.');
+      },
+    });
+  }
+
+  saveExampleLevel(deck: Deck, value: string): void {
+    const exampleLevel = value === '' ? null : value;
+    if (exampleLevel === deck.exampleLevel) {
+      return;
+    }
+
+    if (exampleLevel !== null && !this.exampleLevels.includes(exampleLevel)) {
+      this.errorMessage = 'A mondatszint A1, A2, B1, B2, C1 vagy C2 lehet.';
+      return;
+    }
+
+    const previous = deck.exampleLevel;
+    deck.exampleLevel = exampleLevel;
+    this.errorMessage = null;
+    this.savingLevelDeckId = deck.id;
+    this.http.put<Deck>(`/api/decks/${deck.id}/example-level`, { exampleLevel }).pipe(
+      finalize(() => {
+        if (this.savingLevelDeckId === deck.id) {
+          this.savingLevelDeckId = null;
+        }
+      }),
+    ).subscribe({
+      next: (updated) => {
+        this.decks = this.decks.map(item => item.id === updated.id ? updated : item);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.decks = this.decks.map(item => item.id === deck.id ? { ...item, exampleLevel: previous } : item);
+        this.errorMessage = this.readError(error, 'A mondatszint mentése sikertelen.');
       },
     });
   }

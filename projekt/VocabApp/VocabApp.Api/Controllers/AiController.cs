@@ -56,7 +56,7 @@ public sealed class AiController(IAiService aiService) : ControllerBase
             return result is null
                 ? NotFound(new ProblemDetails
                 {
-                    Title = "User not found",
+                    Title = "Card not found",
                     Status = StatusCodes.Status404NotFound
                 })
                 : Ok(result);

@@ -9,4 +9,7 @@ public sealed class GenerateExampleRequestDto
 
     [Required, MaxLength(500)]
     public string Definition { get; set; } = string.Empty;
+
+    [Range(1, int.MaxValue)]
+    public int CardId { get; set; }
 }

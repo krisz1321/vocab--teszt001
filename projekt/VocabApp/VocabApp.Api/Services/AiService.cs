@@ -58,25 +58,44 @@ public sealed class AiService(
         GenerateExampleRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var reuseSavedExamples = await dbContext.Users
+        var owned = await dbContext.Cards
             .AsNoTracking()
-            .Where(user => user.Id == userId)
-            .Select(user => (bool?)user.ReuseSavedExamples)
+            .Where(card => card.Id == request.CardId && card.Deck.UserId == userId)
+            .Select(card => new
+            {
+                DeckLevel = card.Deck.ExampleLevel,
+                AccountLevel = card.Deck.User.ExampleLevel,
+                card.Deck.User.ReuseSavedExamples
+            })
             .SingleOrDefaultAsync(cancellationToken);
 
-        if (reuseSavedExamples is null)
+        if (owned is null)
         {
             return null;
+        }
+
+        string level;
+        if (ExampleLevels.IsAllowed(owned.DeckLevel))
+        {
+            level = owned.DeckLevel;
+        }
+        else if (ExampleLevels.IsAllowed(owned.AccountLevel))
+        {
+            level = owned.AccountLevel;
+        }
+        else
+        {
+            level = ExampleLevels.Default;
         }
 
         var termKey = request.Term.Trim().ToLowerInvariant();
         var definitionKey = request.Definition.Trim();
 
-        if (reuseSavedExamples.Value)
+        if (owned.ReuseSavedExamples)
         {
             var savedSentences = await dbContext.SavedExamples
                 .AsNoTracking()
-                .Where(item => item.TermKey == termKey && item.DefinitionKey == definitionKey)
+                .Where(item => item.TermKey == termKey && item.DefinitionKey == definitionKey && item.Level == level)
                 .Select(item => item.Sentence)
                 .ToListAsync(cancellationToken);
 
@@ -90,13 +109,16 @@ public sealed class AiService(
             }
         }
 
-        const string systemPrompt =
+        var systemPrompt =
             "Write one natural English example sentence that contains the supplied term unchanged. " +
+            $"The requested CEFR level is {level}; treat it as a recommendation and prefer that level's vocabulary and grammar. " +
+            "If the term itself is harder or easier than that level, keep the rest of the sentence close to the requested level. " +
             "Return only a JSON object with exactly one string property: example.";
         var userPrompt = JsonSerializer.Serialize(new
         {
             request.Term,
-            request.Definition
+            request.Definition,
+            Level = level
         });
 
         var content = await SendChatRequestAsync(systemPrompt, userPrompt, cancellationToken);
@@ -112,7 +134,7 @@ public sealed class AiService(
                 "The AI example did not satisfy the response contract.");
         }
 
-        await SaveExampleAsync(termKey, definitionKey, sentence, cancellationToken);
+        await SaveExampleAsync(termKey, definitionKey, level, sentence, cancellationToken);
         return new GenerateExampleResponseDto
         {
             Example = sentence,
@@ -196,6 +218,7 @@ public sealed class AiService(
     private async Task SaveExampleAsync(
         string termKey,
         string definitionKey,
+        string level,
         string sentence,
         CancellationToken cancellationToken)
     {
@@ -204,6 +227,7 @@ public sealed class AiService(
             .AnyAsync(
                 item => item.TermKey == termKey &&
                         item.DefinitionKey == definitionKey &&
+                        item.Level == level &&
                         item.Sentence == sentence,
                 cancellationToken);
 
@@ -216,6 +240,7 @@ public sealed class AiService(
         {
             TermKey = termKey,
             DefinitionKey = definitionKey,
+            Level = level,
             Sentence = sentence
         });
 
@@ -238,6 +263,7 @@ public sealed class AiService(
                 .AnyAsync(
                     item => item.TermKey == termKey &&
                             item.DefinitionKey == definitionKey &&
+                            item.Level == level &&
                             item.Sentence == sentence,
                     cancellationToken);
 

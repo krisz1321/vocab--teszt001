@@ -165,34 +165,43 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 DailyNewCardGoal = user.DailyNewCardGoal,
                 MinimumAnswerSeconds = user.MinimumAnswerSeconds,
                 AutomaticAiCheck = user.AutomaticAiCheck,
-                ReuseSavedExamples = user.ReuseSavedExamples
+                ReuseSavedExamples = user.ReuseSavedExamples,
+                ExampleLevel = user.ExampleLevel
             })
             .SingleOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<StudySettingsDto?> UpdateSettingsAsync(
+    public async Task<StudySettingsResult> UpdateSettingsAsync(
         int userId,
         StudySettingsDto request,
         CancellationToken cancellationToken = default)
     {
+        var exampleLevel = request.ExampleLevel?.Trim();
+        if (!ExampleLevels.IsAllowed(exampleLevel))
+        {
+            return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "Example level is invalid");
+        }
+
         var user = await dbContext.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null)
         {
-            return null;
+            return StudySettingsResult.Fail(StatusCodes.Status404NotFound, "User not found");
         }
 
         user.DailyNewCardGoal = request.DailyNewCardGoal;
         user.MinimumAnswerSeconds = request.MinimumAnswerSeconds;
         user.AutomaticAiCheck = request.AutomaticAiCheck;
         user.ReuseSavedExamples = request.ReuseSavedExamples;
+        user.ExampleLevel = exampleLevel;
         await dbContext.SaveChangesAsync(cancellationToken);
-        return new StudySettingsDto
+        return StudySettingsResult.Success(new StudySettingsDto
         {
             DailyNewCardGoal = user.DailyNewCardGoal,
             MinimumAnswerSeconds = user.MinimumAnswerSeconds,
             AutomaticAiCheck = user.AutomaticAiCheck,
-            ReuseSavedExamples = user.ReuseSavedExamples
-        };
+            ReuseSavedExamples = user.ReuseSavedExamples,
+            ExampleLevel = user.ExampleLevel
+        });
     }
 
     public async Task<StudySubmitResult> SubmitAsync(

@@ -115,6 +115,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
         {
             entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
                 .HasAnnotation("Sqlite:Autoincrement", true);
+            entity.Property<string>("ExampleLevel").HasMaxLength(2).HasColumnType("TEXT");
             entity.Property<bool>("IsPublic").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(false);
             entity.Property<string>("Name").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
             entity.Property<int>("UserId").HasColumnType("INTEGER");
@@ -128,10 +129,11 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
                 .HasAnnotation("Sqlite:Autoincrement", true);
             entity.Property<string>("DefinitionKey").IsRequired().HasMaxLength(500).HasColumnType("TEXT");
+            entity.Property<string>("Level").IsRequired().ValueGeneratedOnAdd().HasMaxLength(2).HasColumnType("TEXT").HasDefaultValue("B1");
             entity.Property<string>("Sentence").IsRequired().HasMaxLength(500).HasColumnType("TEXT");
             entity.Property<string>("TermKey").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
             entity.HasKey("Id");
-            entity.HasIndex("TermKey", "DefinitionKey", "Sentence").IsUnique();
+            entity.HasIndex("TermKey", "DefinitionKey", "Level", "Sentence").IsUnique();
             entity.ToTable("SavedExamples");
         });
 
@@ -143,6 +145,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.Property<int>("DailyNewCardGoal").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(20);
             entity.Property<string>("DisplayName").HasMaxLength(80).HasColumnType("TEXT");
             entity.Property<string>("Email").IsRequired().HasMaxLength(256).HasColumnType("TEXT");
+            entity.Property<string>("ExampleLevel").IsRequired().ValueGeneratedOnAdd().HasMaxLength(2).HasColumnType("TEXT").HasDefaultValue("B1");
             entity.Property<DateTime?>("LastStudyDate").HasColumnType("TEXT");
             entity.Property<int>("LongestStudyDayStreak").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<int>("MinimumAnswerSeconds").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);

@@ -8,5 +8,5 @@ public interface IStudyService
     Task<StudySubmitResult> SubmitAsync(int userId, StudySubmitDto request, CancellationToken cancellationToken = default);
     Task<StudyStatsDto> GetStatsAsync(int userId, CancellationToken cancellationToken = default);
     Task<StudySettingsDto?> GetSettingsAsync(int userId, CancellationToken cancellationToken = default);
-    Task<StudySettingsDto?> UpdateSettingsAsync(int userId, StudySettingsDto request, CancellationToken cancellationToken = default);
+    Task<StudySettingsResult> UpdateSettingsAsync(int userId, StudySettingsDto request, CancellationToken cancellationToken = default);
 }

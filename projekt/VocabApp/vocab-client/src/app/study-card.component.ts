@@ -910,7 +910,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.isGeneratingExample = true;
     this.http.post<ExampleResponse>(
       `${this.apiBaseUrl}/ai/generate/example`,
-      { term: this.card.term, definition: this.card.definition },
+      { term: this.card.term, definition: this.card.definition, cardId: this.card.id },
     )
       .pipe(finalize(() => this.isGeneratingExample = false))
       .subscribe({

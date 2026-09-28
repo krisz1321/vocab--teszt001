@@ -50,10 +50,19 @@ public sealed class StudyController(IStudyService studyService) : ControllerBase
             return Unauthorized();
         }
 
-        var settings = await studyService.UpdateSettingsAsync(userId.Value, request, cancellationToken);
-        return settings is null
-            ? NotFound(new ProblemDetails { Title = "User not found", Status = StatusCodes.Status404NotFound })
-            : Ok(settings);
+        var result = await studyService.UpdateSettingsAsync(userId.Value, request, cancellationToken);
+        if (result.Value is not null)
+        {
+            return Ok(result.Value);
+        }
+
+        return StatusCode(
+            result.ErrorStatus ?? StatusCodes.Status500InternalServerError,
+            new ProblemDetails
+            {
+                Title = result.ErrorTitle,
+                Status = result.ErrorStatus
+            });
     }
 
     [HttpGet("next")]

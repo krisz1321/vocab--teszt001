@@ -31,6 +31,7 @@ interface StudySettings {
   minimumAnswerSeconds: number;
   automaticAiCheck: boolean;
   reuseSavedExamples: boolean;
+  exampleLevel: string;
 }
 
 @Component({
@@ -285,6 +286,20 @@ interface StudySettings {
               <label class="form-check-label" for="reuseSavedExamples">Mentett példamondatok újrafelhasználása</label>
               <div class="form-text">Bekapcsolva, ha már van mentett mondat, kettőből egyszer egy korábbit ad vissza, API-hívás nélkül. Kikapcsolva minden kérés új mondatot kér.</div>
             </div>
+            <div class="mb-3">
+              <label class="form-label" for="exampleLevel">Mondatszint</label>
+              <select
+                id="exampleLevel"
+                name="exampleLevel"
+                class="form-select"
+                [(ngModel)]="exampleLevel"
+                [disabled]="isSavingStudySettings">
+                @for (level of exampleLevels; track level) {
+                  <option [value]="level">{{ level }}</option>
+                }
+              </select>
+              <div class="form-text">Ez a fiók szintje, a pakli saját szintje felülírja.</div>
+            </div>
             <button type="submit" class="btn btn-primary" [disabled]="isSavingStudySettings">Mentés</button>
           </form>
           <form (ngSubmit)="changePassword()">
@@ -346,6 +361,8 @@ export class AppComponent implements OnInit {
   minimumAnswerSeconds = 0;
   automaticAiCheck = false;
   reuseSavedExamples = true;
+  readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  exampleLevel = 'B1';
   isSavingStudySettings = false;
   private userId: number | null = null;
 
@@ -486,12 +503,18 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    if (!this.exampleLevels.includes(this.exampleLevel)) {
+      this.profileError = 'A mondatszint A1, A2, B1, B2, C1 vagy C2 lehet.';
+      return;
+    }
+
     this.isSavingStudySettings = true;
     this.http.put<StudySettings>('/api/study/settings', {
       dailyNewCardGoal: goal,
       minimumAnswerSeconds: seconds,
       automaticAiCheck: this.automaticAiCheck,
       reuseSavedExamples: this.reuseSavedExamples,
+      exampleLevel: this.exampleLevel,
     }).pipe(
       finalize(() => {
         this.isSavingStudySettings = false;
@@ -502,6 +525,7 @@ export class AppComponent implements OnInit {
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
         this.reuseSavedExamples = settings.reuseSavedExamples;
+        this.exampleLevel = settings.exampleLevel;
         this.profileMessage = 'A tanulási beállítások mentve.';
       },
       error: (error: HttpErrorResponse) => {
@@ -569,6 +593,7 @@ export class AppComponent implements OnInit {
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
         this.reuseSavedExamples = settings.reuseSavedExamples;
+        this.exampleLevel = settings.exampleLevel;
       },
       error: (error: HttpErrorResponse) => {
         this.profileError = this.readProblem(error, 'A tanulási beállítások betöltése sikertelen.');

@@ -33,6 +33,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.MinimumAnswerSeconds).HasDefaultValue(0);
         user.Property(u => u.AutomaticAiCheck).HasDefaultValue(false);
         user.Property(u => u.ReuseSavedExamples).HasDefaultValue(true);
+        user.Property(u => u.ExampleLevel).IsRequired().HasMaxLength(2).HasDefaultValue(ExampleLevels.Default);
         user.Property(u => u.StudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.LongestStudyDayStreak).HasDefaultValue(0);
         user.HasIndex(u => u.Email).IsUnique();
@@ -66,12 +67,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         var savedExample = modelBuilder.Entity<SavedExample>();
         savedExample.Property(item => item.TermKey).IsRequired().HasMaxLength(100);
         savedExample.Property(item => item.DefinitionKey).IsRequired().HasMaxLength(500);
+        savedExample.Property(item => item.Level).IsRequired().HasMaxLength(2).HasDefaultValue(ExampleLevels.Default);
         savedExample.Property(item => item.Sentence).IsRequired().HasMaxLength(500);
-        savedExample.HasIndex(item => new { item.TermKey, item.DefinitionKey, item.Sentence }).IsUnique();
+        savedExample.HasIndex(item => new { item.TermKey, item.DefinitionKey, item.Level, item.Sentence }).IsUnique();
 
         var deck = modelBuilder.Entity<Deck>();
         deck.Property(d => d.Name).IsRequired().HasMaxLength(100);
         deck.Property(d => d.IsPublic).HasDefaultValue(false);
+        deck.Property(d => d.ExampleLevel).HasMaxLength(2);
 
         var card = modelBuilder.Entity<Card>();
         card.Property(c => c.Term).IsRequired().HasMaxLength(100);

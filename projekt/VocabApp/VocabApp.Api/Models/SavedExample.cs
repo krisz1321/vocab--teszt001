@@ -12,6 +12,9 @@ public sealed class SavedExample
     [Required, MaxLength(500)]
     public string DefinitionKey { get; set; } = string.Empty;
 
+    [Required, MaxLength(2)]
+    public string Level { get; set; } = ExampleLevels.Default;
+
     [Required, MaxLength(500)]
     public string Sentence { get; set; } = string.Empty;
 }

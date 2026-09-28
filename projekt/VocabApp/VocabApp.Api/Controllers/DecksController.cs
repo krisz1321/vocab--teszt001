@@ -61,6 +61,21 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
         return ToActionResult(await deckService.ShareAsync(userId.Value, id, request, cancellationToken));
     }
 
+    [HttpPut("{id:int}/example-level")]
+    public async Task<ActionResult<DeckDto>> UpdateExampleLevel(
+        int id,
+        UpdateDeckExampleLevelDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await deckService.UpdateExampleLevelAsync(userId.Value, id, request, cancellationToken));
+    }
+
     [HttpGet("public")]
     public async Task<ActionResult<IReadOnlyList<PublicDeckDto>>> GetPublic(
         [FromQuery] string? q,

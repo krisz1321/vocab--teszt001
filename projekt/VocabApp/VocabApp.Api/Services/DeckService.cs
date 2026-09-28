@@ -15,7 +15,13 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             .AsNoTracking()
             .Where(deck => deck.UserId == userId)
             .OrderBy(deck => deck.Id)
-            .Select(deck => new DeckDto { Id = deck.Id, Name = deck.Name, IsPublic = deck.IsPublic })
+            .Select(deck => new DeckDto
+            {
+                Id = deck.Id,
+                Name = deck.Name,
+                IsPublic = deck.IsPublic,
+                ExampleLevel = deck.ExampleLevel
+            })
             .ToListAsync(cancellationToken);
     }
 
@@ -103,6 +109,34 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         return DeckCardResult<DeckDto>.Success(ToDto(deck));
     }
 
+    public async Task<DeckCardResult<DeckDto>> UpdateExampleLevelAsync(
+        int userId,
+        int deckId,
+        UpdateDeckExampleLevelDto request,
+        CancellationToken cancellationToken = default)
+    {
+        string? exampleLevel = null;
+        if (request.ExampleLevel is not null)
+        {
+            exampleLevel = request.ExampleLevel.Trim();
+            if (!ExampleLevels.IsAllowed(exampleLevel))
+            {
+                return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "Example level is invalid.");
+            }
+        }
+
+        var deck = await dbContext.Decks
+            .FirstOrDefaultAsync(candidate => candidate.Id == deckId && candidate.UserId == userId, cancellationToken);
+        if (deck is null)
+        {
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+        }
+
+        deck.ExampleLevel = exampleLevel;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return DeckCardResult<DeckDto>.Success(ToDto(deck));
+    }
+
     public async Task<IReadOnlyList<PublicDeckDto>> GetPublicAsync(
         int userId,
         string? query,
@@ -185,6 +219,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             UserId = userId,
             Name = source.Name,
             IsPublic = false,
+            ExampleLevel = source.ExampleLevel,
             Cards = source.Cards.Select(card => new Card
             {
                 Term = card.Term,
@@ -285,6 +320,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
     {
         Id = deck.Id,
         Name = deck.Name,
-        IsPublic = deck.IsPublic
+        IsPublic = deck.IsPublic,
+        ExampleLevel = deck.ExampleLevel
     };
 }

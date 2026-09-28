@@ -13,4 +13,7 @@ public sealed class StudySettingsDto
     public bool AutomaticAiCheck { get; set; }
 
     public bool ReuseSavedExamples { get; set; }
+
+    [Required, MaxLength(2)]
+    public string ExampleLevel { get; set; } = string.Empty;
 }

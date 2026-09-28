@@ -14,6 +14,8 @@ public interface IDeckService
 
     Task<DeckCardResult<DeckDto>> ShareAsync(int userId, int deckId, ShareDeckDto request, CancellationToken cancellationToken = default);
 
+    Task<DeckCardResult<DeckDto>> UpdateExampleLevelAsync(int userId, int deckId, UpdateDeckExampleLevelDto request, CancellationToken cancellationToken = default);
+
     Task<IReadOnlyList<PublicDeckDto>> GetPublicAsync(int userId, string? query, CancellationToken cancellationToken = default);
 
     Task<DeckCardResult<IReadOnlyList<CardDto>>> GetPublicCardsAsync(int userId, int deckId, CancellationToken cancellationToken = default);

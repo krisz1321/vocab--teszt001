@@ -23,6 +23,9 @@ public sealed class User
 
     public bool ReuseSavedExamples { get; set; } = true;
 
+    [Required, MaxLength(2)]
+    public string ExampleLevel { get; set; } = ExampleLevels.Default;
+
     public int StudyDayStreak { get; set; }
 
     public int LongestStudyDayStreak { get; set; }
