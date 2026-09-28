@@ -1,64 +1,85 @@
-# VocabApp — Projekt szabályok (szakdolgozati MVP)
+# VocabApp — projekt szabályok
 
-## Projekt kontextus
-Ez egy szakdolgozati Walking Skeleton (MVP) projekt: MI-támogatott, adaptív szótanuló
-webalkalmazás. A dolgozatnak van egy teljes, megírt rendszerterve (User/Deck entitások,
-JWT auth, AICache, SM2/FSRS, SQL Server), de a MOSTANI kódbázis ennek csak egy
-tudatosan leszűkített, első vertikális szelete. Ne próbáld "kiegészíteni" a hiányzó
-részekkel — lásd lent.
+Szakdolgozati, MI-támogatott adaptív szótanuló. Ez a fájl a jelenlegi kódot írja le.
+Ne találj ki funkciót. A User, Deck, JWT, AICache és SM-2 már a kódban van:
+ne add hozzá őket újra, és ne töröld őket, mintha a projekt még walking skeleton lenne.
 
-Solution felépítés:
-- `VocabApp.Api/` — backend, .NET 9 Web API (C#)
-- `vocab-client/` — frontend, Angular 18+ (TypeScript)
+A solution a `VocabApp/` mappa (`VocabApp.sln`). A workspace gyakran a `projekt`
+mappa; a git gyökér a felette lévő `teszt001`.
 
-## Tech stack — szigorúan tartsd magad ehhez
-- Backend: .NET 9, ASP.NET Core Web API, **Controller-alapú** (NE minimal API),
-  EF Core Code First + SQLite (Microsoft.EntityFrameworkCore.Sqlite).
-- Frontend: Angular 18+ **Standalone komponensek** (NE NgModule), `inject()` szintaxis,
-  `provideHttpClient()` az `app.config.ts`-ben.
-- UI: Bootstrap 5 osztályok, csak minimális saját CSS ha kell.
+## Szándékos korlátok — csak külön kérésre változtasd
 
-## TUDATOS MVP-EGYSZERŰSÍTÉSEK — EZEKET NE EGÉSZÍTSD KI SAJÁT ÖTLETTEL
-Ha egy változtatás ezek valamelyikét feloldaná (pl. auth hozzáadása, cache tábla,
-User entitás), NE tedd meg kérés nélkül — kérdezz rá előbb.
+- Maradj SQLite-on (`ConnectionStrings:DefaultConnection` → `vocab.db`, `UseSqlite`). SQL Serverre ne válts.
+- Maradj `net8.0`-n. Ne emeld `net9`-re.
+- Nincs `SourceLang` / `TargetLang`. A kártya angol `Term`, angol `Definition`, opcionális `Example` és opcionális magyar `TargetMeanings`. A prompt és a UI ezt a párost követi. Többnyelvűséget ne adj hozzá.
+- Az ismétlés SM-2 (`Sm2Scheduler`). FSRS-re ne cseréld.
+- Nincs Angular Router. A nézet az `app.component.ts` `AppView` állapota: `study | stats | decks | profile`. A `@angular/router` csomag telepítve van, de nincs `provideRouter` és nincs route. URL-útvonalat ne vezess be.
 
-1. Nincs `User` és `Deck` entitás — egyetlen globális `Card` tábla van.
-2. Nincs `AICache` tábla — minden AI-kérés élesben megy ki az LLM-hez.
-3. Nincs JWT/Identity — a végpontok publikusak, CORS: `AllowAnyOrigin/AllowAnyMethod/AllowAnyHeader`.
-4. Egyszerű, lineáris SRS-logika (nem valódi SM2/FSRS). `EaseFactor` tárolva van,
-   de jelenleg nincs használva számításban.
-5. SQLite, nem SQL Server (a végleges beadás előtt vált majd `UseSqlServer`-re).
-6. Csak angol célnyelv — nincs `SourceLang`/`TargetLang` mező.
+## Felépítés
 
-## Adatmodell (jelenlegi állapot)
-- `Card`: `Id` (int, PK), `Term` (string), `Definition` (string), `Example` (string?)
-- `CardProgress`: `Id` (int, PK), `CardId` (int, FK, **1:1** a Card-hoz),
-  `NextReviewDate` (DateTime, default UtcNow), `EaseFactor` (float, default 2.5),
-  `Interval` (int, default 0), `Streak` (int, default 0), `IncorrectCount` (int, default 0)
+- `VocabApp/VocabApp.Api/` — ASP.NET Core Web API, controller-alapú. Nem minimal API.
+- `VocabApp/vocab-client/` — Angular 19, standalone komponensek.
 
-## API végpontok (ne nevezd át és ne bővítsd kérés nélkül)
-- `GET /api/study/next`
-- `POST /api/study/submit`
-- `POST /api/ai/generate/definition`
-- `POST /api/ai/generate/example`
-- `POST /api/ai/validate`
+Backend: `Controllers/`, `Services/`, `DTOs/`, `Models/`, `Data/AppDbContext`, `Migrations/`.
+EF Core Code First + SQLite. Sémaváltozás migrációval; induláskor `MigrateAsync` fut.
+A controller vékony; az üzleti logika a `Services/` rétegben van.
+DTO a `DTOs/` mappában, `...Dto` végződéssel.
 
-## Kódolási konvenciók
-- C#: PascalCase osztály/metódusnevekhez, camelCase lokális változókhoz,
-  `async`/`await` minden I/O műveletnél (DB, HTTP), nullable reference types bekapcsolva.
-- DTO-k mindig a `DTOs/` mappában, `...Dto` végződéssel.
-- Controllerek vékonyak maradjanak — üzleti logika a `Services/` rétegben.
-- Angular: signal-alapú vagy egyszerű property state, explicit standalone `imports`,
-  semmi NgModule.
-- Ne generálj automatikusan teszteket, extra dokumentációs fájlokat vagy olyan
-  funkciót, amit nem kértek kifejezetten.
+Frontend (`vocab-client/src/app/`): `app.component.ts` (belépés és nézet),
+`study-card.component.ts`, `decks.component.ts`, `stats.component.ts`,
+`auth-session.service.ts`, `auth.interceptor.ts`, `app.config.ts`.
 
-## Biztonság (MVP szinten is)
-- Az AI API kulcsot MINDIG `appsettings.json` / `IConfiguration`-ből olvasd
-  (`AiSettings:ApiKey`, `AiSettings:Endpoint`) — soha ne hardkódold C# fájlba.
+## Entitások
+
+- `User` — fiók, jelszóhash, megjelenített név, napi új kártya cél, minimum válaszidő, automata AI-ellenőrzés, streak.
+- `Deck` — a user paklija; `IsPublic`.
+- `Card` — egy deckhez tartozik; `Term`, `Definition`, `Example?`, `TargetMeanings?`.
+- `CardProgress` — 1:1 a `Card`-dal. SM-2: `EaseFactor`, `Interval`, `NextReviewDate`, `Streak`, helyes és helytelen számlálók.
+- `AiCache` — prompt-hash → eltárolt válasz.
+- `CardConfusion` — a user melyik kártyát melyikkel keverte össze, és hányszor.
+- `UserStudyDay` — napi tanulási idő és válaszszámok.
+
+## Végpontcsoportok — kérés nélkül ne nevezd át
+
+- `POST /api/auth/register`, `POST /api/auth/login` — nyilvános.
+- `GET /api/auth/avatar/{userId}` — nyilvános. Profil, jelszó, avatar feltöltés és törlés, valamint `DELETE /api/auth/account` JWT-t kér.
+- `/api/decks` — lista, létrehozás, átnevezés, megosztás, publikus keresés, másolás, törlés, CSV export és import. `[Authorize]`.
+- `/api/cards` — `by-deck/{deckId}`, létrehozás, módosítás, törlés. `[Authorize]`.
+- `/api/study` — `GET next`, `POST submit`, `GET|PUT settings`, `GET stats`. `[Authorize]`.
+- `/api/ai` — `POST generate/definition`, `generate/example`, `generate/target-meaning`, `validate`. `[Authorize]`. Az AI-válasz cache-elhető (`AiCache`).
+
+## Auth, CORS, titkok
+
+- JWT Bearer. `Jwt:Key`, `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpiresDays` a konfigurációból jön. Hiányzó értékkel az API nem indul.
+- Jelszó: `IPasswordHasher<User>`. Nyers jelszót ne tárolj.
+- CORS policy: `Frontend`. Eredet csak `http://localhost:4200` és `http://127.0.0.1:4200`. `AllowAnyOrigin`-re ne nyisd.
+- `UseHttpsRedirection` csak Developmenten kívül.
+- A védett végpontokon hagyd meg az `[Authorize]`-t. Az `AllowAnonymous`-t ne terjeszd új végpontra.
+- Az AI-kulcs mindig `IConfiguration`-ből jön: `AiSettings:ApiKey`, `AiSettings:Endpoint`, `AiSettings:Model`. C# fájlba ne írd bele.
+- Titkot ne logolj és ne commitolj: `Jwt:Key`, API-kulcs, appsettings-titkok.
+
+## SRS és kártyaválasztás
+
+A `submit` ellenőrzi a `StudyAnswerToken`t (user, kártya, minimum válaszidő), majd a `Sm2Scheduler`-rel számol.
+Helyes válasznál nő az `EaseFactor`, a `Streak` és az `Interval`, és kitolódik a `NextReviewDate`.
+Helytelen válasznál az `EaseFactor` csökken, a `Streak` és az `Interval` 0, a kártya azonnal esedékes.
+
+A `next` készlete: lejárt ismétlések, plusz még nem látott kártyák, ha a mai új kártyák száma a `DailyNewCardGoal` alatt van.
+A húzás súlyozott: `IncorrectCount + 1`, plusz `CardConfusion` bónusz, plafonnal.
+Ne cseréld egyenletes véletlenre, és az `EaseFactor`t ne vedd ki a számításból.
+
+A tanulófelület módjai (`study-card.component.ts`): `meaning | definition | recognition`. Kérés nélkül ne nevezd át.
+
+## Kódolás
+
+- C#: PascalCase típus és metódus, camelCase lokális, `async`/`await` minden I/O-nál (DB, HTTP), nullable reference types bekapcsolva.
+- Angular: standalone, `inject()`, explicit `imports`, signal vagy egyszerű property. `NgModule` nincs.
+- `app.config.ts`: `provideHttpClient(withInterceptors([authInterceptor]))`. A JWT az interceptoron megy ki.
+- UI: Bootstrap 5 osztályok. Saját CSS csak akkor, ha a Bootstrap nem elég.
 
 ## Munkamódszer
-- Lépésenként haladunk: egyszerre egy fájl vagy egy jól elhatárolt egység
-  (pl. "a két Model", "az összes DTO egyben"), utána megállunk.
-- Ha egy döntés bizonytalan (elnevezés, mappahely, hibakezelési stratégia),
-  kérdezz rá, ne találgass és ne dönts helyettem.
+
+- Egyszerre egy jól lehatárolt változtatás (egy fájl vagy egy összefüggő egység), utána állj meg.
+- Bizonytalan elnevezés, mappahely vagy hibakezelés: kérdezz. Ne találgass, és ne dönts a felhasználó helyett.
+- Ne generálj tesztet, extra dokumentációt vagy olyan funkciót, amit nem kértek.
+- Meglévő route-ot kérés nélkül ne nevezz át.

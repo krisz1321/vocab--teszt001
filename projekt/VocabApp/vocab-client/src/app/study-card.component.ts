@@ -282,7 +282,7 @@ const hungarianPlain = 'aeiooouuu';
                   rows="4"
                   maxlength="1000"
                   [(ngModel)]="answer"
-                  [disabled]="isValidating || isSubmitting || updatedProgress !== null"
+                  [disabled]="isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null"
                   placeholder="Írd le angolul a jelentését…"></textarea>
 
                 <div class="d-grid d-sm-flex gap-2 mt-3">
@@ -290,7 +290,7 @@ const hungarianPlain = 'aeiooouuu';
                     type="button"
                     class="btn btn-primary"
                     (click)="validateAnswer()"
-                    [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isValidating || isSubmitting || updatedProgress !== null">
+                    [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null">
                     @if (isValidating || isSubmitting) {
                       <span class="spinner-border spinner-border-sm me-2"></span>
                     }
@@ -300,7 +300,7 @@ const hungarianPlain = 'aeiooouuu';
                     type="button"
                     class="btn btn-outline-secondary"
                     (click)="revealDefinition()"
-                    [disabled]="isDefinitionRevealed">
+                    [disabled]="secondsUntilAnswer > 0 || isDefinitionRevealed || isSubmitting || isValidating || updatedProgress !== null || definitionPenaltyPending !== null">
                     Definíció felfedése
                   </button>
                 </div>
@@ -312,7 +312,7 @@ const hungarianPlain = 'aeiooouuu';
                     type="button"
                     class="btn btn-outline-primary btn-sm"
                     (click)="generateDefinition()"
-                    [disabled]="isGeneratingDefinition">
+                    [disabled]="isGeneratingDefinition || definitionPenaltyPending !== null || isSubmitting || isValidating || (updatedProgress === null && secondsUntilAnswer > 0)">
                     @if (isGeneratingDefinition) {
                       <span class="spinner-border spinner-border-sm me-1"></span>
                     }
@@ -337,6 +337,11 @@ const hungarianPlain = 'aeiooouuu';
                     @if (card.example) {
                       <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
                     }
+                  </div>
+                }
+                @if (definitionPenaltyApplied) {
+                  <div class="alert alert-danger mt-3 mb-0">
+                    <strong>Még nem pontos.</strong>
                   </div>
                 }
               } @else {
@@ -491,6 +496,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   validationResult: ValidationResponse | null = null;
   updatedProgress: CardProgress | null = null;
   isDefinitionRevealed = false;
+  definitionPenaltyApplied = false;
+  definitionPenaltyPending: 'reveal' | 'ai' | null = null;
   isMeaningRevealed = false;
   isRecognitionRevealed = false;
   isLoadingCard = false;
@@ -847,10 +854,34 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   }
 
   revealDefinition(): void {
-    this.isDefinitionRevealed = true;
+    if (!this.card || !this.answerToken || this.updatedProgress || this.definitionPenaltyPending ||
+        this.isSubmitting || this.isValidating || this.secondsUntilAnswer > 0 || this.isDefinitionRevealed) {
+      return;
+    }
+
+    this.definitionPenaltyPending = 'reveal';
+    this.submitResult(false, false);
   }
 
   generateDefinition(): void {
+    if (!this.card || this.isGeneratingDefinition || this.definitionPenaltyPending || this.isSubmitting || this.isValidating) {
+      return;
+    }
+
+    if (!this.updatedProgress) {
+      if (!this.answerToken || this.secondsUntilAnswer > 0) {
+        return;
+      }
+
+      this.definitionPenaltyPending = 'ai';
+      this.submitResult(false, false);
+      return;
+    }
+
+    this.requestGeneratedDefinition();
+  }
+
+  private requestGeneratedDefinition(): void {
     if (!this.card) {
       return;
     }
@@ -997,13 +1028,23 @@ export class StudyCardComponent implements OnInit, OnDestroy {
       .pipe(finalize(() => this.isSubmitting = false))
       .subscribe({
         next: progress => {
+          const penalty = this.definitionPenaltyPending;
+          this.definitionPenaltyPending = null;
           this.updatedProgress = progress;
+          if (penalty === 'reveal') {
+            this.isDefinitionRevealed = true;
+            this.definitionPenaltyApplied = true;
+          } else if (penalty === 'ai') {
+            this.definitionPenaltyApplied = true;
+            this.requestGeneratedDefinition();
+          }
           if (this.continueAfterMeaningSubmit) {
             this.continueAfterMeaningSubmit = false;
             this.loadNextCard();
           }
         },
         error: (error: HttpErrorResponse) => {
+          this.definitionPenaltyPending = null;
           if (error.status === 400) {
             this.errorMessage = 'A válasz még nem menthető. Várd meg a beállított minimum időt, majd próbáld újra.';
             this.continueAfterMeaningSubmit = false;
@@ -1071,6 +1112,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.validationResult = null;
     this.updatedProgress = null;
     this.isDefinitionRevealed = false;
+    this.definitionPenaltyApplied = false;
+    this.definitionPenaltyPending = null;
     this.isMeaningRevealed = false;
     this.isRecognitionRevealed = false;
     this.isLoadingPrompt = false;
