@@ -123,6 +123,18 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.ToTable("Decks");
         });
 
+        modelBuilder.Entity("VocabApp.Api.Models.SavedExample", entity =>
+        {
+            entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
+                .HasAnnotation("Sqlite:Autoincrement", true);
+            entity.Property<string>("DefinitionKey").IsRequired().HasMaxLength(500).HasColumnType("TEXT");
+            entity.Property<string>("Sentence").IsRequired().HasMaxLength(500).HasColumnType("TEXT");
+            entity.Property<string>("TermKey").IsRequired().HasMaxLength(100).HasColumnType("TEXT");
+            entity.HasKey("Id");
+            entity.HasIndex("TermKey", "DefinitionKey", "Sentence").IsUnique();
+            entity.ToTable("SavedExamples");
+        });
+
         modelBuilder.Entity("VocabApp.Api.Models.User", entity =>
         {
             entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
@@ -135,6 +147,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.Property<int>("LongestStudyDayStreak").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<int>("MinimumAnswerSeconds").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<string>("PasswordHash").IsRequired().HasColumnType("TEXT");
+            entity.Property<bool>("ReuseSavedExamples").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(true);
             entity.Property<int>("StudyDayStreak").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.HasKey("Id");
             entity.HasIndex("Email").IsUnique();

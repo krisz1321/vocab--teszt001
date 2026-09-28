@@ -164,7 +164,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             {
                 DailyNewCardGoal = user.DailyNewCardGoal,
                 MinimumAnswerSeconds = user.MinimumAnswerSeconds,
-                AutomaticAiCheck = user.AutomaticAiCheck
+                AutomaticAiCheck = user.AutomaticAiCheck,
+                ReuseSavedExamples = user.ReuseSavedExamples
             })
             .SingleOrDefaultAsync(cancellationToken);
     }
@@ -183,12 +184,14 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.DailyNewCardGoal = request.DailyNewCardGoal;
         user.MinimumAnswerSeconds = request.MinimumAnswerSeconds;
         user.AutomaticAiCheck = request.AutomaticAiCheck;
+        user.ReuseSavedExamples = request.ReuseSavedExamples;
         await dbContext.SaveChangesAsync(cancellationToken);
         return new StudySettingsDto
         {
             DailyNewCardGoal = user.DailyNewCardGoal,
             MinimumAnswerSeconds = user.MinimumAnswerSeconds,
-            AutomaticAiCheck = user.AutomaticAiCheck
+            AutomaticAiCheck = user.AutomaticAiCheck,
+            ReuseSavedExamples = user.ReuseSavedExamples
         };
     }
 

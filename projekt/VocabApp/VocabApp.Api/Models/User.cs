@@ -21,6 +21,8 @@ public sealed class User
 
     public bool AutomaticAiCheck { get; set; }
 
+    public bool ReuseSavedExamples { get; set; } = true;
+
     public int StudyDayStreak { get; set; }
 
     public int LongestStudyDayStreak { get; set; }

@@ -16,6 +16,8 @@ public interface IDeckService
 
     Task<IReadOnlyList<PublicDeckDto>> GetPublicAsync(int userId, string? query, CancellationToken cancellationToken = default);
 
+    Task<DeckCardResult<IReadOnlyList<CardDto>>> GetPublicCardsAsync(int userId, int deckId, CancellationToken cancellationToken = default);
+
     Task<DeckCardResult<DeckDto>> CopyAsync(int userId, int deckId, CancellationToken cancellationToken = default);
 
     Task<DeckCardResult<DeckCsvFile>> ExportAsync(int userId, int deckId, CancellationToken cancellationToken = default);

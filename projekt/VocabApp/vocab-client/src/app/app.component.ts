@@ -30,6 +30,7 @@ interface StudySettings {
   dailyNewCardGoal: number;
   minimumAnswerSeconds: number;
   automaticAiCheck: boolean;
+  reuseSavedExamples: boolean;
 }
 
 @Component({
@@ -273,6 +274,17 @@ interface StudySettings {
               <label class="form-check-label" for="automaticAiCheck">Automatikus MI-ellenőrzés</label>
               <div class="form-text">Ha a beírt jelentés nem egyezik a mentett alakkal, az MI automatikusan kiértékeli. Kikapcsolva ez csak a hibás válasznál, kézzel indítható.</div>
             </div>
+            <div class="form-check mb-3">
+              <input
+                id="reuseSavedExamples"
+                name="reuseSavedExamples"
+                type="checkbox"
+                class="form-check-input"
+                [(ngModel)]="reuseSavedExamples"
+                [disabled]="isSavingStudySettings">
+              <label class="form-check-label" for="reuseSavedExamples">Mentett példamondatok újrafelhasználása</label>
+              <div class="form-text">Bekapcsolva, ha már van mentett mondat, kettőből egyszer egy korábbit ad vissza, API-hívás nélkül. Kikapcsolva minden kérés új mondatot kér.</div>
+            </div>
             <button type="submit" class="btn btn-primary" [disabled]="isSavingStudySettings">Mentés</button>
           </form>
           <form (ngSubmit)="changePassword()">
@@ -333,6 +345,7 @@ export class AppComponent implements OnInit {
   dailyNewCardGoal = 20;
   minimumAnswerSeconds = 0;
   automaticAiCheck = false;
+  reuseSavedExamples = true;
   isSavingStudySettings = false;
   private userId: number | null = null;
 
@@ -478,6 +491,7 @@ export class AppComponent implements OnInit {
       dailyNewCardGoal: goal,
       minimumAnswerSeconds: seconds,
       automaticAiCheck: this.automaticAiCheck,
+      reuseSavedExamples: this.reuseSavedExamples,
     }).pipe(
       finalize(() => {
         this.isSavingStudySettings = false;
@@ -487,6 +501,7 @@ export class AppComponent implements OnInit {
         this.dailyNewCardGoal = settings.dailyNewCardGoal;
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
+        this.reuseSavedExamples = settings.reuseSavedExamples;
         this.profileMessage = 'A tanulási beállítások mentve.';
       },
       error: (error: HttpErrorResponse) => {
@@ -553,6 +568,7 @@ export class AppComponent implements OnInit {
         this.dailyNewCardGoal = settings.dailyNewCardGoal;
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
+        this.reuseSavedExamples = settings.reuseSavedExamples;
       },
       error: (error: HttpErrorResponse) => {
         this.profileError = this.readProblem(error, 'A tanulási beállítások betöltése sikertelen.');

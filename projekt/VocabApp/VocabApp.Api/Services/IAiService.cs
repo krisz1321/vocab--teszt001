@@ -8,7 +8,8 @@ public interface IAiService
         GenerateDefinitionRequestDto request,
         CancellationToken cancellationToken = default);
 
-    Task<GenerateExampleResponseDto> GenerateExampleAsync(
+    Task<GenerateExampleResponseDto?> GenerateExampleAsync(
+        int userId,
         GenerateExampleRequestDto request,
         CancellationToken cancellationToken = default);
 

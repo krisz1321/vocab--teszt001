@@ -53,16 +53,41 @@ public sealed class AiService(
         return stored is null ? result : DeserializeCached<GenerateDefinitionResponseDto>(stored);
     }
 
-    public async Task<GenerateExampleResponseDto> GenerateExampleAsync(
+    public async Task<GenerateExampleResponseDto?> GenerateExampleAsync(
+        int userId,
         GenerateExampleRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var promptHash = HashPrompt(
-            $"example\n{request.Term.Trim().ToLowerInvariant()}\n{request.Definition.Trim()}");
-        var cached = await FindCachedAsync<GenerateExampleResponseDto>(promptHash, cancellationToken);
-        if (cached is not null)
+        var reuseSavedExamples = await dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => (bool?)user.ReuseSavedExamples)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (reuseSavedExamples is null)
         {
-            return cached;
+            return null;
+        }
+
+        var termKey = request.Term.Trim().ToLowerInvariant();
+        var definitionKey = request.Definition.Trim();
+
+        if (reuseSavedExamples.Value)
+        {
+            var savedSentences = await dbContext.SavedExamples
+                .AsNoTracking()
+                .Where(item => item.TermKey == termKey && item.DefinitionKey == definitionKey)
+                .Select(item => item.Sentence)
+                .ToListAsync(cancellationToken);
+
+            if (savedSentences.Count > 0 && Random.Shared.Next(2) == 0)
+            {
+                return new GenerateExampleResponseDto
+                {
+                    Example = savedSentences[Random.Shared.Next(savedSentences.Count)],
+                    Reused = true
+                };
+            }
         }
 
         const string systemPrompt =
@@ -75,19 +100,24 @@ public sealed class AiService(
         });
 
         var content = await SendChatRequestAsync(systemPrompt, userPrompt, cancellationToken);
-        var result = DeserializeContent<GenerateExampleResponseDto>(content);
+        var generated = DeserializeContent<GeneratedExampleContent>(content);
+        var sentence = generated.Example.Trim();
 
-        if (string.IsNullOrWhiteSpace(result.Example) ||
-            result.Example.Length > 500 ||
-            !ContainsTokenSequence(result.Example, request.Term))
+        if (string.IsNullOrWhiteSpace(sentence) ||
+            sentence.Length > 500 ||
+            !ContainsTokenSequence(sentence, request.Term))
         {
             throw new AiServiceException(
                 AiServiceErrorKind.InvalidResponse,
                 "The AI example did not satisfy the response contract.");
         }
 
-        var stored = await SaveCacheAsync(promptHash, JsonSerializer.Serialize(result, SerializerOptions), cancellationToken);
-        return stored is null ? result : DeserializeCached<GenerateExampleResponseDto>(stored);
+        await SaveExampleAsync(termKey, definitionKey, sentence, cancellationToken);
+        return new GenerateExampleResponseDto
+        {
+            Example = sentence,
+            Reused = false
+        };
     }
 
     public async Task<GenerateTargetMeaningResponseDto> GenerateTargetMeaningAsync(
@@ -156,6 +186,66 @@ public sealed class AiService(
         }
 
         return result;
+    }
+
+    private sealed class GeneratedExampleContent
+    {
+        public string Example { get; set; } = string.Empty;
+    }
+
+    private async Task SaveExampleAsync(
+        string termKey,
+        string definitionKey,
+        string sentence,
+        CancellationToken cancellationToken)
+    {
+        var exists = await dbContext.SavedExamples
+            .AsNoTracking()
+            .AnyAsync(
+                item => item.TermKey == termKey &&
+                        item.DefinitionKey == definitionKey &&
+                        item.Sentence == sentence,
+                cancellationToken);
+
+        if (exists)
+        {
+            return;
+        }
+
+        dbContext.SavedExamples.Add(new SavedExample
+        {
+            TermKey = termKey,
+            DefinitionKey = definitionKey,
+            Sentence = sentence
+        });
+
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException)
+        {
+            foreach (var entry in dbContext.ChangeTracker.Entries<SavedExample>().ToList())
+            {
+                if (entry.State == EntityState.Added)
+                {
+                    entry.State = EntityState.Detached;
+                }
+            }
+
+            var stored = await dbContext.SavedExamples
+                .AsNoTracking()
+                .AnyAsync(
+                    item => item.TermKey == termKey &&
+                            item.DefinitionKey == definitionKey &&
+                            item.Sentence == sentence,
+                    cancellationToken);
+
+            if (!stored)
+            {
+                throw;
+            }
+        }
     }
 
     private async Task<T?> FindCachedAsync<T>(string promptHash, CancellationToken cancellationToken)

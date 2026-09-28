@@ -262,18 +262,52 @@ interface ImportResult {
           } @else {
             <div class="list-group">
               @for (deck of publicDecks; track deck.id) {
-                <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
-                  <div>
-                    <div class="fw-semibold">{{ deck.name }}</div>
-                    <div class="text-body-secondary">{{ deck.cardCount }} kártya · {{ deck.ownerEmail }}</div>
+                <div class="list-group-item">
+                  <div class="d-flex justify-content-between align-items-center gap-2">
+                    <div>
+                      <div class="fw-semibold">{{ deck.name }}</div>
+                      <div class="text-body-secondary">{{ deck.cardCount }} kártya · {{ deck.ownerEmail }}</div>
+                    </div>
+                    <div class="d-flex gap-2">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        (click)="togglePreview(deck)">
+                        Előnézet
+                      </button>
+                      <button
+                        type="button"
+                        class="btn btn-outline-primary btn-sm"
+                        [disabled]="copyingDeckId === deck.id"
+                        (click)="copyDeck(deck)">
+                        Másolás
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    class="btn btn-outline-primary btn-sm"
-                    [disabled]="copyingDeckId === deck.id"
-                    (click)="copyDeck(deck)">
-                    Másolás
-                  </button>
+                  @if (previewDeckId === deck.id) {
+                    @if (isLoadingPreview) {
+                      <div class="text-center py-3" role="status">
+                        <div class="spinner-border spinner-border-sm text-primary"></div>
+                      </div>
+                    } @else if (previewCards.length === 0) {
+                      <div class="alert alert-info mb-0 mt-3">Ebben a pakliban nincs kártya.</div>
+                    } @else {
+                      <div class="list-group mt-3">
+                        @for (card of previewCards; track card.id) {
+                          <div class="list-group-item">
+                            <div class="fw-semibold">{{ card.term }}</div>
+                            <div>{{ card.definition }}</div>
+                            @if (card.targetMeanings) {
+                              <div>{{ card.targetMeanings }}</div>
+                            }
+                            @if (card.example) {
+                              <div class="text-body-secondary">{{ card.example }}</div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  }
                 </div>
               }
             </div>
@@ -289,6 +323,8 @@ export class DecksComponent implements OnInit {
   decks: Deck[] = [];
   publicDecks: PublicDeck[] = [];
   cards: VocabCard[] = [];
+  previewCards: VocabCard[] = [];
+  previewDeckId: number | null = null;
   selectedDeckId: number | null = null;
   newDeckName = '';
   renamingDeckId: number | null = null;
@@ -311,6 +347,8 @@ export class DecksComponent implements OnInit {
   sharingDeckId: number | null = null;
   copyingDeckId: number | null = null;
   isLoadingPublic = false;
+  isLoadingPreview = false;
+  private previewRequest = 0;
   isExporting = false;
   isImporting = false;
   importMessage: string | null = null;
@@ -484,9 +522,53 @@ export class DecksComponent implements OnInit {
     ).subscribe({
       next: (decks) => {
         this.publicDecks = decks;
+        if (this.previewDeckId !== null && !decks.some(deck => deck.id === this.previewDeckId)) {
+          this.previewDeckId = null;
+          this.previewCards = [];
+        }
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readError(error, 'A közös paklik betöltése sikertelen.');
+      },
+    });
+  }
+
+  togglePreview(deck: PublicDeck): void {
+    if (this.previewDeckId === deck.id) {
+      this.previewRequest++;
+      this.previewDeckId = null;
+      this.previewCards = [];
+      this.isLoadingPreview = false;
+      return;
+    }
+
+    const request = ++this.previewRequest;
+    this.errorMessage = null;
+    this.previewDeckId = deck.id;
+    this.previewCards = [];
+    this.isLoadingPreview = true;
+    this.http.get<VocabCard[]>(`/api/decks/public/${deck.id}/cards`).pipe(
+      finalize(() => {
+        if (request === this.previewRequest) {
+          this.isLoadingPreview = false;
+        }
+      }),
+    ).subscribe({
+      next: (cards) => {
+        if (request !== this.previewRequest) {
+          return;
+        }
+
+        this.previewCards = cards;
+      },
+      error: (error: HttpErrorResponse) => {
+        if (request !== this.previewRequest) {
+          return;
+        }
+
+        this.previewDeckId = null;
+        this.previewCards = [];
+        this.errorMessage = this.readError(error, 'A pakli előnézete sikertelen.');
       },
     });
   }

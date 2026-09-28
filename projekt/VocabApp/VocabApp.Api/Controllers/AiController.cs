@@ -1,3 +1,5 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VocabApp.Api.DTOs;
@@ -35,6 +37,12 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         GenerateExampleRequestDto request,
         CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
         var isValid = RequireText(request.Term, nameof(request.Term));
         isValid &= RequireText(request.Definition, nameof(request.Definition));
         if (!isValid)
@@ -44,7 +52,14 @@ public sealed class AiController(IAiService aiService) : ControllerBase
 
         try
         {
-            return Ok(await aiService.GenerateExampleAsync(request, cancellationToken));
+            var result = await aiService.GenerateExampleAsync(userId.Value, request, cancellationToken);
+            return result is null
+                ? NotFound(new ProblemDetails
+                {
+                    Title = "User not found",
+                    Status = StatusCodes.Status404NotFound
+                })
+                : Ok(result);
         }
         catch (AiServiceException exception)
         {
@@ -95,6 +110,12 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         {
             return MapAiException(exception);
         }
+    }
+
+    private int? GetUserId()
+    {
+        var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
+        return int.TryParse(sub, out var userId) ? userId : null;
     }
 
     private bool RequireText(string value, string propertyName)

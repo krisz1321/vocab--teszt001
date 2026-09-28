@@ -14,6 +14,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<User> Users => Set<User>();
     public DbSet<UserStudyDay> UserStudyDays => Set<UserStudyDay>();
     public DbSet<Deck> Decks => Set<Deck>();
+    public DbSet<SavedExample> SavedExamples => Set<SavedExample>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +32,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.DailyNewCardGoal).HasDefaultValue(20);
         user.Property(u => u.MinimumAnswerSeconds).HasDefaultValue(0);
         user.Property(u => u.AutomaticAiCheck).HasDefaultValue(false);
+        user.Property(u => u.ReuseSavedExamples).HasDefaultValue(true);
         user.Property(u => u.StudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.LongestStudyDayStreak).HasDefaultValue(0);
         user.HasIndex(u => u.Email).IsUnique();
@@ -60,6 +62,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         studyDay.Property(day => day.AnswerCount).HasDefaultValue(0);
         studyDay.Property(day => day.CorrectCount).HasDefaultValue(0);
         studyDay.Property(day => day.IncorrectCount).HasDefaultValue(0);
+
+        var savedExample = modelBuilder.Entity<SavedExample>();
+        savedExample.Property(item => item.TermKey).IsRequired().HasMaxLength(100);
+        savedExample.Property(item => item.DefinitionKey).IsRequired().HasMaxLength(500);
+        savedExample.Property(item => item.Sentence).IsRequired().HasMaxLength(500);
+        savedExample.HasIndex(item => new { item.TermKey, item.DefinitionKey, item.Sentence }).IsUnique();
 
         var deck = modelBuilder.Entity<Deck>();
         deck.Property(d => d.Name).IsRequired().HasMaxLength(100);

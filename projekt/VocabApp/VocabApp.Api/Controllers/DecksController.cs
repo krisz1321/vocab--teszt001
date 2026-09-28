@@ -75,6 +75,18 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
         return Ok(await deckService.GetPublicAsync(userId.Value, q, cancellationToken));
     }
 
+    [HttpGet("public/{id:int}/cards")]
+    public async Task<ActionResult<IReadOnlyList<CardDto>>> GetPublicCards(int id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await deckService.GetPublicCardsAsync(userId.Value, id, cancellationToken));
+    }
+
     [HttpPost("{id:int}/copy")]
     public async Task<ActionResult<DeckDto>> Copy(int id, CancellationToken cancellationToken)
     {
@@ -153,7 +165,7 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
         return Ok(result.Value);
     }
 
-    private ActionResult<DeckDto> ToActionResult(DeckCardResult<DeckDto> result)
+    private ActionResult<T> ToActionResult<T>(DeckCardResult<T> result)
     {
         if (result.Value is not null)
         {

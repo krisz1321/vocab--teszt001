@@ -62,6 +62,7 @@ interface DefinitionResponse {
 
 interface ExampleResponse {
   example: string;
+  reused: boolean;
 }
 
 interface ValidationResponse {
@@ -441,7 +442,7 @@ const hungarianPlain = 'aeiooouuu';
 
               @if (generatedExample) {
                 <div class="alert alert-info mt-3 mb-0">
-                  <strong>MI-példamondat:</strong> {{ generatedExample }}
+                  <strong>{{ generatedExampleReused ? 'Mentett példamondat' : 'MI-példamondat' }}:</strong> {{ generatedExample }}
                 </div>
               }
 
@@ -490,6 +491,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   targetMeaningsDraft = '';
   generatedDefinition: string | null = null;
   generatedExample: string | null = null;
+  generatedExampleReused = false;
   promptDefinition: string | null = null;
   meaningCorrect: boolean | null = null;
   recognitionCorrect: boolean | null = null;
@@ -912,7 +914,10 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     )
       .pipe(finalize(() => this.isGeneratingExample = false))
       .subscribe({
-        next: response => this.generatedExample = response.example,
+        next: response => {
+          this.generatedExample = response.example;
+          this.generatedExampleReused = response.reused;
+        },
         error: (error: HttpErrorResponse) => this.setHttpError(error, 'Az MI-példamondat generálása'),
       });
   }
@@ -1104,6 +1109,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.targetMeaningsDraft = '';
     this.generatedDefinition = null;
     this.generatedExample = null;
+    this.generatedExampleReused = false;
     this.promptDefinition = null;
     this.meaningCorrect = null;
     this.meaningAwaitingGrade = false;

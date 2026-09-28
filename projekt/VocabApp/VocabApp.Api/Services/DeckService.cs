@@ -132,6 +132,37 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             .ToListAsync(cancellationToken);
     }
 
+    public async Task<DeckCardResult<IReadOnlyList<CardDto>>> GetPublicCardsAsync(
+        int userId,
+        int deckId,
+        CancellationToken cancellationToken = default)
+    {
+        var isShared = await dbContext.Decks
+            .AsNoTracking()
+            .AnyAsync(deck => deck.Id == deckId && deck.IsPublic && deck.UserId != userId, cancellationToken);
+        if (!isShared)
+        {
+            return DeckCardResult<IReadOnlyList<CardDto>>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+        }
+
+        var cards = await dbContext.Cards
+            .AsNoTracking()
+            .Where(card => card.DeckId == deckId)
+            .OrderBy(card => card.Id)
+            .Select(card => new CardDto
+            {
+                Id = card.Id,
+                DeckId = card.DeckId,
+                Term = card.Term,
+                Definition = card.Definition,
+                Example = card.Example,
+                TargetMeanings = card.TargetMeanings
+            })
+            .ToListAsync(cancellationToken);
+
+        return DeckCardResult<IReadOnlyList<CardDto>>.Success(cards);
+    }
+
     public async Task<DeckCardResult<DeckDto>> CopyAsync(
         int userId,
         int deckId,

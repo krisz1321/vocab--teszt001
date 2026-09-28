@@ -11,4 +11,6 @@ public sealed class StudySettingsDto
     public int MinimumAnswerSeconds { get; set; }
 
     public bool AutomaticAiCheck { get; set; }
+
+    public bool ReuseSavedExamples { get; set; }
 }
