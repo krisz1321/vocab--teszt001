@@ -262,6 +262,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             progress.FirstReviewedAt = now;
         }
 
+        progress.LastReviewedAt = now;
+
         if (request.IsCorrect)
         {
             progress.CorrectCount = SaturatingIncrement(progress.CorrectCount);

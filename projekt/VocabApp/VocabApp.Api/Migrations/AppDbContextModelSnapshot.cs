@@ -81,6 +81,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.Property<DateTime?>("FirstReviewedAt").HasColumnType("TEXT");
             entity.Property<int>("IncorrectCount").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<int>("Interval").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
+            entity.Property<DateTime?>("LastReviewedAt").HasColumnType("TEXT");
             entity.Property<DateTime?>("LearnedAt").HasColumnType("TEXT");
             entity.Property<bool>("MarkedKnown").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(false);
             entity.Property<DateTime>("NextReviewDate").ValueGeneratedOnAdd().HasColumnType("TEXT").HasDefaultValueSql("CURRENT_TIMESTAMP");

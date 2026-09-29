@@ -29,6 +29,16 @@ interface VocabCard {
   markedKnown: boolean;
 }
 
+interface LearnedCard {
+  id: number;
+  term: string;
+  definition: string;
+  targetMeanings: string | null;
+  deckName: string;
+  learnedAt: string;
+  lastReviewedAt: string | null;
+}
+
 interface ProblemDetails {
   title?: string;
 }
@@ -73,10 +83,17 @@ interface ImportResult {
           <div class="text-center py-4" role="status">
             <div class="spinner-border text-primary"></div>
           </div>
-        } @else if (decks.length === 0) {
-          <div class="alert alert-info">Még nincs paklid.</div>
         } @else {
           <div class="list-group mb-4">
+            <div class="list-group-item">
+              <button
+                type="button"
+                class="btn btn-link text-start text-decoration-none p-0"
+                [class.fw-semibold]="viewingLearned"
+                (click)="selectLearned()">
+                Megtanult szavak
+              </button>
+            </div>
             @for (deck of decks; track deck.id) {
               <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
                 @if (renamingDeckId === deck.id) {
@@ -143,10 +160,11 @@ interface ImportResult {
           </div>
         }
 
-        @if (selectedDeckId !== null) {
+        @if (viewingLearned || selectedDeckId !== null) {
           <section class="border rounded p-3">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-              <h2 class="h5 mb-0">{{ selectedDeckName() }}</h2>
+              <h2 class="h5 mb-0">{{ viewingLearned ? 'Megtanult szavak' : selectedDeckName() }}</h2>
+              @if (!viewingLearned) {
               <div class="d-flex gap-2">
                 <button
                   type="button"
@@ -165,12 +183,14 @@ interface ImportResult {
                     (change)="importDeck($event)">
                 </label>
               </div>
+              }
             </div>
 
-            @if (importMessage) {
+            @if (importMessage && !viewingLearned) {
               <div class="alert alert-success" role="status">{{ importMessage }}</div>
             }
 
+            @if (!viewingLearned) {
             <form (ngSubmit)="saveCard()">
               <div class="mb-3">
                 <label class="form-label" for="term">Szó</label>
@@ -232,13 +252,42 @@ interface ImportResult {
                 }
               </div>
             </form>
+            }
 
             @if (isLoadingCards) {
               <div class="text-center py-3" role="status">
                 <div class="spinner-border text-primary"></div>
               </div>
-            } @else if (cards.length === 0) {
+            } @else if (viewingLearned && learnedCards.length === 0) {
+              <div class="alert alert-info mb-0">Még nincs megtanult szavad.</div>
+            } @else if (!viewingLearned && cards.length === 0) {
               <div class="alert alert-info mb-0">Ebben a pakliban még nincs kártya.</div>
+            } @else if (viewingLearned) {
+              <div class="list-group">
+                @for (card of learnedCards; track card.id) {
+                  <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start gap-2">
+                      <div>
+                        <div class="fw-semibold">{{ card.term }}</div>
+                        <div>{{ card.definition }}</div>
+                        @if (card.targetMeanings) {
+                          <div>{{ card.targetMeanings }}</div>
+                        }
+                        <div class="text-body-secondary">Forráspakli: {{ card.deckName }}</div>
+                        <div class="text-body-secondary">Megtanulva: {{ formatLocalTime(card.learnedAt) }}</div>
+                        <div class="text-body-secondary">Utolsó kérdés: {{ formatLocalTime(card.lastReviewedAt, 'Még nem volt kérdezve.') }}</div>
+                      </div>
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        [disabled]="resettingLearnedCardId === card.id"
+                        (click)="resetLearned(card)">
+                        Mégse tudom
+                      </button>
+                    </div>
+                  </div>
+                }
+              </div>
             } @else {
               <div class="list-group">
                 @for (card of cards; track card.id) {
@@ -371,6 +420,8 @@ export class DecksComponent implements OnInit {
   decks: Deck[] = [];
   publicDecks: PublicDeck[] = [];
   cards: VocabCard[] = [];
+  learnedCards: LearnedCard[] = [];
+  viewingLearned = false;
   previewCards: VocabCard[] = [];
   previewDeckId: number | null = null;
   selectedDeckId: number | null = null;
@@ -394,6 +445,7 @@ export class DecksComponent implements OnInit {
   deletingDeckId: number | null = null;
   deletingCardId: number | null = null;
   markingKnownCardId: number | null = null;
+  resettingLearnedCardId: number | null = null;
   sharingDeckId: number | null = null;
   copyingDeckId: number | null = null;
   savingLevelDeckId: number | null = null;
@@ -401,6 +453,7 @@ export class DecksComponent implements OnInit {
   isLoadingPublic = false;
   isLoadingPreview = false;
   private previewRequest = 0;
+  private cardsRequest = 0;
   isExporting = false;
   isImporting = false;
   importMessage: string | null = null;
@@ -415,14 +468,57 @@ export class DecksComponent implements OnInit {
   }
 
   selectDeck(deckId: number): void {
-    if (this.selectedDeckId === deckId) {
+    if (!this.viewingLearned && this.selectedDeckId === deckId) {
       return;
     }
 
+    this.viewingLearned = false;
     this.selectedDeckId = deckId;
     this.importMessage = null;
     this.cancelEdit();
     this.loadCards();
+  }
+
+  selectLearned(): void {
+    if (this.viewingLearned) {
+      return;
+    }
+
+    this.viewingLearned = true;
+    this.selectedDeckId = null;
+    this.importMessage = null;
+    this.cancelEdit();
+    this.loadLearned();
+  }
+
+  formatLocalTime(value: string | null, emptyText = ''): string {
+    if (!value) {
+      return emptyText;
+    }
+
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+
+    return date.toLocaleString();
+  }
+
+  resetLearned(card: LearnedCard): void {
+    this.errorMessage = null;
+    this.resettingLearnedCardId = card.id;
+    this.http.post(`/api/cards/${card.id}/reset-learned`, {}).pipe(
+      finalize(() => {
+        this.resettingLearnedCardId = null;
+      }),
+    ).subscribe({
+      next: () => {
+        this.learnedCards = this.learnedCards.filter(item => item.id !== card.id);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage = this.readError(error, 'A szó visszaállítása sikertelen.');
+      },
+    });
   }
 
   exportDeck(): void {
@@ -938,18 +1034,58 @@ export class DecksComponent implements OnInit {
       return;
     }
 
+    const requestId = ++this.cardsRequest;
+    const deckId = this.selectedDeckId;
     this.isLoadingCards = true;
     this.cards = [];
-    this.http.get<VocabCard[]>(`/api/cards/by-deck/${this.selectedDeckId}`).pipe(
+    this.http.get<VocabCard[]>(`/api/cards/by-deck/${deckId}`).pipe(
       finalize(() => {
-        this.isLoadingCards = false;
+        if (requestId === this.cardsRequest) {
+          this.isLoadingCards = false;
+        }
       }),
     ).subscribe({
       next: (cards) => {
+        if (requestId !== this.cardsRequest || this.viewingLearned || this.selectedDeckId !== deckId) {
+          return;
+        }
+
         this.cards = cards;
       },
       error: (error: HttpErrorResponse) => {
+        if (requestId !== this.cardsRequest) {
+          return;
+        }
+
         this.errorMessage = this.readError(error, 'A kártyák betöltése sikertelen.');
+      },
+    });
+  }
+
+  private loadLearned(): void {
+    const requestId = ++this.cardsRequest;
+    this.isLoadingCards = true;
+    this.learnedCards = [];
+    this.http.get<LearnedCard[]>('/api/cards/learned').pipe(
+      finalize(() => {
+        if (requestId === this.cardsRequest) {
+          this.isLoadingCards = false;
+        }
+      }),
+    ).subscribe({
+      next: (cards) => {
+        if (requestId !== this.cardsRequest || !this.viewingLearned) {
+          return;
+        }
+
+        this.learnedCards = cards;
+      },
+      error: (error: HttpErrorResponse) => {
+        if (requestId !== this.cardsRequest) {
+          return;
+        }
+
+        this.errorMessage = this.readError(error, 'A megtanult szavak betöltése sikertelen.');
       },
     });
   }

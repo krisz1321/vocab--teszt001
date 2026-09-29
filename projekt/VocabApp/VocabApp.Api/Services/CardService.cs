@@ -45,6 +45,40 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         return DeckCardResult<IReadOnlyList<CardDto>>.Success(cards);
     }
 
+    public async Task<IReadOnlyList<LearnedCardDto>> GetLearnedAsync(
+        int userId,
+        CancellationToken cancellationToken = default)
+    {
+        var rows = await dbContext.Cards
+            .AsNoTracking()
+            .Where(card => card.Deck.UserId == userId && card.Progress != null && card.Progress.LearnedAt != null)
+            .OrderByDescending(card => card.Progress!.LearnedAt)
+            .Select(card => new
+            {
+                card.Id,
+                card.Term,
+                card.Definition,
+                card.TargetMeanings,
+                DeckName = card.Deck.Name,
+                LearnedAt = card.Progress!.LearnedAt,
+                LastReviewedAt = card.Progress!.LastReviewedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows.Select(row => new LearnedCardDto
+        {
+            Id = row.Id,
+            Term = row.Term,
+            Definition = row.Definition,
+            TargetMeanings = row.TargetMeanings,
+            DeckName = row.DeckName,
+            LearnedAt = DateTime.SpecifyKind(row.LearnedAt!.Value, DateTimeKind.Utc),
+            LastReviewedAt = row.LastReviewedAt is null
+                ? null
+                : DateTime.SpecifyKind(row.LastReviewedAt.Value, DateTimeKind.Utc)
+        }).ToList();
+    }
+
     public async Task<DeckCardResult<CardDto>> CreateAsync(
         int userId,
         CreateCardDto request,
@@ -168,6 +202,28 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         }
 
         dbContext.Cards.Remove(card);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> ResetLearnedAsync(int userId, int cardId, CancellationToken cancellationToken = default)
+    {
+        var card = await dbContext.Cards
+            .Include(candidate => candidate.Progress)
+            .FirstOrDefaultAsync(
+                candidate => candidate.Id == cardId && candidate.Deck.UserId == userId && candidate.Progress!.LearnedAt != null,
+                cancellationToken);
+        if (card?.Progress is null)
+        {
+            return false;
+        }
+
+        var progress = card.Progress;
+        progress.LearnedAt = null;
+        progress.MarkedKnown = false;
+        progress.Streak = 0;
+        progress.Interval = 0;
+        progress.NextReviewDate = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
         return true;
     }

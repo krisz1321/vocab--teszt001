@@ -9,6 +9,10 @@ public interface ICardService
         int deckId,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<LearnedCardDto>> GetLearnedAsync(
+        int userId,
+        CancellationToken cancellationToken = default);
+
     Task<DeckCardResult<CardDto>> CreateAsync(
         int userId,
         CreateCardDto request,
@@ -27,4 +31,6 @@ public interface ICardService
         CancellationToken cancellationToken = default);
 
     Task<bool> DeleteAsync(int userId, int cardId, CancellationToken cancellationToken = default);
+
+    Task<bool> ResetLearnedAsync(int userId, int cardId, CancellationToken cancellationToken = default);
 }
