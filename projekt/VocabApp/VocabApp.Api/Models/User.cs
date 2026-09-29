@@ -25,6 +25,9 @@ public sealed class User
 
     public bool ReuseSavedExamples { get; set; } = true;
 
+    [Required, MaxLength(16)]
+    public string SavedLevelPolicy { get; set; } = SavedLevelPolicies.Exact;
+
     public bool GenerateAlternateDefinitions { get; set; } = true;
 
     [Required, MaxLength(2)]

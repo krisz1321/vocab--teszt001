@@ -32,9 +32,17 @@ interface StudySettings {
   automaticAiCheck: boolean;
   acceptHungarianParaphrase: boolean;
   reuseSavedExamples: boolean;
+  savedLevelPolicy: string;
   generateAlternateDefinitions: boolean;
   exampleLevel: string;
   aiModel: string;
+}
+
+type SavedLevelChoice = 'all' | 'noHarder' | 'noEasier';
+
+interface SavedLevelPolicyOption {
+  id: SavedLevelChoice;
+  label: string;
 }
 
 interface AiModelOption {
@@ -305,6 +313,31 @@ interface AiModelOption {
               <label class="form-check-label" for="reuseSavedExamples">Mentett példamondatok újrafelhasználása</label>
               <div class="form-text">Bekapcsolva, ha már van mentett mondat vagy definíció, kettőből egyszer egy korábbit ad vissza, API-hívás nélkül. Kikapcsolva minden kérés új mondatot vagy definíciót kér.</div>
             </div>
+            <div class="mb-3">
+              <div class="form-check">
+                <input
+                  id="allowOtherSavedLevels"
+                  name="allowOtherSavedLevels"
+                  type="checkbox"
+                  class="form-check-input"
+                  [(ngModel)]="allowOtherSavedLevels"
+                  [disabled]="isSavingStudySettings">
+                <label class="form-check-label" for="allowOtherSavedLevels">Eltérő szintű mentett válaszok is jöhetnek.</label>
+              </div>
+              @if (allowOtherSavedLevels) {
+                <select
+                  id="savedLevelPolicy"
+                  name="savedLevelPolicy"
+                  class="form-select mt-2"
+                  [(ngModel)]="savedLevelPolicy"
+                  [disabled]="isSavingStudySettings">
+                  @for (policy of savedLevelPolicies; track policy.id) {
+                    <option [value]="policy.id">{{ policy.label }}</option>
+                  }
+                </select>
+              }
+              <div class="form-text">Ez csak a már elmentett példamondatokra és definíciókra vonatkozik. Az új MI-kérés továbbra is a pakli vagy a fiók szintjét kéri, és azon a szinten kerül mentésre.</div>
+            </div>
             <div class="form-check mb-3">
               <input
                 id="generateAlternateDefinitions"
@@ -406,6 +439,13 @@ export class AppComponent implements OnInit {
   automaticAiCheck = false;
   acceptHungarianParaphrase = false;
   reuseSavedExamples = true;
+  allowOtherSavedLevels = false;
+  readonly savedLevelPolicies: SavedLevelPolicyOption[] = [
+    { id: 'all', label: 'Minden mentett válasz' },
+    { id: 'noHarder', label: 'A nehezebbeket nem' },
+    { id: 'noEasier', label: 'A könnyebbeket nem' },
+  ];
+  savedLevelPolicy: SavedLevelChoice = 'all';
   generateAlternateDefinitions = true;
   readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
   exampleLevel = 'B1';
@@ -566,6 +606,12 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    const savedLevelPolicy = this.allowOtherSavedLevels ? this.savedLevelPolicy : 'exact';
+    if (this.allowOtherSavedLevels && !this.savedLevelPolicies.some((policy) => policy.id === savedLevelPolicy)) {
+      this.profileError = 'Az eltérő szintű mentett válaszok csak a felsorolt három lehetőség egyike lehet.';
+      return;
+    }
+
     this.isSavingStudySettings = true;
     this.http.put<StudySettings>('/api/study/settings', {
       dailyNewCardGoal: goal,
@@ -573,6 +619,7 @@ export class AppComponent implements OnInit {
       automaticAiCheck: this.automaticAiCheck,
       acceptHungarianParaphrase: this.acceptHungarianParaphrase,
       reuseSavedExamples: this.reuseSavedExamples,
+      savedLevelPolicy,
       generateAlternateDefinitions: this.generateAlternateDefinitions,
       exampleLevel: this.exampleLevel,
       aiModel: this.aiModel,
@@ -587,6 +634,7 @@ export class AppComponent implements OnInit {
         this.automaticAiCheck = settings.automaticAiCheck;
         this.acceptHungarianParaphrase = settings.acceptHungarianParaphrase;
         this.reuseSavedExamples = settings.reuseSavedExamples;
+        this.applySavedLevelPolicy(settings.savedLevelPolicy);
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.exampleLevel = settings.exampleLevel;
         this.aiModel = settings.aiModel;
@@ -650,6 +698,17 @@ export class AppComponent implements OnInit {
     });
   }
 
+  private applySavedLevelPolicy(policy: string): void {
+    if (policy === 'all' || policy === 'noHarder' || policy === 'noEasier') {
+      this.allowOtherSavedLevels = true;
+      this.savedLevelPolicy = policy;
+      return;
+    }
+
+    this.allowOtherSavedLevels = false;
+    this.savedLevelPolicy = 'all';
+  }
+
   private loadStudySettings(): void {
     this.http.get<StudySettings>('/api/study/settings').subscribe({
       next: (settings) => {
@@ -658,6 +717,7 @@ export class AppComponent implements OnInit {
         this.automaticAiCheck = settings.automaticAiCheck;
         this.acceptHungarianParaphrase = settings.acceptHungarianParaphrase;
         this.reuseSavedExamples = settings.reuseSavedExamples;
+        this.applySavedLevelPolicy(settings.savedLevelPolicy);
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.exampleLevel = settings.exampleLevel;
         this.aiModel = settings.aiModel;

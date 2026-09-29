@@ -168,6 +168,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.Property<int>("MinimumAnswerSeconds").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<string>("PasswordHash").IsRequired().HasColumnType("TEXT");
             entity.Property<bool>("ReuseSavedExamples").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(true);
+            entity.Property<string>("SavedLevelPolicy").IsRequired().ValueGeneratedOnAdd().HasMaxLength(16).HasColumnType("TEXT").HasDefaultValue("exact");
             entity.Property<int>("StudyDayStreak").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.HasKey("Id");
             entity.HasIndex("Email").IsUnique();

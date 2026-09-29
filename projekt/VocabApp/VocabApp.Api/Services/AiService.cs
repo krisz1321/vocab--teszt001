@@ -35,6 +35,7 @@ public sealed class AiService(
                 DeckLevel = card.Deck.ExampleLevel,
                 AccountLevel = card.Deck.User.ExampleLevel,
                 card.Deck.User.ReuseSavedExamples,
+                card.Deck.User.SavedLevelPolicy,
                 card.Deck.User.GenerateAlternateDefinitions
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -70,11 +71,11 @@ public sealed class AiService(
         var termKey = request.Term.Trim().ToLowerInvariant();
         if (owned.ReuseSavedExamples)
         {
-            var savedDefinitions = await dbContext.SavedDefinitions
-                .AsNoTracking()
-                .Where(item => item.TermKey == termKey && item.Level == level)
-                .Select(item => item.Definition)
-                .ToListAsync(cancellationToken);
+            var savedDefinitions = await MatchingDefinitionsAsync(
+                termKey,
+                owned.SavedLevelPolicy,
+                level,
+                cancellationToken);
 
             if (savedDefinitions.Count > 0 && Random.Shared.Next(2) == 0)
             {
@@ -129,7 +130,8 @@ public sealed class AiService(
             {
                 DeckLevel = deck.ExampleLevel,
                 AccountLevel = deck.User.ExampleLevel,
-                deck.User.ReuseSavedExamples
+                deck.User.ReuseSavedExamples,
+                deck.User.SavedLevelPolicy
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -155,11 +157,11 @@ public sealed class AiService(
         var termKey = request.Term.Trim().ToLowerInvariant();
         if (owned.ReuseSavedExamples)
         {
-            var savedDefinitions = await dbContext.SavedDefinitions
-                .AsNoTracking()
-                .Where(item => item.TermKey == termKey && item.Level == level)
-                .Select(item => item.Definition)
-                .ToListAsync(cancellationToken);
+            var savedDefinitions = await MatchingDefinitionsAsync(
+                termKey,
+                owned.SavedLevelPolicy,
+                level,
+                cancellationToken);
 
             if (savedDefinitions.Count > 0 && Random.Shared.Next(2) == 0)
             {
@@ -214,6 +216,7 @@ public sealed class AiService(
                 DeckLevel = card.Deck.ExampleLevel,
                 AccountLevel = card.Deck.User.ExampleLevel,
                 card.Deck.User.ReuseSavedExamples,
+                card.Deck.User.SavedLevelPolicy,
                 card.Deck.User.GenerateAlternateDefinitions
             })
             .SingleOrDefaultAsync(cancellationToken);
@@ -250,11 +253,11 @@ public sealed class AiService(
         var avoidDefinition = request.AvoidDefinition.Trim();
         if (owned.ReuseSavedExamples)
         {
-            var savedDefinitions = await dbContext.SavedDefinitions
-                .AsNoTracking()
-                .Where(item => item.TermKey == termKey && item.Level == level)
-                .Select(item => item.Definition)
-                .ToListAsync(cancellationToken);
+            var savedDefinitions = await MatchingDefinitionsAsync(
+                termKey,
+                owned.SavedLevelPolicy,
+                level,
+                cancellationToken);
             var differentEnough = savedDefinitions
                 .Where(definition => IsAcceptableExtraDefinition(definition, request.Term, avoidDefinition))
                 .ToList();
@@ -322,7 +325,8 @@ public sealed class AiService(
             {
                 DeckLevel = card.Deck.ExampleLevel,
                 AccountLevel = card.Deck.User.ExampleLevel,
-                card.Deck.User.ReuseSavedExamples
+                card.Deck.User.ReuseSavedExamples,
+                card.Deck.User.SavedLevelPolicy
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -350,11 +354,15 @@ public sealed class AiService(
 
         if (owned.ReuseSavedExamples)
         {
-            var savedSentences = await dbContext.SavedExamples
+            var savedRows = await dbContext.SavedExamples
                 .AsNoTracking()
-                .Where(item => item.TermKey == termKey && item.DefinitionKey == definitionKey && item.Level == level)
-                .Select(item => item.Sentence)
+                .Where(item => item.TermKey == termKey && item.DefinitionKey == definitionKey)
+                .Select(item => new { item.Level, item.Sentence })
                 .ToListAsync(cancellationToken);
+            var savedSentences = savedRows
+                .Where(item => SavedLevelPolicies.Matches(owned.SavedLevelPolicy, level, item.Level))
+                .Select(item => item.Sentence)
+                .ToList();
 
             if (savedSentences.Count > 0 && Random.Shared.Next(2) == 0)
             {
@@ -699,6 +707,24 @@ public sealed class AiService(
     private sealed class FitsGuessContent
     {
         public bool FitsGuess { get; set; }
+    }
+
+    private async Task<List<string>> MatchingDefinitionsAsync(
+        string termKey,
+        string policy,
+        string level,
+        CancellationToken cancellationToken)
+    {
+        var savedRows = await dbContext.SavedDefinitions
+            .AsNoTracking()
+            .Where(item => item.TermKey == termKey)
+            .Select(item => new { item.Level, item.Definition })
+            .ToListAsync(cancellationToken);
+
+        return savedRows
+            .Where(item => SavedLevelPolicies.Matches(policy, level, item.Level))
+            .Select(item => item.Definition)
+            .ToList();
     }
 
     private async Task SaveDefinitionAsync(

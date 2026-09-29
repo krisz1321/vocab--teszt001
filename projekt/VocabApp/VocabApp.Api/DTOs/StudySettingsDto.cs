@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using VocabApp.Api.Models;
 
 namespace VocabApp.Api.DTOs;
 
@@ -15,6 +16,9 @@ public sealed class StudySettingsDto
     public bool AcceptHungarianParaphrase { get; set; }
 
     public bool ReuseSavedExamples { get; set; }
+
+    [Required, MaxLength(16)]
+    public string SavedLevelPolicy { get; set; } = SavedLevelPolicies.Exact;
 
     public bool GenerateAlternateDefinitions { get; set; }
 

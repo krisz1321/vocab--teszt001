@@ -175,6 +175,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 AutomaticAiCheck = user.AutomaticAiCheck,
                 AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
                 ReuseSavedExamples = user.ReuseSavedExamples,
+                SavedLevelPolicy = user.SavedLevelPolicy,
                 GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
                 ExampleLevel = user.ExampleLevel,
                 AiModel = user.AiModel
@@ -199,6 +200,12 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "AI model is invalid");
         }
 
+        var savedLevelPolicy = request.SavedLevelPolicy?.Trim();
+        if (!SavedLevelPolicies.IsAllowed(savedLevelPolicy))
+        {
+            return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "Saved level policy is invalid");
+        }
+
         var user = await dbContext.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null)
         {
@@ -210,6 +217,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.AutomaticAiCheck = request.AutomaticAiCheck;
         user.AcceptHungarianParaphrase = request.AcceptHungarianParaphrase;
         user.ReuseSavedExamples = request.ReuseSavedExamples;
+        user.SavedLevelPolicy = savedLevelPolicy;
         user.GenerateAlternateDefinitions = request.GenerateAlternateDefinitions;
         user.ExampleLevel = exampleLevel;
         user.AiModel = aiModel;
@@ -221,6 +229,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             AutomaticAiCheck = user.AutomaticAiCheck,
             AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
             ReuseSavedExamples = user.ReuseSavedExamples,
+            SavedLevelPolicy = user.SavedLevelPolicy,
             GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
             ExampleLevel = user.ExampleLevel,
             AiModel = user.AiModel

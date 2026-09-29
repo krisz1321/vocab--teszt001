@@ -18,4 +18,15 @@ public static class ExampleLevels
 
     public static bool IsAllowed([NotNullWhen(true)] string? value) =>
         value is not null && Allowed.Contains(value);
+
+    public static int Rank(string? level) => level switch
+    {
+        "A1" => 0,
+        "A2" => 1,
+        "B1" => 2,
+        "B2" => 3,
+        "C1" => 4,
+        "C2" => 5,
+        _ => -1
+    };
 }

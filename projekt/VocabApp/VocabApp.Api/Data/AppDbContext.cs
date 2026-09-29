@@ -35,6 +35,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.AutomaticAiCheck).HasDefaultValue(false);
         user.Property(u => u.AcceptHungarianParaphrase).HasDefaultValue(false);
         user.Property(u => u.ReuseSavedExamples).HasDefaultValue(true);
+        user.Property(u => u.SavedLevelPolicy).IsRequired().HasMaxLength(16).HasDefaultValue(SavedLevelPolicies.Exact);
         user.Property(u => u.GenerateAlternateDefinitions).HasDefaultValue(true);
         user.Property(u => u.ExampleLevel).IsRequired().HasMaxLength(2).HasDefaultValue(ExampleLevels.Default);
         user.Property(u => u.AiModel).IsRequired().HasMaxLength(64).HasDefaultValue(AiModels.Default);
