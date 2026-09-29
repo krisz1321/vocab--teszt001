@@ -9,6 +9,11 @@ public interface IAiService
         GenerateDefinitionRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<GenerateExtraDefinitionResponseDto?> GenerateExtraDefinitionAsync(
+        int userId,
+        GenerateExtraDefinitionRequestDto request,
+        CancellationToken cancellationToken = default);
+
     Task<GenerateExampleResponseDto?> GenerateExampleAsync(
         int userId,
         GenerateExampleRequestDto request,

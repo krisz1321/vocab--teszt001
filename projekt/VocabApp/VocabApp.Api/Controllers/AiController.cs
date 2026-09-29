@@ -45,6 +45,41 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         }
     }
 
+    [HttpPost("generate/extra-definition")]
+    public async Task<ActionResult<GenerateExtraDefinitionResponseDto>> GenerateExtraDefinition(
+        GenerateExtraDefinitionRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var isValid = RequireText(request.Term, nameof(request.Term));
+        isValid &= RequireText(request.AvoidDefinition, nameof(request.AvoidDefinition));
+        if (!isValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            var result = await aiService.GenerateExtraDefinitionAsync(userId.Value, request, cancellationToken);
+            return result is null
+                ? NotFound(new ProblemDetails
+                {
+                    Title = "Card not found",
+                    Status = StatusCodes.Status404NotFound
+                })
+                : Ok(result);
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
     [HttpPost("generate/example")]
     public async Task<ActionResult<GenerateExampleResponseDto>> GenerateExample(
         GenerateExampleRequestDto request,

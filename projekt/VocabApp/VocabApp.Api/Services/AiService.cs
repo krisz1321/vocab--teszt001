@@ -117,6 +117,115 @@ public sealed class AiService(
         };
     }
 
+    public async Task<GenerateExtraDefinitionResponseDto?> GenerateExtraDefinitionAsync(
+        int userId,
+        GenerateExtraDefinitionRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var owned = await dbContext.Cards
+            .AsNoTracking()
+            .Where(card => card.Id == request.CardId && card.Deck.UserId == userId)
+            .Select(card => new
+            {
+                DeckLevel = card.Deck.ExampleLevel,
+                AccountLevel = card.Deck.User.ExampleLevel,
+                card.Deck.User.ReuseSavedExamples,
+                card.Deck.User.GenerateAlternateDefinitions
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (owned is null)
+        {
+            return null;
+        }
+
+        if (!owned.GenerateAlternateDefinitions)
+        {
+            return new GenerateExtraDefinitionResponseDto
+            {
+                Available = false,
+                Reason = GenerateExtraDefinitionResponseDto.AlternateDisabled
+            };
+        }
+
+        string level;
+        if (ExampleLevels.IsAllowed(owned.DeckLevel))
+        {
+            level = owned.DeckLevel;
+        }
+        else if (ExampleLevels.IsAllowed(owned.AccountLevel))
+        {
+            level = owned.AccountLevel;
+        }
+        else
+        {
+            level = ExampleLevels.Default;
+        }
+
+        var termKey = request.Term.Trim().ToLowerInvariant();
+        var avoidDefinition = request.AvoidDefinition.Trim();
+        if (owned.ReuseSavedExamples)
+        {
+            var savedDefinitions = await dbContext.SavedDefinitions
+                .AsNoTracking()
+                .Where(item => item.TermKey == termKey && item.Level == level)
+                .Select(item => item.Definition)
+                .ToListAsync(cancellationToken);
+            var differentEnough = savedDefinitions
+                .Where(definition => IsAcceptableExtraDefinition(definition, request.Term, avoidDefinition))
+                .ToList();
+
+            if (differentEnough.Count > 0 && Random.Shared.Next(2) == 0)
+            {
+                return new GenerateExtraDefinitionResponseDto
+                {
+                    Available = true,
+                    Definition = differentEnough[Random.Shared.Next(differentEnough.Count)]
+                };
+            }
+        }
+
+        var systemPrompt =
+            "Write one short English sentence that defines the supplied term in a different wording from the definition to avoid. " +
+            $"The requested CEFR level is {level}; treat it as a recommendation and prefer that level's vocabulary. " +
+            "Do not use the given term, its root, or an obvious inflected form. " +
+            "Return only a JSON object with exactly one string property: definition.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            request.Term,
+            AvoidDefinition = avoidDefinition,
+            Level = level
+        });
+
+        string? accepted = null;
+        for (var attempt = 0; attempt < 2 && accepted is null; attempt++)
+        {
+            var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+            var generated = DeserializeContent<GeneratedDefinitionContent>(content);
+            var definition = generated.Definition.Trim();
+            if (IsAcceptableExtraDefinition(definition, request.Term, avoidDefinition))
+            {
+                accepted = definition;
+            }
+        }
+
+        if (accepted is null)
+        {
+            return new GenerateExtraDefinitionResponseDto
+            {
+                Available = false,
+                Reason = GenerateExtraDefinitionResponseDto.NotDifferentEnough
+            };
+        }
+
+        await SaveDefinitionAsync(termKey, level, accepted, cancellationToken);
+        return new GenerateExtraDefinitionResponseDto
+        {
+            Available = true,
+            Definition = accepted
+        };
+    }
+
     public async Task<GenerateExampleResponseDto?> GenerateExampleAsync(
         int userId,
         GenerateExampleRequestDto request,
@@ -694,6 +803,28 @@ public sealed class AiService(
         }
 
         return value[..maxLength];
+    }
+
+    private static bool IsAcceptableExtraDefinition(string definition, string term, string avoidDefinition)
+    {
+        return !string.IsNullOrWhiteSpace(definition) &&
+               definition.Length <= 500 &&
+               !ContainsForbiddenTermOrStem(definition, term) &&
+               DiffersEnough(definition, avoidDefinition);
+    }
+
+    private static bool DiffersEnough(string candidate, string avoid)
+    {
+        var candidateWords = Tokenize(candidate).ToHashSet(StringComparer.Ordinal);
+        var avoidWords = Tokenize(avoid).ToHashSet(StringComparer.Ordinal);
+        if (candidateWords.Count == 0 || avoidWords.Count == 0)
+        {
+            return false;
+        }
+
+        var common = candidateWords.Count(word => avoidWords.Contains(word));
+        var union = candidateWords.Count + avoidWords.Count - common;
+        return union > 0 && 7L * union >= 10L * common;
     }
 
     private static bool ContainsForbiddenTermOrStem(string definition, string term)

@@ -62,6 +62,12 @@ interface DefinitionResponse {
   reused: boolean;
 }
 
+interface ExtraDefinitionResponse {
+  available: boolean;
+  definition: string;
+  reason: string | null;
+}
+
 interface ExampleResponse {
   example: string;
   reused: boolean;
@@ -355,6 +361,12 @@ const hungarianPlain = 'aeiooouuu';
                   </div>
                 } @else if (promptDefinition) {
                   <p class="lead">{{ promptDefinition }}</p>
+                  @if (extraDefinition) {
+                    <p class="small text-body-secondary">{{ extraDefinition }}</p>
+                  }
+                  @if (extraDefinitionMessage) {
+                    <p class="small text-body-secondary">{{ extraDefinitionMessage }}</p>
+                  }
                 }
 
                 @if (!isLoadingPrompt && !promptDefinition) {
@@ -395,6 +407,20 @@ const hungarianPlain = 'aeiooouuu';
                       (click)="giveUpRecognition()"
                       [disabled]="secondsUntilAnswer > 0 || isSubmitting || updatedProgress !== null">
                       Nem tudom
+                    </button>
+                  </div>
+                  <div class="mt-3">
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      (click)="loadExtraDefinition()"
+                      [disabled]="isLoadingExtraDefinition"
+                      aria-label="Másik definíció">
+                      @if (isLoadingExtraDefinition) {
+                        <span class="spinner-border spinner-border-sm"></span>
+                      } @else {
+                        +
+                      }
                     </button>
                   </div>
                 }
@@ -497,6 +523,9 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   generatedExample: string | null = null;
   generatedExampleReused = false;
   promptDefinition: string | null = null;
+  extraDefinition: string | null = null;
+  extraDefinitionMessage: string | null = null;
+  isLoadingExtraDefinition = false;
   meaningCorrect: boolean | null = null;
   recognitionCorrect: boolean | null = null;
   validationResult: ValidationResponse | null = null;
@@ -611,6 +640,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     const cardId = this.card.id;
     this.errorMessage = null;
     this.promptDefinition = null;
+    this.extraDefinition = null;
+    this.extraDefinitionMessage = null;
     this.isLoadingPrompt = true;
     this.http.post<DefinitionResponse>(
       `${this.apiBaseUrl}/ai/generate/definition`,
@@ -628,6 +659,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
           }
 
           this.promptDefinition = response.definition;
+          this.extraDefinition = null;
+          this.extraDefinitionMessage = null;
         },
         error: (error: HttpErrorResponse) => {
           if (generation !== this.loadGeneration || this.card?.id !== cardId) {
@@ -822,6 +855,54 @@ export class StudyCardComponent implements OnInit, OnDestroy {
           }
 
           this.setHttpError(error, 'A célnyelvi jelentés mentése');
+        },
+      });
+  }
+
+  loadExtraDefinition(): void {
+    if (!this.card || !this.promptDefinition || this.isRecognitionRevealed || this.isLoadingExtraDefinition) {
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    const cardId = this.card.id;
+    const avoidDefinition = this.promptDefinition;
+    this.extraDefinitionMessage = null;
+    this.isLoadingExtraDefinition = true;
+    this.http.post<ExtraDefinitionResponse>(
+      `${this.apiBaseUrl}/ai/generate/extra-definition`,
+      { term: this.card.term, cardId: this.card.id, avoidDefinition },
+    )
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration && this.card?.id === cardId) {
+          this.isLoadingExtraDefinition = false;
+        }
+      }))
+      .subscribe({
+        next: response => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId || this.isRecognitionRevealed) {
+            return;
+          }
+
+          if (!response.available || !response.definition) {
+            this.extraDefinitionMessage = response.reason === 'alternateDisabled'
+              ? 'A váltakozó definíció ki van kapcsolva, ezért nincs második, eltérő definíció.'
+              : 'Nem sikerült a látható definíciótól legalább 30 százalékban eltérő szöveget kapni.';
+            if (response.reason === 'alternateDisabled') {
+              this.extraDefinition = null;
+            }
+            return;
+          }
+
+          this.extraDefinition = response.definition;
+          this.extraDefinitionMessage = null;
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.setHttpError(error, 'A második definíció kérése');
         },
       });
   }
@@ -1129,6 +1210,9 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.generatedExample = null;
     this.generatedExampleReused = false;
     this.promptDefinition = null;
+    this.extraDefinition = null;
+    this.extraDefinitionMessage = null;
+    this.isLoadingExtraDefinition = false;
     this.meaningCorrect = null;
     this.meaningAwaitingGrade = false;
     this.continueAfterMeaningSubmit = false;
