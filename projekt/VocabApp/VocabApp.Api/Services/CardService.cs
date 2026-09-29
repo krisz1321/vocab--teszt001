@@ -58,10 +58,19 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
                 card.Id,
                 card.Term,
                 card.Definition,
+                card.Example,
                 card.TargetMeanings,
                 DeckName = card.Deck.Name,
                 LearnedAt = card.Progress!.LearnedAt,
-                LastReviewedAt = card.Progress!.LastReviewedAt
+                FirstReviewedAt = card.Progress!.FirstReviewedAt,
+                LastReviewedAt = card.Progress!.LastReviewedAt,
+                NextReviewDate = card.Progress!.NextReviewDate,
+                Streak = card.Progress!.Streak,
+                Interval = card.Progress!.Interval,
+                EaseFactor = card.Progress!.EaseFactor,
+                CorrectCount = card.Progress!.CorrectCount,
+                IncorrectCount = card.Progress!.IncorrectCount,
+                MarkedKnown = card.Progress!.MarkedKnown
             })
             .ToListAsync(cancellationToken);
 
@@ -70,14 +79,23 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             Id = row.Id,
             Term = row.Term,
             Definition = row.Definition,
+            Example = row.Example,
             TargetMeanings = row.TargetMeanings,
             DeckName = row.DeckName,
-            LearnedAt = DateTime.SpecifyKind(row.LearnedAt!.Value, DateTimeKind.Utc),
-            LastReviewedAt = row.LastReviewedAt is null
-                ? null
-                : DateTime.SpecifyKind(row.LastReviewedAt.Value, DateTimeKind.Utc)
+            LearnedAt = AsUtc(row.LearnedAt!.Value),
+            FirstReviewedAt = row.FirstReviewedAt is null ? null : AsUtc(row.FirstReviewedAt.Value),
+            LastReviewedAt = row.LastReviewedAt is null ? null : AsUtc(row.LastReviewedAt.Value),
+            NextReviewDate = AsUtc(row.NextReviewDate),
+            Streak = row.Streak,
+            Interval = row.Interval,
+            EaseFactor = row.EaseFactor,
+            CorrectCount = row.CorrectCount,
+            IncorrectCount = row.IncorrectCount,
+            MarkedKnown = row.MarkedKnown
         }).ToList();
     }
+
+    private static DateTime AsUtc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc);
 
     public async Task<DeckCardResult<CardDto>> CreateAsync(
         int userId,

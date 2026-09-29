@@ -33,10 +33,19 @@ interface LearnedCard {
   id: number;
   term: string;
   definition: string;
+  example: string | null;
   targetMeanings: string | null;
   deckName: string;
   learnedAt: string;
+  firstReviewedAt: string | null;
   lastReviewedAt: string | null;
+  nextReviewDate: string;
+  streak: number;
+  interval: number;
+  easeFactor: number;
+  correctCount: number;
+  incorrectCount: number;
+  markedKnown: boolean;
 }
 
 interface ProblemDetails {
@@ -164,7 +173,26 @@ interface ImportResult {
           <section class="border rounded p-3">
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
               <h2 class="h5 mb-0">{{ viewingLearned ? 'Megtanult szavak' : selectedDeckName() }}</h2>
-              @if (!viewingLearned) {
+              @if (viewingLearned) {
+              <div class="d-flex gap-2">
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  [class.btn-primary]="learnedDetailed"
+                  [class.btn-outline-secondary]="!learnedDetailed"
+                  (click)="learnedDetailed = true">
+                  Részletes
+                </button>
+                <button
+                  type="button"
+                  class="btn btn-sm"
+                  [class.btn-primary]="!learnedDetailed"
+                  [class.btn-outline-secondary]="learnedDetailed"
+                  (click)="learnedDetailed = false">
+                  Felületes
+                </button>
+              </div>
+              } @else {
               <div class="d-flex gap-2">
                 <button
                   type="button"
@@ -262,6 +290,14 @@ interface ImportResult {
               <div class="alert alert-info mb-0">Még nincs megtanult szavad.</div>
             } @else if (!viewingLearned && cards.length === 0) {
               <div class="alert alert-info mb-0">Ebben a pakliban még nincs kártya.</div>
+            } @else if (viewingLearned && !learnedDetailed) {
+              <div class="list-group">
+                @for (card of learnedCards; track card.id) {
+                  <div class="list-group-item">
+                    <div class="fw-semibold">{{ card.term }}</div>
+                  </div>
+                }
+              </div>
             } @else if (viewingLearned) {
               <div class="list-group">
                 @for (card of learnedCards; track card.id) {
@@ -273,9 +309,22 @@ interface ImportResult {
                         @if (card.targetMeanings) {
                           <div>{{ card.targetMeanings }}</div>
                         }
+                        @if (card.example) {
+                          <div class="text-body-secondary">{{ card.example }}</div>
+                        }
                         <div class="text-body-secondary">Forráspakli: {{ card.deckName }}</div>
                         <div class="text-body-secondary">Megtanulva: {{ formatLocalTime(card.learnedAt) }}</div>
                         <div class="text-body-secondary">Utolsó kérdés: {{ formatLocalTime(card.lastReviewedAt, 'Még nem volt kérdezve.') }}</div>
+                        <div class="text-body-secondary">Első kérdés: {{ formatLocalTime(card.firstReviewedAt, 'Még nem volt kérdezve.') }}</div>
+                        <div class="text-body-secondary">Következő ismétlés: {{ formatLocalTime(card.nextReviewDate) }}</div>
+                        <div class="text-body-secondary">Sorozat: {{ card.streak }}</div>
+                        <div class="text-body-secondary">Időköz: {{ card.interval }} nap</div>
+                        <div class="text-body-secondary">Könnyűség: {{ card.easeFactor }}</div>
+                        <div class="text-body-secondary">Helyes válaszok: {{ card.correctCount }}</div>
+                        <div class="text-body-secondary">Hibák: {{ card.incorrectCount }}</div>
+                        @if (card.markedKnown) {
+                          <div class="text-body-secondary">Ismertnek jelölve</div>
+                        }
                       </div>
                       <button
                         type="button"
@@ -422,6 +471,7 @@ export class DecksComponent implements OnInit {
   cards: VocabCard[] = [];
   learnedCards: LearnedCard[] = [];
   viewingLearned = false;
+  learnedDetailed = true;
   previewCards: VocabCard[] = [];
   previewDeckId: number | null = null;
   selectedDeckId: number | null = null;
@@ -473,6 +523,7 @@ export class DecksComponent implements OnInit {
     }
 
     this.viewingLearned = false;
+    this.learnedDetailed = true;
     this.selectedDeckId = deckId;
     this.importMessage = null;
     this.cancelEdit();
@@ -485,6 +536,7 @@ export class DecksComponent implements OnInit {
     }
 
     this.viewingLearned = true;
+    this.learnedDetailed = true;
     this.selectedDeckId = null;
     this.importMessage = null;
     this.cancelEdit();
