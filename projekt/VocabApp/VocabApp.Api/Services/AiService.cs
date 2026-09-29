@@ -97,7 +97,7 @@ public sealed class AiService(
             Level = level
         });
 
-        var content = await SendChatRequestAsync(systemPrompt, userPrompt, cancellationToken);
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
         var generated = DeserializeContent<GeneratedDefinitionContent>(content);
         var definition = generated.Definition.Trim();
 
@@ -185,7 +185,7 @@ public sealed class AiService(
             Level = level
         });
 
-        var content = await SendChatRequestAsync(systemPrompt, userPrompt, cancellationToken);
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
         var generated = DeserializeContent<GeneratedExampleContent>(content);
         var sentence = generated.Example.Trim();
 
@@ -207,11 +207,13 @@ public sealed class AiService(
     }
 
     public async Task<GenerateTargetMeaningResponseDto> GenerateTargetMeaningAsync(
+        int userId,
         GenerateTargetMeaningRequestDto request,
         CancellationToken cancellationToken = default)
     {
+        var model = await ResolveModelAsync(userId, cancellationToken);
         var promptHash = HashPrompt(
-            $"target-meaning\n{request.Term.Trim().ToLowerInvariant()}\n{request.Definition.Trim()}");
+            $"target-meaning\n{model}\n{request.Term.Trim().ToLowerInvariant()}\n{request.Definition.Trim()}");
         var cached = await FindCachedAsync<GenerateTargetMeaningResponseDto>(promptHash, cancellationToken);
         if (cached is not null)
         {
@@ -228,7 +230,7 @@ public sealed class AiService(
             request.Definition
         });
 
-        var content = await SendChatRequestAsync(systemPrompt, userPrompt, cancellationToken);
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken, model);
         var result = DeserializeContent<GenerateTargetMeaningResponseDto>(content);
         result.Meanings = result.Meanings.Trim();
 
@@ -246,6 +248,7 @@ public sealed class AiService(
     }
 
     public async Task<ValidateAnswerResponseDto> ValidateAnswerAsync(
+        int userId,
         ValidateAnswerRequestDto request,
         CancellationToken cancellationToken = default)
     {
@@ -261,7 +264,7 @@ public sealed class AiService(
             learnerAnswer = request.Answer
         });
 
-        var content = await SendChatRequestAsync(systemPrompt, userPrompt, cancellationToken);
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
         var result = DeserializeContent<ValidateAnswerResponseDto>(content);
 
         if (string.IsNullOrWhiteSpace(result.Feedback) || result.Feedback.Length > 500)
@@ -460,18 +463,29 @@ public sealed class AiService(
         return Convert.ToHexString(bytes).ToLowerInvariant();
     }
 
+    private async Task<string> ResolveModelAsync(int userId, CancellationToken cancellationToken)
+    {
+        var stored = await dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => user.AiModel)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return AiModels.IsAllowed(stored) ? stored : AiModels.Default;
+    }
+
     private async Task<string> SendChatRequestAsync(
+        int userId,
         string systemPrompt,
         string userPrompt,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? resolvedModel = null)
     {
         var endpoint = configuration["AiSettings:Endpoint"];
         var apiKey = configuration["AiSettings:ApiKey"];
-        var model = configuration["AiSettings:Model"];
+        var model = resolvedModel ?? await ResolveModelAsync(userId, cancellationToken);
 
-        if (string.IsNullOrWhiteSpace(endpoint) ||
-            string.IsNullOrWhiteSpace(apiKey) ||
-            string.IsNullOrWhiteSpace(model))
+        if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(apiKey))
         {
             throw new AiServiceException(
                 AiServiceErrorKind.Configuration,

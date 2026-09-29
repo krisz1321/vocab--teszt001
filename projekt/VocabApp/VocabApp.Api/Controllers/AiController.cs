@@ -85,6 +85,12 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         GenerateTargetMeaningRequestDto request,
         CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
         var isValid = RequireText(request.Term, nameof(request.Term));
         isValid &= RequireText(request.Definition, nameof(request.Definition));
         if (!isValid)
@@ -94,7 +100,7 @@ public sealed class AiController(IAiService aiService) : ControllerBase
 
         try
         {
-            return Ok(await aiService.GenerateTargetMeaningAsync(request, cancellationToken));
+            return Ok(await aiService.GenerateTargetMeaningAsync(userId.Value, request, cancellationToken));
         }
         catch (AiServiceException exception)
         {
@@ -107,6 +113,12 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         ValidateAnswerRequestDto request,
         CancellationToken cancellationToken)
     {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
         var isValid = RequireText(request.Term, nameof(request.Term));
         isValid &= RequireText(request.Definition, nameof(request.Definition));
         isValid &= RequireText(request.Answer, nameof(request.Answer));
@@ -117,7 +129,7 @@ public sealed class AiController(IAiService aiService) : ControllerBase
 
         try
         {
-            return Ok(await aiService.ValidateAnswerAsync(request, cancellationToken));
+            return Ok(await aiService.ValidateAnswerAsync(userId.Value, request, cancellationToken));
         }
         catch (AiServiceException exception)
         {

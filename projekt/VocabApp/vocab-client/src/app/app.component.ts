@@ -33,6 +33,12 @@ interface StudySettings {
   reuseSavedExamples: boolean;
   generateAlternateDefinitions: boolean;
   exampleLevel: string;
+  aiModel: string;
+}
+
+interface AiModelOption {
+  id: string;
+  label: string;
 }
 
 @Component({
@@ -312,6 +318,20 @@ interface StudySettings {
               </select>
               <div class="form-text">Ez a fiók szintje, a pakli saját szintje felülírja.</div>
             </div>
+            <div class="mb-3">
+              <label class="form-label" for="aiModel">MI-modell</label>
+              <select
+                id="aiModel"
+                name="aiModel"
+                class="form-select"
+                [(ngModel)]="aiModel"
+                [disabled]="isSavingStudySettings">
+                @for (model of aiModels; track model.id) {
+                  <option [value]="model.id">{{ model.label }}</option>
+                }
+              </select>
+              <div class="form-text">Minden modell a meglévő OpenRouter-kulcsot használja.</div>
+            </div>
             <button type="submit" class="btn btn-primary" [disabled]="isSavingStudySettings">Mentés</button>
           </form>
           <form (ngSubmit)="changePassword()">
@@ -376,6 +396,13 @@ export class AppComponent implements OnInit {
   generateAlternateDefinitions = true;
   readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
   exampleLevel = 'B1';
+  readonly aiModels: AiModelOption[] = [
+    { id: 'google/gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+    { id: 'google/gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
+    { id: 'google/gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
+    { id: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
+  ];
+  aiModel = 'google/gemini-3.6-flash';
   isSavingStudySettings = false;
   private userId: number | null = null;
 
@@ -521,6 +548,11 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    if (!this.aiModels.some((model) => model.id === this.aiModel)) {
+      this.profileError = 'Az MI-modell a felsorolt négy közül választható.';
+      return;
+    }
+
     this.isSavingStudySettings = true;
     this.http.put<StudySettings>('/api/study/settings', {
       dailyNewCardGoal: goal,
@@ -529,6 +561,7 @@ export class AppComponent implements OnInit {
       reuseSavedExamples: this.reuseSavedExamples,
       generateAlternateDefinitions: this.generateAlternateDefinitions,
       exampleLevel: this.exampleLevel,
+      aiModel: this.aiModel,
     }).pipe(
       finalize(() => {
         this.isSavingStudySettings = false;
@@ -541,6 +574,7 @@ export class AppComponent implements OnInit {
         this.reuseSavedExamples = settings.reuseSavedExamples;
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.exampleLevel = settings.exampleLevel;
+        this.aiModel = settings.aiModel;
         this.profileMessage = 'A tanulási beállítások mentve.';
       },
       error: (error: HttpErrorResponse) => {
@@ -610,6 +644,7 @@ export class AppComponent implements OnInit {
         this.reuseSavedExamples = settings.reuseSavedExamples;
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.exampleLevel = settings.exampleLevel;
+        this.aiModel = settings.aiModel;
       },
       error: (error: HttpErrorResponse) => {
         this.profileError = this.readProblem(error, 'A tanulási beállítások betöltése sikertelen.');

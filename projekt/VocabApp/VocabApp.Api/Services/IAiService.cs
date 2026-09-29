@@ -15,10 +15,12 @@ public interface IAiService
         CancellationToken cancellationToken = default);
 
     Task<GenerateTargetMeaningResponseDto> GenerateTargetMeaningAsync(
+        int userId,
         GenerateTargetMeaningRequestDto request,
         CancellationToken cancellationToken = default);
 
     Task<ValidateAnswerResponseDto> ValidateAnswerAsync(
+        int userId,
         ValidateAnswerRequestDto request,
         CancellationToken cancellationToken = default);
 }

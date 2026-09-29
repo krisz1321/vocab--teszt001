@@ -28,6 +28,9 @@ public sealed class User
     [Required, MaxLength(2)]
     public string ExampleLevel { get; set; } = ExampleLevels.Default;
 
+    [Required, MaxLength(64)]
+    public string AiModel { get; set; } = AiModels.Default;
+
     public int StudyDayStreak { get; set; }
 
     public int LongestStudyDayStreak { get; set; }

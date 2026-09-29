@@ -18,4 +18,7 @@ public sealed class StudySettingsDto
 
     [Required, MaxLength(2)]
     public string ExampleLevel { get; set; } = string.Empty;
+
+    [Required, MaxLength(64)]
+    public string AiModel { get; set; } = string.Empty;
 }

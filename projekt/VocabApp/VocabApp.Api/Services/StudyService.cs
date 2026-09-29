@@ -167,7 +167,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 AutomaticAiCheck = user.AutomaticAiCheck,
                 ReuseSavedExamples = user.ReuseSavedExamples,
                 GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
-                ExampleLevel = user.ExampleLevel
+                ExampleLevel = user.ExampleLevel,
+                AiModel = user.AiModel
             })
             .SingleOrDefaultAsync(cancellationToken);
     }
@@ -183,6 +184,12 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "Example level is invalid");
         }
 
+        var aiModel = request.AiModel?.Trim();
+        if (!AiModels.IsAllowed(aiModel))
+        {
+            return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "AI model is invalid");
+        }
+
         var user = await dbContext.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null)
         {
@@ -195,6 +202,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.ReuseSavedExamples = request.ReuseSavedExamples;
         user.GenerateAlternateDefinitions = request.GenerateAlternateDefinitions;
         user.ExampleLevel = exampleLevel;
+        user.AiModel = aiModel;
         await dbContext.SaveChangesAsync(cancellationToken);
         return StudySettingsResult.Success(new StudySettingsDto
         {
@@ -203,7 +211,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             AutomaticAiCheck = user.AutomaticAiCheck,
             ReuseSavedExamples = user.ReuseSavedExamples,
             GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
-            ExampleLevel = user.ExampleLevel
+            ExampleLevel = user.ExampleLevel,
+            AiModel = user.AiModel
         });
     }
 
