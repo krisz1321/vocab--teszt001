@@ -470,6 +470,149 @@ public sealed class AiService(
         return result;
     }
 
+    public async Task<RecognizeAmbiguityResponseDto?> RecognizeAmbiguityAsync(
+        int userId,
+        RecognizeAmbiguityRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var owned = await dbContext.Cards
+            .AsNoTracking()
+            .Where(card => card.Id == request.CardId && card.Deck.UserId == userId)
+            .Select(card => new
+            {
+                card.Term,
+                DeckLevel = card.Deck.ExampleLevel,
+                AccountLevel = card.Deck.User.ExampleLevel
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (owned is null)
+        {
+            return null;
+        }
+
+        var term = owned.Term.Trim();
+        var guess = request.Guess.Trim();
+        var visibleDefinition = request.Definition.Trim();
+        if (NormalizeAnswer(guess) == NormalizeAnswer(term))
+        {
+            return new RecognizeAmbiguityResponseDto
+            {
+                MatchesTerm = true
+            };
+        }
+
+        var fits = await DefinitionFitsGuessAsync(userId, visibleDefinition, guess, cancellationToken);
+        if (!fits)
+        {
+            return new RecognizeAmbiguityResponseDto();
+        }
+
+        string level;
+        if (ExampleLevels.IsAllowed(owned.DeckLevel))
+        {
+            level = owned.DeckLevel;
+        }
+        else if (ExampleLevels.IsAllowed(owned.AccountLevel))
+        {
+            level = owned.AccountLevel;
+        }
+        else
+        {
+            level = ExampleLevels.Default;
+        }
+
+        var hint = await CreateNarrowingHintAsync(
+            userId,
+            term,
+            guess,
+            visibleDefinition,
+            level,
+            cancellationToken);
+
+        if (hint is not null)
+        {
+            await SaveDefinitionAsync(term.ToLowerInvariant(), level, hint, cancellationToken);
+        }
+
+        return new RecognizeAmbiguityResponseDto
+        {
+            FitsGuess = true,
+            Hint = hint
+        };
+    }
+
+    private async Task<bool> DefinitionFitsGuessAsync(
+        int userId,
+        string visibleDefinition,
+        string guess,
+        CancellationToken cancellationToken)
+    {
+        const string systemPrompt =
+            "Decide whether the supplied English definition is also true of the learner's guess. " +
+            "Judge the guess by its meaning. The guess may be English or another language, including Hungarian. " +
+            "The definition fits when it correctly describes the guess, even if it could also describe other words. " +
+            "The definition does not fit when it is false for that guess. " +
+            "Return only a JSON object with exactly one boolean property: fitsGuess.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            Definition = visibleDefinition,
+            Guess = guess
+        });
+
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+        return DeserializeContent<FitsGuessContent>(content).FitsGuess;
+    }
+
+    private async Task<string?> CreateNarrowingHintAsync(
+        int userId,
+        string term,
+        string guess,
+        string visibleDefinition,
+        string level,
+        CancellationToken cancellationToken)
+    {
+        var systemPrompt =
+            "Write one short English sentence that is true of the supplied term and false of the rejected guess. " +
+            "Judge the rejected guess by its meaning, even when it is not English, for example Hungarian. " +
+            $"The requested CEFR level is {level}; treat it as a recommendation and prefer that level's vocabulary. " +
+            "Do not use the term, its root, or an obvious inflected form. " +
+            "Do not use the rejected guess, its root, or an obvious inflected form. " +
+            "Do not repeat the visible definition. " +
+            "Return only a JSON object with exactly one string property: definition.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            Term = term,
+            RejectedGuess = guess,
+            VisibleDefinition = visibleDefinition,
+            Level = level
+        });
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            try
+            {
+                var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+                var generated = DeserializeContent<GeneratedDefinitionContent>(content);
+                var definition = generated.Definition.Trim();
+                if (IsAcceptableNarrowingHint(definition, term, guess, visibleDefinition))
+                {
+                    return definition;
+                }
+            }
+            catch (AiServiceException) when (attempt == 0)
+            {
+                continue;
+            }
+            catch (AiServiceException)
+            {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
     private sealed class GeneratedDefinitionContent
     {
         public string Definition { get; set; } = string.Empty;
@@ -478,6 +621,11 @@ public sealed class AiService(
     private sealed class GeneratedExampleContent
     {
         public string Example { get; set; } = string.Empty;
+    }
+
+    private sealed class FitsGuessContent
+    {
+        public bool FitsGuess { get; set; }
     }
 
     private async Task SaveDefinitionAsync(
@@ -895,6 +1043,25 @@ public sealed class AiService(
                definition.Length <= 500 &&
                !ContainsForbiddenTermOrStem(definition, term) &&
                DiffersEnough(definition, avoidDefinition);
+    }
+
+    private static bool IsAcceptableNarrowingHint(
+        string definition,
+        string term,
+        string guess,
+        string visibleDefinition)
+    {
+        return !string.IsNullOrWhiteSpace(definition) &&
+               definition.Length <= 500 &&
+               !ContainsForbiddenTermOrStem(definition, term) &&
+               !ContainsForbiddenTermOrStem(definition, guess) &&
+               DiffersEnough(definition, visibleDefinition);
+    }
+
+    private static string NormalizeAnswer(string value)
+    {
+        var parts = value.Trim().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        return string.Join(' ', parts).ToLowerInvariant();
     }
 
     private static bool DiffersEnough(string candidate, string avoid)

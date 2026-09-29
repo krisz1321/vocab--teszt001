@@ -176,6 +176,41 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         }
     }
 
+    [HttpPost("recognize-ambiguity")]
+    public async Task<ActionResult<RecognizeAmbiguityResponseDto>> RecognizeAmbiguity(
+        RecognizeAmbiguityRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var isValid = RequireText(request.Definition, nameof(request.Definition));
+        isValid &= RequireText(request.Guess, nameof(request.Guess));
+        if (!isValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            var result = await aiService.RecognizeAmbiguityAsync(userId.Value, request, cancellationToken);
+            return result is null
+                ? NotFound(new ProblemDetails
+                {
+                    Title = "Card not found",
+                    Status = StatusCodes.Status404NotFound
+                })
+                : Ok(result);
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
     [HttpPost("validate")]
     public async Task<ActionResult<ValidateAnswerResponseDto>> Validate(
         ValidateAnswerRequestDto request,

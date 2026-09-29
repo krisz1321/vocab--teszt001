@@ -68,6 +68,12 @@ interface ExtraDefinitionResponse {
   reason: string | null;
 }
 
+interface RecognizeAmbiguityResponse {
+  matchesTerm: boolean;
+  fitsGuess: boolean;
+  hint: string | null;
+}
+
 interface ExampleResponse {
   example: string;
   reused: boolean;
@@ -361,11 +367,18 @@ const hungarianPlain = 'aeiooouuu';
                   </div>
                 } @else if (promptDefinition) {
                   <p class="lead">{{ promptDefinition }}</p>
-                  @if (extraDefinition) {
-                    <p class="small text-body-secondary">{{ extraDefinition }}</p>
-                  }
-                  @if (extraDefinitionMessage) {
-                    <p class="small text-body-secondary">{{ extraDefinitionMessage }}</p>
+                  @if (recognitionSecondChance && !isRecognitionRevealed) {
+                    @if (recognitionHint) {
+                      <p class="small text-body-secondary">{{ recognitionHint }}</p>
+                    }
+                    <p class="small text-body-secondary">Ez a definíció a beírt szóra is illik. Írd be újra a szót.</p>
+                  } @else {
+                    @if (extraDefinition) {
+                      <p class="small text-body-secondary">{{ extraDefinition }}</p>
+                    }
+                    @if (extraDefinitionMessage) {
+                      <p class="small text-body-secondary">{{ extraDefinitionMessage }}</p>
+                    }
                   }
                 }
 
@@ -387,7 +400,7 @@ const hungarianPlain = 'aeiooouuu';
                     rows="3"
                     maxlength="100"
                     [(ngModel)]="answer"
-                    [disabled]="isLoadingPrompt || isSubmitting || updatedProgress !== null"
+                    [disabled]="isLoadingPrompt || isCheckingRecognition || isSubmitting || updatedProgress !== null"
                     placeholder="Írd be az angol szót…"></textarea>
 
                   <div class="d-grid d-sm-flex gap-2 mt-3">
@@ -395,8 +408,8 @@ const hungarianPlain = 'aeiooouuu';
                       type="button"
                       class="btn btn-primary"
                       (click)="checkRecognitionAnswer()"
-                      [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isLoadingPrompt || isSubmitting || updatedProgress !== null">
-                      @if (isSubmitting) {
+                      [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isLoadingPrompt || isCheckingRecognition || isSubmitting || updatedProgress !== null">
+                      @if (isCheckingRecognition || isSubmitting) {
                         <span class="spinner-border spinner-border-sm me-2"></span>
                       }
                       Válasz ellenőrzése
@@ -405,24 +418,26 @@ const hungarianPlain = 'aeiooouuu';
                       type="button"
                       class="btn btn-outline-secondary"
                       (click)="giveUpRecognition()"
-                      [disabled]="secondsUntilAnswer > 0 || isSubmitting || updatedProgress !== null">
+                      [disabled]="secondsUntilAnswer > 0 || isCheckingRecognition || isSubmitting || updatedProgress !== null">
                       Nem tudom
                     </button>
                   </div>
-                  <div class="mt-3">
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary btn-sm"
-                      (click)="loadExtraDefinition()"
-                      [disabled]="isLoadingExtraDefinition"
-                      aria-label="Másik definíció">
-                      @if (isLoadingExtraDefinition) {
-                        <span class="spinner-border spinner-border-sm"></span>
-                      } @else {
-                        +
-                      }
-                    </button>
-                  </div>
+                  @if (!recognitionSecondChance) {
+                    <div class="mt-3">
+                      <button
+                        type="button"
+                        class="btn btn-outline-secondary btn-sm"
+                        (click)="loadExtraDefinition()"
+                        [disabled]="isLoadingExtraDefinition || isCheckingRecognition"
+                        aria-label="Másik definíció">
+                        @if (isLoadingExtraDefinition) {
+                          <span class="spinner-border spinner-border-sm"></span>
+                        } @else {
+                          +
+                        }
+                      </button>
+                    </div>
+                  }
                 }
 
                 @if (isRecognitionRevealed) {
@@ -525,7 +540,10 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   promptDefinition: string | null = null;
   extraDefinition: string | null = null;
   extraDefinitionMessage: string | null = null;
+  recognitionSecondChance = false;
+  recognitionHint: string | null = null;
   isLoadingExtraDefinition = false;
+  isCheckingRecognition = false;
   meaningCorrect: boolean | null = null;
   recognitionCorrect: boolean | null = null;
   validationResult: ValidationResponse | null = null;
@@ -561,6 +579,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   get isInteractionLocked(): boolean {
     return this.isLoadingCard ||
       this.isLoadingPrompt ||
+      this.isCheckingRecognition ||
       this.isGeneratingDefinition ||
       this.isGeneratingExample ||
       this.isGeneratingTargetMeaning ||
@@ -860,7 +879,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   }
 
   loadExtraDefinition(): void {
-    if (!this.card || !this.promptDefinition || this.isRecognitionRevealed || this.isLoadingExtraDefinition) {
+    if (!this.card || !this.promptDefinition || this.isRecognitionRevealed || this.recognitionSecondChance || this.isLoadingExtraDefinition || this.isCheckingRecognition) {
       return;
     }
 
@@ -908,7 +927,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   }
 
   checkRecognitionAnswer(): void {
-    if (!this.card || !this.promptDefinition || this.isRecognitionRevealed || this.secondsUntilAnswer > 0) {
+    if (!this.card || !this.promptDefinition || this.isRecognitionRevealed || this.secondsUntilAnswer > 0 || this.isCheckingRecognition || this.isSubmitting) {
       return;
     }
 
@@ -919,18 +938,59 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     }
 
     this.errorMessage = null;
-    const isCorrect = this.normalizeText(trimmedAnswer) === this.normalizeText(this.card.term);
-    this.recognitionCorrect = isCorrect;
-    this.isRecognitionRevealed = true;
-    if (isCorrect) {
-      this.submitResult(true, false);
-    } else {
-      this.submitResult(false, false, trimmedAnswer);
+    if (this.recognitionSecondChance || this.normalizeText(trimmedAnswer) === this.normalizeText(this.card.term)) {
+      this.finishRecognitionAnswer(trimmedAnswer);
+      return;
     }
+
+    const generation = this.loadGeneration;
+    const cardId = this.card.id;
+    const visibleDefinition = this.promptDefinition;
+    this.isCheckingRecognition = true;
+    this.http.post<RecognizeAmbiguityResponse>(
+      `${this.apiBaseUrl}/ai/recognize-ambiguity`,
+      { cardId, definition: visibleDefinition, guess: trimmedAnswer },
+    )
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration && this.card?.id === cardId) {
+          this.isCheckingRecognition = false;
+        }
+      }))
+      .subscribe({
+        next: response => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId || this.isRecognitionRevealed) {
+            return;
+          }
+
+          if (response.matchesTerm) {
+            this.recognitionCorrect = true;
+            this.isRecognitionRevealed = true;
+            this.submitResult(true, false);
+            return;
+          }
+
+          if (!response.fitsGuess) {
+            this.finishRecognitionAnswer(trimmedAnswer);
+            return;
+          }
+
+          const hint = response.hint?.trim();
+          this.recognitionHint = hint ? hint : null;
+          this.recognitionSecondChance = true;
+          this.answer = '';
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.setHttpError(error, 'A válasz ellenőrzése');
+        },
+      });
   }
 
   giveUpRecognition(): void {
-    if (!this.card || !this.promptDefinition || this.isRecognitionRevealed || this.isSubmitting || this.secondsUntilAnswer > 0) {
+    if (!this.card || !this.promptDefinition || this.isRecognitionRevealed || this.isCheckingRecognition || this.isSubmitting || this.secondsUntilAnswer > 0) {
       return;
     }
 
@@ -1061,6 +1121,21 @@ export class StudyCardComponent implements OnInit, OnDestroy {
         !this.isValidating &&
         !this.isSubmitting) {
       this.loadNextCard();
+    }
+  }
+
+  private finishRecognitionAnswer(trimmedAnswer: string): void {
+    if (!this.card) {
+      return;
+    }
+
+    const isCorrect = this.normalizeText(trimmedAnswer) === this.normalizeText(this.card.term);
+    this.recognitionCorrect = isCorrect;
+    this.isRecognitionRevealed = true;
+    if (isCorrect) {
+      this.submitResult(true, false);
+    } else {
+      this.submitResult(false, false, trimmedAnswer);
     }
   }
 
@@ -1212,7 +1287,10 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.promptDefinition = null;
     this.extraDefinition = null;
     this.extraDefinitionMessage = null;
+    this.recognitionSecondChance = false;
+    this.recognitionHint = null;
     this.isLoadingExtraDefinition = false;
+    this.isCheckingRecognition = false;
     this.meaningCorrect = null;
     this.meaningAwaitingGrade = false;
     this.continueAfterMeaningSubmit = false;
