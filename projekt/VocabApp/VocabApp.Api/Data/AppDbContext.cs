@@ -33,6 +33,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.DailyNewCardGoal).HasDefaultValue(20);
         user.Property(u => u.MinimumAnswerSeconds).HasDefaultValue(0);
         user.Property(u => u.AutomaticAiCheck).HasDefaultValue(false);
+        user.Property(u => u.AcceptHungarianParaphrase).HasDefaultValue(false);
         user.Property(u => u.ReuseSavedExamples).HasDefaultValue(true);
         user.Property(u => u.GenerateAlternateDefinitions).HasDefaultValue(true);
         user.Property(u => u.ExampleLevel).IsRequired().HasMaxLength(2).HasDefaultValue(ExampleLevels.Default);

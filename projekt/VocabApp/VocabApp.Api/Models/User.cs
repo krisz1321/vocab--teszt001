@@ -21,6 +21,8 @@ public sealed class User
 
     public bool AutomaticAiCheck { get; set; }
 
+    public bool AcceptHungarianParaphrase { get; set; }
+
     public bool ReuseSavedExamples { get; set; } = true;
 
     public bool GenerateAlternateDefinitions { get; set; } = true;

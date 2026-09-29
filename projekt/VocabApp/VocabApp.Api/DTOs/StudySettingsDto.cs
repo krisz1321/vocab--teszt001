@@ -12,6 +12,8 @@ public sealed class StudySettingsDto
 
     public bool AutomaticAiCheck { get; set; }
 
+    public bool AcceptHungarianParaphrase { get; set; }
+
     public bool ReuseSavedExamples { get; set; }
 
     public bool GenerateAlternateDefinitions { get; set; }

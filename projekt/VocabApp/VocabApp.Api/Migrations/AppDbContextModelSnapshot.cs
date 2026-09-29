@@ -155,6 +155,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
         {
             entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
                 .HasAnnotation("Sqlite:Autoincrement", true);
+            entity.Property<bool>("AcceptHungarianParaphrase").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(false);
             entity.Property<string>("AiModel").IsRequired().ValueGeneratedOnAdd().HasMaxLength(64).HasColumnType("TEXT").HasDefaultValue("google/gemini-3.6-flash");
             entity.Property<bool>("AutomaticAiCheck").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(false);
             entity.Property<int>("DailyNewCardGoal").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(20);

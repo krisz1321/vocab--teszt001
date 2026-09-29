@@ -8,4 +8,7 @@ public sealed class ValidateAnswerResponseDto
 
     [MaxLength(500)]
     public string Feedback { get; set; } = string.Empty;
+
+    [MaxLength(500)]
+    public string EnglishAnswer { get; set; } = string.Empty;
 }

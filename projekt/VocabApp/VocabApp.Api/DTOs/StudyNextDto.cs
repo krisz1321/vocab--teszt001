@@ -8,5 +8,6 @@ public sealed class StudyNextDto
     public int DailyNewCardGoal { get; set; }
     public int MinimumAnswerSeconds { get; set; }
     public bool AutomaticAiCheck { get; set; }
+    public bool AcceptHungarianParaphrase { get; set; }
     public string Status { get; set; } = "empty";
 }

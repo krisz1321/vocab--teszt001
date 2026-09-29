@@ -31,6 +31,7 @@ interface StudyNextResponse {
   dailyNewCardGoal: number;
   minimumAnswerSeconds: number;
   automaticAiCheck: boolean;
+  acceptHungarianParaphrase: boolean;
   status: 'ready' | 'dailyLimitReached' | 'empty';
 }
 
@@ -82,6 +83,7 @@ interface ExampleResponse {
 interface ValidationResponse {
   isCorrect: boolean;
   feedback: string;
+  englishAnswer?: string;
 }
 
 type StudyMode = 'meaning' | 'definition' | 'recognition';
@@ -298,7 +300,7 @@ const hungarianPlain = 'aeiooouuu';
                   maxlength="1000"
                   [(ngModel)]="answer"
                   [disabled]="isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null"
-                  placeholder="Írd le angolul a jelentését…"></textarea>
+                  [placeholder]="acceptHungarianParaphrase ? 'Írd le angolul vagy magyarul a jelentését…' : 'Írd le angolul a jelentését…'"></textarea>
 
                 <div class="d-grid d-sm-flex gap-2 mt-3">
                   <button
@@ -496,6 +498,9 @@ const hungarianPlain = 'aeiooouuu';
                   [class.alert-danger]="!validationResult.isCorrect">
                   <strong>{{ validationResult.isCorrect ? 'Helyes válasz.' : 'Még nem pontos.' }}</strong>
                   {{ validationResult.feedback }}
+                  @if (mode === 'definition' && validationResult.isCorrect && validationResult.englishAnswer) {
+                    <div class="mt-2">Angolul: {{ validationResult.englishAnswer }}</div>
+                  }
                 </div>
               }
 
@@ -529,6 +534,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   card: StudyCard | null = null;
   mode: StudyMode = 'meaning';
   automaticAiCheck = false;
+  acceptHungarianParaphrase = false;
   meaningAwaitingGrade = false;
   answer = '';
   targetMeaningsDraft = '';
@@ -627,6 +633,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
           this.newCardsIntroducedToday = response.newCardsIntroducedToday;
           this.dailyNewCardGoal = response.dailyNewCardGoal;
           this.automaticAiCheck = response.automaticAiCheck;
+          this.acceptHungarianParaphrase = response.acceptHungarianParaphrase;
           this.studyStatus = response.status;
           this.answerToken = response.answerToken;
           if (response.status !== 'ready' || !response.card || !response.answerToken) {
@@ -1098,6 +1105,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
         term: this.card.term,
         definition: this.card.definition,
         answer: trimmedAnswer,
+        paraphrase: true,
       },
     )
       .pipe(finalize(() => this.isValidating = false))

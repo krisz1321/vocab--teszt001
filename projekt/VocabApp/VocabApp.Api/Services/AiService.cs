@@ -445,11 +445,38 @@ public sealed class AiService(
         ValidateAnswerRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        const string systemPrompt =
-            "Compare the learner's answer with the reference definition semantically. Accept minor grammar and " +
-            "spelling errors, but reject a substantially wrong or opposite meaning. Return only a JSON object " +
-            "with exactly two properties: isCorrect (boolean) and feedback (a non-empty Hungarian string of at " +
-            "most two sentences).";
+        var acceptHungarian = false;
+        if (request.Paraphrase)
+        {
+            acceptHungarian = await dbContext.Users
+                .AsNoTracking()
+                .Where(user => user.Id == userId)
+                .Select(user => (bool?)user.AcceptHungarianParaphrase)
+                .SingleOrDefaultAsync(cancellationToken) ?? false;
+        }
+
+        var systemPrompt = request.Paraphrase
+            ? acceptHungarian
+                ? "The learner is paraphrasing the reference definition and may answer in English or Hungarian. " +
+                  "Compare the learner's answer with the reference definition semantically. Accept the answer when " +
+                  "its meaning matches, in either language. Accept minor grammar and spelling errors, but reject a " +
+                  "substantially wrong or opposite meaning. Return only a JSON object with exactly three properties: " +
+                  "isCorrect (boolean), feedback (a non-empty Hungarian string of at most two sentences), and " +
+                  "englishAnswer (a string of at most 500 characters). When isCorrect is true, englishAnswer is the " +
+                  "learner's own sentence rewritten as one English sentence, not a new definition. For the term " +
+                  "\"cat\", the Hungarian answer \"egy háziállat ami dorombol\" can be correct, and englishAnswer " +
+                  "can be \"A pet that purrs.\" When isCorrect is false, englishAnswer is an empty string."
+                : "The learner is paraphrasing the reference definition and must answer in English. Compare the " +
+                  "learner's answer with the reference definition semantically. Accept minor grammar and spelling " +
+                  "errors, but reject a substantially wrong or opposite meaning. An answer in Hungarian is incorrect " +
+                  "even when its meaning matches; in that case isCorrect is false and the feedback asks the learner " +
+                  "to write the paraphrase in English. Return only a JSON object with exactly three properties: " +
+                  "isCorrect (boolean), feedback (a non-empty Hungarian string of at most two sentences), and " +
+                  "englishAnswer (an empty string)."
+            : "Compare the learner's answer with the reference definition semantically. Accept minor grammar and " +
+              "spelling errors, but reject a substantially wrong or opposite meaning. Return only a JSON object " +
+              "with exactly two properties: isCorrect (boolean) and feedback (a non-empty Hungarian string of at " +
+              "most two sentences).";
         var userPrompt = JsonSerializer.Serialize(new
         {
             request.Term,
@@ -458,9 +485,39 @@ public sealed class AiService(
         });
 
         var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
-        var result = DeserializeContent<ValidateAnswerResponseDto>(content);
+        ValidateAnswerResponseDto result;
+        if (request.Paraphrase)
+        {
+            var parsed = DeserializeContent<ParaphraseValidationContent>(content);
+            result = new ValidateAnswerResponseDto
+            {
+                IsCorrect = parsed.IsCorrect,
+                Feedback = parsed.Feedback?.Trim() ?? string.Empty,
+                EnglishAnswer = parsed.EnglishAnswer?.Trim() ?? string.Empty
+            };
+        }
+        else
+        {
+            var parsed = DeserializeContent<MeaningValidationContent>(content);
+            result = new ValidateAnswerResponseDto
+            {
+                IsCorrect = parsed.IsCorrect,
+                Feedback = parsed.Feedback?.Trim() ?? string.Empty
+            };
+        }
 
         if (string.IsNullOrWhiteSpace(result.Feedback) || result.Feedback.Length > 500)
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI validation did not satisfy the response contract.");
+        }
+
+        if (!request.Paraphrase || !acceptHungarian || !result.IsCorrect)
+        {
+            result.EnglishAnswer = string.Empty;
+        }
+        else if (string.IsNullOrWhiteSpace(result.EnglishAnswer) || result.EnglishAnswer.Length > 500)
         {
             throw new AiServiceException(
                 AiServiceErrorKind.InvalidResponse,
@@ -611,6 +668,22 @@ public sealed class AiService(
         }
 
         return null;
+    }
+
+    private sealed class MeaningValidationContent
+    {
+        public bool IsCorrect { get; set; }
+
+        public string? Feedback { get; set; }
+    }
+
+    private sealed class ParaphraseValidationContent
+    {
+        public bool IsCorrect { get; set; }
+
+        public string? Feedback { get; set; }
+
+        public string? EnglishAnswer { get; set; }
     }
 
     private sealed class GeneratedDefinitionContent

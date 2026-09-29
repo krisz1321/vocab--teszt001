@@ -12,4 +12,6 @@ public sealed class ValidateAnswerRequestDto
 
     [Required, MaxLength(1000)]
     public string Answer { get; set; } = string.Empty;
+
+    public bool Paraphrase { get; set; }
 }

@@ -30,6 +30,7 @@ interface StudySettings {
   dailyNewCardGoal: number;
   minimumAnswerSeconds: number;
   automaticAiCheck: boolean;
+  acceptHungarianParaphrase: boolean;
   reuseSavedExamples: boolean;
   generateAlternateDefinitions: boolean;
   exampleLevel: string;
@@ -284,6 +285,17 @@ interface AiModelOption {
             </div>
             <div class="form-check mb-3">
               <input
+                id="acceptHungarianParaphrase"
+                name="acceptHungarianParaphrase"
+                type="checkbox"
+                class="form-check-input"
+                [(ngModel)]="acceptHungarianParaphrase"
+                [disabled]="isSavingStudySettings">
+              <label class="form-check-label" for="acceptHungarianParaphrase">Magyar körülírás elfogadása</label>
+              <div class="form-text">Bekapcsolva a helyes magyar mondat is elfogadható, és az MI angolul visszaírja. Kikapcsolva a körülírást angolul kell megadni.</div>
+            </div>
+            <div class="form-check mb-3">
+              <input
                 id="reuseSavedExamples"
                 name="reuseSavedExamples"
                 type="checkbox"
@@ -392,6 +404,7 @@ export class AppComponent implements OnInit {
   dailyNewCardGoal = 20;
   minimumAnswerSeconds = 0;
   automaticAiCheck = false;
+  acceptHungarianParaphrase = false;
   reuseSavedExamples = true;
   generateAlternateDefinitions = true;
   readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
@@ -558,6 +571,7 @@ export class AppComponent implements OnInit {
       dailyNewCardGoal: goal,
       minimumAnswerSeconds: seconds,
       automaticAiCheck: this.automaticAiCheck,
+      acceptHungarianParaphrase: this.acceptHungarianParaphrase,
       reuseSavedExamples: this.reuseSavedExamples,
       generateAlternateDefinitions: this.generateAlternateDefinitions,
       exampleLevel: this.exampleLevel,
@@ -571,6 +585,7 @@ export class AppComponent implements OnInit {
         this.dailyNewCardGoal = settings.dailyNewCardGoal;
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
+        this.acceptHungarianParaphrase = settings.acceptHungarianParaphrase;
         this.reuseSavedExamples = settings.reuseSavedExamples;
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.exampleLevel = settings.exampleLevel;
@@ -641,6 +656,7 @@ export class AppComponent implements OnInit {
         this.dailyNewCardGoal = settings.dailyNewCardGoal;
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
+        this.acceptHungarianParaphrase = settings.acceptHungarianParaphrase;
         this.reuseSavedExamples = settings.reuseSavedExamples;
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.exampleLevel = settings.exampleLevel;

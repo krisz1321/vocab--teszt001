@@ -17,7 +17,13 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var user = await dbContext.Users
             .AsNoTracking()
             .Where(candidate => candidate.Id == userId)
-            .Select(candidate => new { candidate.DailyNewCardGoal, candidate.MinimumAnswerSeconds, candidate.AutomaticAiCheck })
+            .Select(candidate => new
+            {
+                candidate.DailyNewCardGoal,
+                candidate.MinimumAnswerSeconds,
+                candidate.AutomaticAiCheck,
+                candidate.AcceptHungarianParaphrase
+            })
             .SingleOrDefaultAsync(cancellationToken);
 
         if (user is null)
@@ -60,6 +66,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 user.DailyNewCardGoal,
                 user.MinimumAnswerSeconds,
                 user.AutomaticAiCheck,
+                user.AcceptHungarianParaphrase,
                 introducedToday,
                 hasUnseenCards ? "dailyLimitReached" : "empty",
                 null,
@@ -71,6 +78,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             user.DailyNewCardGoal,
             user.MinimumAnswerSeconds,
             user.AutomaticAiCheck,
+            user.AcceptHungarianParaphrase,
             introducedToday,
             "ready",
             card,
@@ -165,6 +173,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 DailyNewCardGoal = user.DailyNewCardGoal,
                 MinimumAnswerSeconds = user.MinimumAnswerSeconds,
                 AutomaticAiCheck = user.AutomaticAiCheck,
+                AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
                 ReuseSavedExamples = user.ReuseSavedExamples,
                 GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
                 ExampleLevel = user.ExampleLevel,
@@ -199,6 +208,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.DailyNewCardGoal = request.DailyNewCardGoal;
         user.MinimumAnswerSeconds = request.MinimumAnswerSeconds;
         user.AutomaticAiCheck = request.AutomaticAiCheck;
+        user.AcceptHungarianParaphrase = request.AcceptHungarianParaphrase;
         user.ReuseSavedExamples = request.ReuseSavedExamples;
         user.GenerateAlternateDefinitions = request.GenerateAlternateDefinitions;
         user.ExampleLevel = exampleLevel;
@@ -209,6 +219,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             DailyNewCardGoal = user.DailyNewCardGoal,
             MinimumAnswerSeconds = user.MinimumAnswerSeconds,
             AutomaticAiCheck = user.AutomaticAiCheck,
+            AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
             ReuseSavedExamples = user.ReuseSavedExamples,
             GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
             ExampleLevel = user.ExampleLevel,
@@ -332,6 +343,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         int dailyNewCardGoal,
         int minimumAnswerSeconds,
         bool automaticAiCheck,
+        bool acceptHungarianParaphrase,
         int newCardsIntroducedToday,
         string status,
         StudyCardDto? card,
@@ -341,6 +353,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             DailyNewCardGoal = dailyNewCardGoal,
             MinimumAnswerSeconds = minimumAnswerSeconds,
             AutomaticAiCheck = automaticAiCheck,
+            AcceptHungarianParaphrase = acceptHungarianParaphrase,
             NewCardsIntroducedToday = newCardsIntroducedToday,
             Status = status,
             Card = card,
