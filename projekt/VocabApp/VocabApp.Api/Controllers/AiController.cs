@@ -45,6 +45,39 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         }
     }
 
+    [HttpPost("generate/card-definition")]
+    public async Task<ActionResult<GenerateCardDefinitionResponseDto>> GenerateCardDefinition(
+        GenerateCardDefinitionRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        if (!RequireText(request.Term, nameof(request.Term)))
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            var result = await aiService.GenerateCardDefinitionAsync(userId.Value, request, cancellationToken);
+            return result is null
+                ? NotFound(new ProblemDetails
+                {
+                    Title = "Deck not found",
+                    Status = StatusCodes.Status404NotFound
+                })
+                : Ok(result);
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
     [HttpPost("generate/extra-definition")]
     public async Task<ActionResult<GenerateExtraDefinitionResponseDto>> GenerateExtraDefinition(
         GenerateExtraDefinitionRequestDto request,

@@ -117,6 +117,90 @@ public sealed class AiService(
         };
     }
 
+    public async Task<GenerateCardDefinitionResponseDto?> GenerateCardDefinitionAsync(
+        int userId,
+        GenerateCardDefinitionRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var owned = await dbContext.Decks
+            .AsNoTracking()
+            .Where(deck => deck.Id == request.DeckId && deck.UserId == userId)
+            .Select(deck => new
+            {
+                DeckLevel = deck.ExampleLevel,
+                AccountLevel = deck.User.ExampleLevel,
+                deck.User.ReuseSavedExamples
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (owned is null)
+        {
+            return null;
+        }
+
+        string level;
+        if (ExampleLevels.IsAllowed(owned.DeckLevel))
+        {
+            level = owned.DeckLevel;
+        }
+        else if (ExampleLevels.IsAllowed(owned.AccountLevel))
+        {
+            level = owned.AccountLevel;
+        }
+        else
+        {
+            level = ExampleLevels.Default;
+        }
+
+        var termKey = request.Term.Trim().ToLowerInvariant();
+        if (owned.ReuseSavedExamples)
+        {
+            var savedDefinitions = await dbContext.SavedDefinitions
+                .AsNoTracking()
+                .Where(item => item.TermKey == termKey && item.Level == level)
+                .Select(item => item.Definition)
+                .ToListAsync(cancellationToken);
+
+            if (savedDefinitions.Count > 0 && Random.Shared.Next(2) == 0)
+            {
+                return new GenerateCardDefinitionResponseDto
+                {
+                    Definition = savedDefinitions[Random.Shared.Next(savedDefinitions.Count)]
+                };
+            }
+        }
+
+        var systemPrompt =
+            "Write one short English sentence that defines the supplied term. " +
+            $"The requested CEFR level is {level}; treat it as a recommendation and prefer that level's vocabulary. " +
+            "Do not use the given term, its root, or an obvious inflected form. " +
+            "Return only a JSON object with exactly one string property: definition.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            request.Term,
+            Level = level
+        });
+
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+        var generated = DeserializeContent<GeneratedDefinitionContent>(content);
+        var definition = generated.Definition.Trim();
+
+        if (string.IsNullOrWhiteSpace(definition) ||
+            definition.Length > 500 ||
+            ContainsForbiddenTermOrStem(definition, request.Term))
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI definition did not satisfy the response contract.");
+        }
+
+        await SaveDefinitionAsync(termKey, level, definition, cancellationToken);
+        return new GenerateCardDefinitionResponseDto
+        {
+            Definition = definition
+        };
+    }
+
     public async Task<GenerateExtraDefinitionResponseDto?> GenerateExtraDefinitionAsync(
         int userId,
         GenerateExtraDefinitionRequestDto request,

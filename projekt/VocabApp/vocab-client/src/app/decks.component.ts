@@ -176,7 +176,24 @@ interface ImportResult {
               </div>
               <div class="mb-3">
                 <label class="form-label" for="definition">Angol definíció</label>
-                <textarea id="definition" name="definition" class="form-control" rows="2" maxlength="500" [(ngModel)]="definition" [disabled]="isSavingCard"></textarea>
+                <textarea
+                  id="definition"
+                  name="definition"
+                  class="form-control"
+                  rows="2"
+                  maxlength="500"
+                  [(ngModel)]="definition"
+                  [disabled]="isSavingCard || isGeneratingDefinition"></textarea>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary btn-sm mt-2"
+                  (click)="generateDefinition()"
+                  [disabled]="isGeneratingDefinition || isSavingCard || !term.trim()">
+                  @if (isGeneratingDefinition) {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                  }
+                  Generálás
+                </button>
               </div>
               <div class="mb-3">
                 <label class="form-label" for="targetMeanings">Célnyelvi jelentés</label>
@@ -358,6 +375,7 @@ export class DecksComponent implements OnInit {
   isSavingDeck = false;
   isRenaming = false;
   isSavingCard = false;
+  isGeneratingDefinition = false;
   isGeneratingTargetMeaning = false;
   deletingDeckId: number | null = null;
   deletingCardId: number | null = null;
@@ -720,6 +738,29 @@ export class DecksComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readError(error, 'A kártya mentése sikertelen.');
+      },
+    });
+  }
+
+  generateDefinition(): void {
+    const term = this.term.trim();
+    if (!term || this.isGeneratingDefinition || this.isSavingCard || this.selectedDeckId === null) {
+      return;
+    }
+
+    const deckId = this.selectedDeckId;
+    this.errorMessage = null;
+    this.isGeneratingDefinition = true;
+    this.http.post<{ definition: string }>('/api/ai/generate/card-definition', { term, deckId }).pipe(
+      finalize(() => {
+        this.isGeneratingDefinition = false;
+      }),
+    ).subscribe({
+      next: (response) => {
+        this.definition = (response.definition ?? '').trim();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage = this.readAiError(error, 'Az angol definíció generálása');
       },
     });
   }
