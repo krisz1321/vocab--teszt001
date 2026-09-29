@@ -25,6 +25,8 @@ interface VocabCard {
   definition: string;
   example: string | null;
   targetMeanings: string | null;
+  isLearned: boolean;
+  markedKnown: boolean;
 }
 
 interface ProblemDetails {
@@ -242,15 +244,27 @@ interface ImportResult {
                 @for (card of cards; track card.id) {
                   <div class="list-group-item">
                     <div class="d-flex justify-content-between align-items-start gap-2">
-                      <div>
-                        <div class="fw-semibold">{{ card.term }}</div>
-                        <div>{{ card.definition }}</div>
-                        @if (card.targetMeanings) {
-                          <div>{{ card.targetMeanings }}</div>
-                        }
-                        @if (card.example) {
-                          <div class="text-body-secondary">{{ card.example }}</div>
-                        }
+                      <div class="d-flex align-items-start gap-3">
+                        <div class="form-check mb-0">
+                          <input
+                            class="form-check-input"
+                            type="checkbox"
+                            [id]="'known-' + card.id"
+                            [checked]="card.isLearned"
+                            [disabled]="isKnownLocked(card) || markingKnownCardId === card.id"
+                            (change)="setKnown(card, $event)">
+                          <label class="form-check-label small" [attr.for]="'known-' + card.id">Már ismerem</label>
+                        </div>
+                        <div>
+                          <div class="fw-semibold">{{ card.term }}</div>
+                          <div>{{ card.definition }}</div>
+                          @if (card.targetMeanings) {
+                            <div>{{ card.targetMeanings }}</div>
+                          }
+                          @if (card.example) {
+                            <div class="text-body-secondary">{{ card.example }}</div>
+                          }
+                        </div>
                       </div>
                       <div class="d-flex gap-2">
                         <button type="button" class="btn btn-outline-primary btn-sm" (click)="editCard(card)">Szerkesztés</button>
@@ -379,6 +393,7 @@ export class DecksComponent implements OnInit {
   isGeneratingTargetMeaning = false;
   deletingDeckId: number | null = null;
   deletingCardId: number | null = null;
+  markingKnownCardId: number | null = null;
   sharingDeckId: number | null = null;
   copyingDeckId: number | null = null;
   savingLevelDeckId: number | null = null;
@@ -790,6 +805,36 @@ export class DecksComponent implements OnInit {
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readAiError(error, 'A célnyelvi jelentés generálása');
+      },
+    });
+  }
+
+  isKnownLocked(card: VocabCard): boolean {
+    return card.isLearned && !card.markedKnown;
+  }
+
+  setKnown(card: VocabCard, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    if (this.isKnownLocked(card)) {
+      input.checked = true;
+      return;
+    }
+
+    const known = input.checked;
+    this.errorMessage = null;
+    this.markingKnownCardId = card.id;
+    this.http.put<VocabCard>(`/api/cards/${card.id}/known`, { known }).pipe(
+      finalize(() => {
+        this.markingKnownCardId = null;
+      }),
+    ).subscribe({
+      next: (updated) => {
+        this.cards = this.cards.map(item => item.id === updated.id ? updated : item);
+        input.checked = updated.isLearned;
+      },
+      error: (error: HttpErrorResponse) => {
+        input.checked = card.isLearned;
+        this.errorMessage = this.readError(error, 'Az ismert szó jelölése sikertelen.');
       },
     });
   }

@@ -20,5 +20,11 @@ public interface ICardService
         UpdateCardDto request,
         CancellationToken cancellationToken = default);
 
+    Task<DeckCardResult<CardDto>> SetKnownAsync(
+        int userId,
+        int cardId,
+        bool known,
+        CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAsync(int userId, int cardId, CancellationToken cancellationToken = default);
 }

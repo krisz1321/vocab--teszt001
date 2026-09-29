@@ -48,6 +48,18 @@ public sealed class CardsController(ICardService cardService) : ControllerBase
         return ToActionResult(await cardService.UpdateAsync(userId.Value, id, request, cancellationToken));
     }
 
+    [HttpPut("{id:int}/known")]
+    public async Task<ActionResult<CardDto>> SetKnown(int id, SetCardKnownDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await cardService.SetKnownAsync(userId.Value, id, request.Known, cancellationToken));
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {

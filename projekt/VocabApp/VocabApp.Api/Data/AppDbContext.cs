@@ -128,6 +128,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         progress.Property(cp => cp.Streak).HasDefaultValue(0);
         progress.Property(cp => cp.IncorrectCount).HasDefaultValue(0);
         progress.Property(cp => cp.CorrectCount).HasDefaultValue(0);
+        progress.Property(cp => cp.MarkedKnown).HasDefaultValue(false);
         progress.ToTable(table =>
         {
             table.HasCheckConstraint("CK_CardProgress_Interval", "Interval >= 0");

@@ -13,4 +13,8 @@ public sealed class CardDto
     public string? Example { get; set; }
 
     public string? TargetMeanings { get; set; }
+
+    public bool IsLearned { get; set; }
+
+    public bool MarkedKnown { get; set; }
 }

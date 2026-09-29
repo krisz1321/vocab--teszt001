@@ -10,6 +10,8 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
     private const int MaxTermLength = 100;
     private const int MaxTextLength = 500;
     private const int MaxTargetMeaningsLength = 200;
+    private const int KnownStreak = 3;
+    private const int KnownIntervalDays = 15;
 
     public async Task<DeckCardResult<IReadOnlyList<CardDto>>> GetByDeckAsync(
         int userId,
@@ -34,7 +36,9 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
                 Term = card.Term,
                 Definition = card.Definition,
                 Example = card.Example,
-                TargetMeanings = card.TargetMeanings
+                TargetMeanings = card.TargetMeanings,
+                IsLearned = card.Progress != null && card.Progress.LearnedAt != null,
+                MarkedKnown = card.Progress != null && card.Progress.MarkedKnown
             })
             .ToListAsync(cancellationToken);
 
@@ -94,6 +98,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         }
 
         var card = await dbContext.Cards
+            .Include(candidate => candidate.Progress)
             .FirstOrDefaultAsync(candidate => candidate.Id == cardId && candidate.Deck.UserId == userId, cancellationToken);
         if (card is null)
         {
@@ -104,6 +109,51 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         card.Definition = request.Definition!.Trim();
         card.Example = NormalizeOptional(request.Example);
         card.TargetMeanings = NormalizeOptional(request.TargetMeanings);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return DeckCardResult<CardDto>.Success(ToDto(card));
+    }
+
+    public async Task<DeckCardResult<CardDto>> SetKnownAsync(
+        int userId,
+        int cardId,
+        bool known,
+        CancellationToken cancellationToken = default)
+    {
+        var card = await dbContext.Cards
+            .Include(candidate => candidate.Progress)
+            .FirstOrDefaultAsync(candidate => candidate.Id == cardId && candidate.Deck.UserId == userId, cancellationToken);
+        if (card?.Progress is null)
+        {
+            return DeckCardResult<CardDto>.Fail(StatusCodes.Status404NotFound, "Card not found.");
+        }
+
+        var progress = card.Progress;
+        var now = DateTime.UtcNow;
+        if (known)
+        {
+            if (progress.LearnedAt is null)
+            {
+                progress.MarkedKnown = true;
+                progress.LearnedAt = now;
+                progress.Streak = KnownStreak;
+                progress.Interval = KnownIntervalDays;
+                progress.NextReviewDate = now.AddDays(KnownIntervalDays);
+                if (progress.FirstReviewedAt is null)
+                {
+                    progress.FirstReviewedAt = now.AddDays(-1);
+                }
+            }
+        }
+        else if (progress.MarkedKnown && progress.CorrectCount == 0 && progress.IncorrectCount == 0)
+        {
+            progress.MarkedKnown = false;
+            progress.LearnedAt = null;
+            progress.Streak = 0;
+            progress.Interval = 0;
+            progress.FirstReviewedAt = null;
+            progress.NextReviewDate = now;
+        }
+
         await dbContext.SaveChangesAsync(cancellationToken);
         return DeckCardResult<CardDto>.Success(ToDto(card));
     }
@@ -174,6 +224,8 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         Term = card.Term,
         Definition = card.Definition,
         Example = card.Example,
-        TargetMeanings = card.TargetMeanings
+        TargetMeanings = card.TargetMeanings,
+        IsLearned = card.Progress?.LearnedAt != null,
+        MarkedKnown = card.Progress?.MarkedKnown == true
     };
 }

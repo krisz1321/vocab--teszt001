@@ -12,5 +12,6 @@ public sealed class CardProgress
     public int CorrectCount { get; set; }
     public DateTime? FirstReviewedAt { get; set; }
     public DateTime? LearnedAt { get; set; }
+    public bool MarkedKnown { get; set; }
     public Card Card { get; set; } = null!;
 }

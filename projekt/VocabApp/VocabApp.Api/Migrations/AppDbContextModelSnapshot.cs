@@ -82,6 +82,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.Property<int>("IncorrectCount").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<int>("Interval").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<DateTime?>("LearnedAt").HasColumnType("TEXT");
+            entity.Property<bool>("MarkedKnown").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(false);
             entity.Property<DateTime>("NextReviewDate").ValueGeneratedOnAdd().HasColumnType("TEXT").HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property<int>("Streak").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.HasKey("Id");
@@ -94,21 +95,21 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
                 table.HasCheckConstraint("CK_CardProgress_Streak", "Streak >= 0");
             });
             entity.HasData(
-                new { Id = 1, CardId = 1, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 2, CardId = 2, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 3, CardId = 3, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 4, CardId = 4, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 5, CardId = 5, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 6, CardId = 6, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 7, CardId = 7, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 8, CardId = 8, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 9, CardId = 9, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 10, CardId = 10, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 11, CardId = 11, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 12, CardId = 12, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 13, CardId = 13, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 14, CardId = 14, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
-                new { Id = 15, CardId = 15, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 });
+                new { Id = 1, CardId = 1, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 2, CardId = 2, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 3, CardId = 3, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 4, CardId = 4, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 5, CardId = 5, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 6, CardId = 6, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 7, CardId = 7, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 8, CardId = 8, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 9, CardId = 9, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 10, CardId = 10, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 11, CardId = 11, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 12, CardId = 12, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 13, CardId = 13, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 14, CardId = 14, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 },
+                new { Id = 15, CardId = 15, CorrectCount = 0, EaseFactor = 2.5f, IncorrectCount = 0, Interval = 0, MarkedKnown = false, NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc), Streak = 0 });
         });
 
         modelBuilder.Entity("VocabApp.Api.Models.Deck", entity =>
