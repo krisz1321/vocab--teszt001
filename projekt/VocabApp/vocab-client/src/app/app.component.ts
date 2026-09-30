@@ -58,7 +58,7 @@ interface AiModelOption {
   imports: [CommonModule, FormsModule, StudyCardComponent, StatsComponent, DecksComponent],
   template: `
     @if (!session.isLoggedIn()) {
-      <nav class="navbar bg-body-tertiary border-bottom">
+      <nav class="navbar bg-body-tertiary border-bottom app-navbar">
         <div class="container" style="max-width: 760px;">
           <span class="navbar-brand mb-0 h1">VocabApp</span>
         </div>
@@ -117,11 +117,11 @@ interface AiModelOption {
         </div>
       </main>
     } @else {
-      <nav class="navbar bg-body-tertiary border-bottom">
+      <nav class="navbar bg-body-tertiary border-bottom app-navbar">
         <div class="container" style="max-width: 760px;">
           <span class="navbar-brand mb-0 h1">VocabApp</span>
-          <div class="d-flex align-items-center gap-3">
-            <div class="btn-group" role="group" aria-label="Nézet">
+          <div class="d-flex align-items-center gap-3 app-nav-actions">
+            <div class="btn-group app-nav-view" role="group" aria-label="Nézet">
               <button
                 type="button"
                 class="btn"
@@ -586,6 +586,7 @@ export class AppComponent implements OnInit {
       }),
     ).subscribe({
       next: () => {
+        this.profileMessage = 'A megjelenített név mentve.';
         this.loadProfile();
       },
       error: (error: HttpErrorResponse) => {
@@ -613,6 +614,7 @@ export class AppComponent implements OnInit {
       }),
     ).subscribe({
       next: () => {
+        this.profileMessage = 'A profilkép feltöltve.';
         this.loadProfile();
       },
       error: (error: HttpErrorResponse) => {
@@ -631,6 +633,7 @@ export class AppComponent implements OnInit {
       }),
     ).subscribe({
       next: () => {
+        this.profileMessage = 'A profilkép törölve.';
         this.loadProfile();
       },
       error: (error: HttpErrorResponse) => {

@@ -10,3 +10,29 @@ body {
   margin: 0;
   background: #f8f9fa;
 }
+
+.app-nav-actions {
+  flex-wrap: wrap;
+}
+
+.app-nav-view {
+  order: 3;
+}
+
+@media (max-width: 767.98px) {
+  .app-navbar .container {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .app-nav-actions {
+    flex: 1 1 100%;
+    justify-content: flex-end;
+  }
+
+  .app-nav-view {
+    flex: 1 1 100%;
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}

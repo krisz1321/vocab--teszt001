@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
+import { AuthSessionService } from './auth-session.service';
 
 interface StudyCard {
   id: number;
@@ -871,6 +872,7 @@ const hungarianPlain = 'aeiooouuu';
 })
 export class StudyCardComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
+  private readonly session = inject(AuthSessionService);
   private readonly apiBaseUrl = '/api';
 
   card: StudyCard | null = null;
@@ -908,7 +910,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   decks: StudyDeck[] = [];
   deckChoice: StudyDeckChoice | null = null;
   studyFocus: StudyFocus = this.readStudyFocus();
-  showStudyGuide = localStorage.getItem('vocabapp.study-guide-dismissed') !== 'true';
+  showStudyGuide = this.readStudyGuideVisibility();
   isLoadingPrompt = false;
   isGeneratingDefinition = false;
   isGeneratingExample = false;
@@ -1088,17 +1090,26 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   }
 
   dismissStudyGuide(): void {
-    localStorage.setItem('vocabapp.study-guide-dismissed', 'true');
+    localStorage.setItem(this.preferenceKey('study-guide-dismissed'), 'true');
     this.showStudyGuide = false;
   }
 
   saveStudyFocus(): void {
-    localStorage.setItem('vocabapp.study-focus', this.studyFocus);
+    localStorage.setItem(this.preferenceKey('study-focus'), this.studyFocus);
   }
 
   private readStudyFocus(): StudyFocus {
-    const stored = localStorage.getItem('vocabapp.study-focus');
+    const stored = localStorage.getItem(this.preferenceKey('study-focus'));
     return stored === 'due' || stored === 'mistakes' || stored === 'new' ? stored : 'all';
+  }
+
+  private readStudyGuideVisibility(): boolean {
+    return localStorage.getItem(this.preferenceKey('study-guide-dismissed')) !== 'true';
+  }
+
+  private preferenceKey(name: string): string {
+    const identity = this.session.email()?.trim().toLowerCase() || 'anonymous';
+    return `vocabapp.${identity}.${name}`;
   }
 
   chooseAnotherDeck(): void {
@@ -2305,7 +2316,9 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.freePointerId = null;
     this.resetCardState();
 
-    const params: Record<string, number> = {};
+    const params: Record<string, string | number> = {
+      focus: this.studyFocus,
+    };
     if (typeof this.deckChoice === 'number') {
       params['deckId'] = this.deckChoice;
     }

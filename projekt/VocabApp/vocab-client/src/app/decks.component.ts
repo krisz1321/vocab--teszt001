@@ -828,6 +828,13 @@ export class DecksComponent implements OnInit {
   }
 
   deleteDeck(deck: Deck): void {
+    const confirmed = window.confirm(
+      `Biztosan törlöd a(z) „${deck.name}” paklit? A benne lévő kártyák és tanulási adatok is törlődnek.`,
+    );
+    if (!confirmed) {
+      return;
+    }
+
     this.errorMessage = null;
     this.deletingDeckId = deck.id;
     this.http.delete(`/api/decks/${deck.id}`).pipe(
@@ -993,6 +1000,11 @@ export class DecksComponent implements OnInit {
   }
 
   deleteCard(card: VocabCard): void {
+    const confirmed = window.confirm(`Biztosan törlöd a(z) „${card.term}” kártyát?`);
+    if (!confirmed) {
+      return;
+    }
+
     this.errorMessage = null;
     this.deletingCardId = card.id;
     this.http.delete(`/api/cards/${card.id}`).pipe(
