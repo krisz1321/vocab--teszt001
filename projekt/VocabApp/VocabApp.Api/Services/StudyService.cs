@@ -10,8 +10,19 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
     private const int LearnedStreakThreshold = 3;
     private const int MaxAnswerDurationSeconds = 600;
     private const int MaxConfusionBonus = 10;
-    public async Task<StudyNextDto> GetNextCardAsync(int userId, CancellationToken cancellationToken = default)
+    public async Task<StudyNextResult> GetNextCardAsync(
+        int userId,
+        int? deckId,
+        CancellationToken cancellationToken = default)
     {
+        if (deckId is int selectedDeckId &&
+            !await dbContext.Decks.AsNoTracking().AnyAsync(
+                deck => deck.Id == selectedDeckId && deck.UserId == userId,
+                cancellationToken))
+        {
+            return StudyNextResult.Fail(StatusCodes.Status404NotFound, "Deck not found");
+        }
+
         var now = DateTime.UtcNow;
         var dayStart = now.Date;
         var user = await dbContext.Users
@@ -29,7 +40,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
 
         if (user is null)
         {
-            return new StudyNextDto { Status = "empty" };
+            return StudyNextResult.Success(new StudyNextDto { Status = "empty" });
         }
 
         var introducedToday = await dbContext.CardProgresses
@@ -38,10 +49,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 progress => progress.Card.Deck.UserId == userId && progress.FirstReviewedAt >= dayStart,
                 cancellationToken);
 
-        var reviews = await SelectCards(dbContext.CardProgresses
-            .AsNoTracking()
-            .Where(progress =>
-                progress.Card.Deck.UserId == userId &&
+        var source = UserProgress(userId, deckId);
+        var reviews = await SelectCards(source.Where(progress =>
                 progress.FirstReviewedAt != null &&
                 progress.NextReviewDate <= now))
             .ToListAsync(cancellationToken);
@@ -49,9 +58,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var newCards = new List<StudyCardDto>();
         if (introducedToday < user.DailyNewCardGoal)
         {
-            newCards = await SelectCards(dbContext.CardProgresses
-                .AsNoTracking()
-                .Where(progress => progress.Card.Deck.UserId == userId && progress.FirstReviewedAt == null))
+            newCards = await SelectCards(source.Where(progress => progress.FirstReviewedAt == null))
                 .ToListAsync(cancellationToken);
         }
 
@@ -59,11 +66,9 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         if (pool.Count == 0)
         {
             var hasUnseenCards = introducedToday >= user.DailyNewCardGoal
-                && await dbContext.CardProgresses.AnyAsync(
-                    progress => progress.Card.Deck.UserId == userId && progress.FirstReviewedAt == null,
-                    cancellationToken);
+                && await source.AnyAsync(progress => progress.FirstReviewedAt == null, cancellationToken);
 
-            return Envelope(
+            return StudyNextResult.Success(Envelope(
                 user.DailyNewCardGoal,
                 user.MinimumAnswerSeconds,
                 user.AutomaticAiCheck,
@@ -72,11 +77,11 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 introducedToday,
                 hasUnseenCards ? "dailyLimitReached" : "empty",
                 null,
-                null);
+                null));
         }
 
         var card = PickWeighted(pool, await LoadConfusionBonusesAsync(userId, cancellationToken));
-        return Envelope(
+        return StudyNextResult.Success(Envelope(
             user.DailyNewCardGoal,
             user.MinimumAnswerSeconds,
             user.AutomaticAiCheck,
@@ -85,7 +90,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             introducedToday,
             "ready",
             card,
-            answerToken.Create(userId, card.Id, now));
+            answerToken.Create(userId, card.Id, now)));
     }
 
     public async Task<StudyStatsDto> GetStatsAsync(int userId, CancellationToken cancellationToken = default)
@@ -339,6 +344,20 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             IncorrectCount = progress.IncorrectCount,
             ConfusedWithTerm = confusedWithTerm
         });
+    }
+
+    private IQueryable<CardProgress> UserProgress(int userId, int? deckId)
+    {
+        var query = dbContext.CardProgresses
+            .AsNoTracking()
+            .Where(progress => progress.Card.Deck.UserId == userId);
+
+        if (deckId is int selectedDeckId)
+        {
+            query = query.Where(progress => progress.Card.DeckId == selectedDeckId);
+        }
+
+        return query;
     }
 
     private static IQueryable<StudyCardDto> SelectCards(IQueryable<CardProgress> progresses) =>

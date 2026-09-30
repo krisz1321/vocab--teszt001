@@ -102,6 +102,12 @@ interface ExplainResponse {
   text: string;
 }
 
+interface StudyDeck {
+  id: number;
+  name: string;
+}
+
+type StudyDeckChoice = number | 'all';
 type StudyMode = 'meaning' | 'definition' | 'recognition';
 
 const hungarianAccents = 'áéíóöőúüű';
@@ -149,30 +155,69 @@ const hungarianPlain = 'aeiooouuu';
           @if (dailyNewCardGoal !== null) {
             <p class="text-body-secondary mb-0 mt-3">Új szavak ma: {{ newCardsIntroducedToday }}/{{ dailyNewCardGoal }}</p>
           }
+          @if (studying) {
+            <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-3">
+              <span class="fw-semibold">{{ activeDeckLabel }}</span>
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                (click)="chooseAnotherDeck()"
+                [disabled]="!canChangeDeck">
+                Másik pakli
+              </button>
+            </div>
+          }
         </header>
 
-        @if (isLoadingCard) {
+        @if (errorMessage) {
+          <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+        }
+
+        @if (!studying) {
+          <form class="card border-0 shadow-sm" (ngSubmit)="startStudy()">
+            <div class="card-body p-4">
+              @if (isLoadingDecks) {
+                <div class="text-center py-4" role="status">
+                  <div class="spinner-border text-primary"></div>
+                  <p class="mt-3 mb-0">Paklik betöltése…</p>
+                </div>
+              } @else {
+                <label class="form-label fw-semibold" for="study-deck">Pakli</label>
+                <select
+                  id="study-deck"
+                  name="studyDeck"
+                  class="form-select mb-3"
+                  [(ngModel)]="deckChoice">
+                  <option [ngValue]="null" disabled>Válassz paklit</option>
+                  <option [ngValue]="'all'">Összes pakli</option>
+                  @for (deck of decks; track deck.id) {
+                    <option [ngValue]="deck.id">{{ deck.name }}</option>
+                  }
+                </select>
+                <button type="submit" class="btn btn-primary" [disabled]="deckChoice === null">Tanulás</button>
+              }
+            </div>
+          </form>
+        }
+
+        @if (studying && isLoadingCard) {
           <div class="text-center py-5" role="status">
             <div class="spinner-border text-primary"></div>
             <p class="mt-3 mb-0">Kártya betöltése…</p>
           </div>
         }
 
-        @if (studyStatus === 'empty' && !isLoadingCard) {
+        @if (studying && studyStatus === 'empty' && !isLoadingCard) {
           <div class="alert alert-info">Jelenleg nincs tanulható kártya.</div>
         }
 
-        @if (studyStatus === 'dailyLimitReached' && !isLoadingCard) {
+        @if (studying && studyStatus === 'dailyLimitReached' && !isLoadingCard) {
           <div class="alert alert-info">
             A mai új szavak elfogytak, és nincs esedékes ismétlés. Holnap folytathatod, vagy a profilban emelheted a napi célt.
           </div>
         }
 
-        @if (errorMessage) {
-          <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
-        }
-
-        @if (card && !isLoadingCard) {
+        @if (studying && card && !isLoadingCard) {
           <section class="card border-0 shadow-sm">
             <div class="card-body p-4 p-md-5">
               <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
@@ -689,6 +734,10 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   isMeaningRevealed = false;
   isRecognitionRevealed = false;
   isLoadingCard = false;
+  isLoadingDecks = false;
+  studying = false;
+  decks: StudyDeck[] = [];
+  deckChoice: StudyDeckChoice | null = null;
   isLoadingPrompt = false;
   isGeneratingDefinition = false;
   isGeneratingExample = false;
@@ -741,6 +790,18 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     return this.showChallengeActions && this.aiIncorrect && !this.appealUsed && this.updatedProgress === null;
   }
 
+  get activeDeckLabel(): string {
+    if (this.deckChoice === 'all' || this.deckChoice === null) {
+      return 'Összes pakli';
+    }
+
+    return this.decks.find(deck => deck.id === this.deckChoice)?.name ?? 'Pakli';
+  }
+
+  get canChangeDeck(): boolean {
+    return this.card === null || this.updatedProgress !== null;
+  }
+
   get isInteractionLocked(): boolean {
     return this.isLoadingCard ||
       this.isLoadingPrompt ||
@@ -756,7 +817,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    this.loadNextCard();
+    this.loadDecks();
   }
 
   ngOnDestroy(): void {
@@ -772,17 +833,68 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     }
 
     this.mode = mode;
+    if (this.studying) {
+      this.loadNextCard();
+    }
+  }
+
+  startStudy(): void {
+    if (this.deckChoice === null || this.studying) {
+      return;
+    }
+
+    this.studying = true;
+    this.errorMessage = null;
     this.loadNextCard();
   }
 
+  chooseAnotherDeck(): void {
+    if (!this.canChangeDeck) {
+      return;
+    }
+
+    this.loadGeneration++;
+    this.studying = false;
+    this.isLoadingCard = false;
+    this.card = null;
+    this.studyStatus = null;
+    this.isGeneratingDefinition = false;
+    this.isGeneratingExample = false;
+    this.isValidating = false;
+    this.isAppealing = false;
+    this.isExplaining = false;
+    this.resetCardState();
+  }
+
+  loadDecks(): void {
+    this.isLoadingDecks = true;
+    this.http.get<StudyDeck[]>(`${this.apiBaseUrl}/decks`)
+      .pipe(finalize(() => this.isLoadingDecks = false))
+      .subscribe({
+        next: decks => {
+          this.decks = decks;
+        },
+        error: (error: HttpErrorResponse) => this.setHttpError(error, 'A paklik betöltése'),
+      });
+  }
+
   loadNextCard(): void {
+    if (!this.studying) {
+      return;
+    }
+
     const generation = ++this.loadGeneration;
     this.isLoadingCard = true;
     this.studyStatus = null;
     this.card = null;
     this.resetCardState();
 
-    this.http.get<StudyNextResponse>(`${this.apiBaseUrl}/study/next`)
+    const params: Record<string, number> = {};
+    if (typeof this.deckChoice === 'number') {
+      params['deckId'] = this.deckChoice;
+    }
+
+    this.http.get<StudyNextResponse>(`${this.apiBaseUrl}/study/next`, { params })
       .pipe(finalize(() => {
         if (generation === this.loadGeneration) {
           this.isLoadingCard = false;

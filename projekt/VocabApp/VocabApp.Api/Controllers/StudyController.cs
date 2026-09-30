@@ -66,7 +66,9 @@ public sealed class StudyController(IStudyService studyService) : ControllerBase
     }
 
     [HttpGet("next")]
-    public async Task<ActionResult<StudyNextDto>> GetNext(CancellationToken cancellationToken)
+    public async Task<ActionResult<StudyNextDto>> GetNext(
+        [FromQuery] int? deckId,
+        CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         if (userId is null)
@@ -74,7 +76,19 @@ public sealed class StudyController(IStudyService studyService) : ControllerBase
             return Unauthorized();
         }
 
-        return Ok(await studyService.GetNextCardAsync(userId.Value, cancellationToken));
+        var result = await studyService.GetNextCardAsync(userId.Value, deckId, cancellationToken);
+        if (result.Value is not null)
+        {
+            return Ok(result.Value);
+        }
+
+        return StatusCode(
+            result.ErrorStatus ?? StatusCodes.Status500InternalServerError,
+            new ProblemDetails
+            {
+                Title = result.ErrorTitle,
+                Status = result.ErrorStatus
+            });
     }
 
     [HttpPost("submit")]
