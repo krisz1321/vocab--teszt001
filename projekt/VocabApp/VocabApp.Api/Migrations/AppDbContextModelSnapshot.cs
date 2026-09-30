@@ -126,6 +126,19 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.ToTable("Decks");
         });
 
+        modelBuilder.Entity("VocabApp.Api.Models.FreeStudyMark", entity =>
+        {
+            entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
+                .HasAnnotation("Sqlite:Autoincrement", true);
+            entity.Property<int>("CardId").HasColumnType("INTEGER");
+            entity.Property<bool>("Knows").HasColumnType("INTEGER");
+            entity.Property<int>("UserId").HasColumnType("INTEGER");
+            entity.HasKey("Id");
+            entity.HasIndex("CardId");
+            entity.HasIndex("UserId", "CardId").IsUnique();
+            entity.ToTable("FreeStudyMarks");
+        });
+
         modelBuilder.Entity("VocabApp.Api.Models.SavedDefinition", entity =>
         {
             entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
@@ -234,6 +247,22 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
                 .HasForeignKey("UserId")
                 .OnDelete(DeleteBehavior.Cascade)
                 .IsRequired();
+            entity.Navigation("User");
+        });
+
+        modelBuilder.Entity("VocabApp.Api.Models.FreeStudyMark", entity =>
+        {
+            entity.HasOne("VocabApp.Api.Models.Card", "Card")
+                .WithMany()
+                .HasForeignKey("CardId")
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+            entity.HasOne("VocabApp.Api.Models.User", "User")
+                .WithMany()
+                .HasForeignKey("UserId")
+                .OnDelete(DeleteBehavior.Cascade)
+                .IsRequired();
+            entity.Navigation("Card");
             entity.Navigation("User");
         });
 

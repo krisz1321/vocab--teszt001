@@ -14,6 +14,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<User> Users => Set<User>();
     public DbSet<UserStudyDay> UserStudyDays => Set<UserStudyDay>();
     public DbSet<Deck> Decks => Set<Deck>();
+    public DbSet<FreeStudyMark> FreeStudyMarks => Set<FreeStudyMark>();
     public DbSet<SavedExample> SavedExamples => Set<SavedExample>();
     public DbSet<SavedDefinition> SavedDefinitions => Set<SavedDefinition>();
 
@@ -121,6 +122,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         confusion.HasOne(item => item.ConfusedWithCard)
             .WithMany()
             .HasForeignKey(item => item.ConfusedWithCardId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var freeMark = modelBuilder.Entity<FreeStudyMark>();
+        freeMark.HasIndex(mark => new { mark.UserId, mark.CardId }).IsUnique();
+        freeMark.HasOne(mark => mark.User)
+            .WithMany()
+            .HasForeignKey(mark => mark.UserId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        freeMark.HasOne(mark => mark.Card)
+            .WithMany()
+            .HasForeignKey(mark => mark.CardId)
             .IsRequired()
             .OnDelete(DeleteBehavior.Cascade);
 

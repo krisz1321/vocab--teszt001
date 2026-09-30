@@ -72,6 +72,7 @@ public class Program
         builder.Services.AddScoped<ICardService, CardService>();
         builder.Services.AddSingleton<StudyAnswerToken>();
         builder.Services.AddScoped<IStudyService, StudyService>();
+        builder.Services.AddScoped<IFreeStudyService, FreeStudyService>();
         builder.Services.AddHttpClient<IAiService, AiService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(60);

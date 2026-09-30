@@ -107,8 +107,19 @@ interface StudyDeck {
   name: string;
 }
 
+interface FreeStudyCard {
+  id: number;
+  term: string;
+  targetMeanings: string | null;
+  definition: string;
+  example: string | null;
+  knows: boolean | null;
+}
+
 type StudyDeckChoice = number | 'all';
-type StudyMode = 'meaning' | 'definition' | 'recognition';
+type StudyMode = 'meaning' | 'definition' | 'recognition' | 'free';
+type FreeFront = 'term' | 'other';
+type FreeBack = 'bilingual' | 'definition';
 
 const hungarianAccents = 'áéíóöőúüű';
 const hungarianPlain = 'aeiooouuu';
@@ -150,6 +161,15 @@ const hungarianPlain = 'aeiooouuu';
               (click)="setMode('recognition')"
               [disabled]="isInteractionLocked">
               Szó felismerése
+            </button>
+            <button
+              type="button"
+              class="btn"
+              [class.btn-primary]="mode === 'free'"
+              [class.btn-outline-primary]="mode !== 'free'"
+              (click)="setMode('free')"
+              [disabled]="isInteractionLocked">
+              Szabad tanulás
             </button>
           </div>
           @if (dailyNewCardGoal !== null) {
@@ -207,17 +227,108 @@ const hungarianPlain = 'aeiooouuu';
           </div>
         }
 
-        @if (studying && studyStatus === 'empty' && !isLoadingCard) {
+        @if (studying && mode !== 'free' && studyStatus === 'empty' && !isLoadingCard) {
           <div class="alert alert-info">Jelenleg nincs tanulható kártya.</div>
         }
 
-        @if (studying && studyStatus === 'dailyLimitReached' && !isLoadingCard) {
+        @if (studying && mode !== 'free' && studyStatus === 'dailyLimitReached' && !isLoadingCard) {
           <div class="alert alert-info">
             A mai új szavak elfogytak, és nincs esedékes ismétlés. Holnap folytathatod, vagy a profilban emelheted a napi célt.
           </div>
         }
 
-        @if (studying && card && !isLoadingCard) {
+        @if (studying && mode === 'free' && freeListLoaded && freeCards.length === 0 && !isLoadingCard) {
+          <div class="alert alert-info">Ebben a választásban nincs kártya.</div>
+        }
+
+        @if (studying && mode === 'free' && !isLoadingCard) {
+          @if (freeCard; as card) {
+          <section>
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+              <span class="fw-semibold">{{ freeIndex + 1 }}/{{ freeCards.length }}</span>
+              <span>Tudom {{ freeKnowCount }}</span>
+              <span>Nem tudom {{ freeDontKnowCount }}</span>
+              <span>Jelöletlen {{ freeUnmarkedCount }}</span>
+            </div>
+            <div class="row g-3 mb-3">
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" for="free-front">Elöl</label>
+                <select id="free-front" name="freeFront" class="form-select" [(ngModel)]="freeFront">
+                  <option [ngValue]="'term'">Angol szó</option>
+                  <option [ngValue]="'other'">A másik oldal</option>
+                </select>
+              </div>
+              <div class="col-sm-6">
+                <label class="form-label fw-semibold" for="free-back">Szemközti oldal</label>
+                <select id="free-back" name="freeBack" class="form-select" [(ngModel)]="freeBack">
+                  <option [ngValue]="'bilingual'">Angol–magyar</option>
+                  <option [ngValue]="'definition'">Definícióval</option>
+                </select>
+              </div>
+            </div>
+            <div
+              class="card border-0 shadow-sm free-study-face"
+              (pointerdown)="onFreePointerDown($event)"
+              (pointerup)="onFreePointerUp($event)"
+              (pointercancel)="onFreePointerCancel($event)">
+              <div class="card-body d-flex flex-column justify-content-center align-items-center text-center p-4 p-md-5">
+                @if (card.knows === true) {
+                  <span class="badge text-bg-success mb-3">Tudom</span>
+                } @else if (card.knows === false) {
+                  <span class="badge text-bg-danger mb-3">Nem tudom</span>
+                }
+                @if (freeShowingTerm) {
+                  <p class="display-6" [class.mb-0]="freeBack !== 'definition'" [class.mb-3]="freeBack === 'definition'">{{ card.term }}</p>
+                  @if (freeBack === 'definition') {
+                    <p class="mb-0">{{ card.definition }}</p>
+                    @if (card.example) {
+                      <p class="mb-0 mt-2 fst-italic text-body-secondary">{{ card.example }}</p>
+                    }
+                  }
+                } @else {
+                  <p class="display-6 mb-0">{{ card.targetMeanings?.trim() || 'Nincs megadva magyar jelentés.' }}</p>
+                }
+              </div>
+            </div>
+            <div class="d-grid d-sm-flex gap-2 mt-3">
+              <button type="button" class="btn btn-outline-primary" (click)="flipFree()" [disabled]="isSavingFreeMark || isClearingFreeMarks">
+                Fordítás
+              </button>
+              <button type="button" class="btn btn-success" (click)="markFree(true)" [disabled]="isSavingFreeMark || isClearingFreeMarks">
+                Tudom
+              </button>
+              <button type="button" class="btn btn-outline-danger" (click)="markFree(false)" [disabled]="isSavingFreeMark || isClearingFreeMarks">
+                Nem tudom
+              </button>
+            </div>
+            <button
+              type="button"
+              class="btn btn-outline-secondary mt-3"
+              (click)="askRestartFree()"
+              [disabled]="isSavingFreeMark || isClearingFreeMarks">
+              Újrakezdés
+            </button>
+            @if (freeRestartConfirm) {
+              <div class="alert alert-warning mt-3 mb-0">
+                <p class="mb-3">Biztosan törlöd a jelöléseket?</p>
+                <div class="d-grid d-sm-flex gap-2">
+                  <button type="button" class="btn btn-outline-secondary" (click)="cancelRestartFree()" [disabled]="isClearingFreeMarks">
+                    Mégse
+                  </button>
+                  <button type="button" class="btn btn-danger" (click)="confirmRestartFree()" [disabled]="isClearingFreeMarks">
+                    @if (isClearingFreeMarks) {
+                      <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    Törlés
+                  </button>
+                </div>
+              </div>
+            }
+          </section>
+          }
+        }
+
+        @if (studying && mode !== 'free' && card && !isLoadingCard) {
           <section class="card border-0 shadow-sm">
             <div class="card-body p-4 p-md-5">
               <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
@@ -699,6 +810,17 @@ const hungarianPlain = 'aeiooouuu';
       </div>
     </main>
   `,
+  styles: [`
+    .free-study-face {
+      min-height: 16rem;
+      touch-action: pan-y;
+      user-select: none;
+      display: flex;
+    }
+    .free-study-face > .card-body {
+      flex: 1 1 auto;
+    }
+  `],
 })
 export class StudyCardComponent implements OnInit, OnDestroy {
   private readonly http = inject(HttpClient);
@@ -764,6 +886,15 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   newCardsIntroducedToday = 0;
   dailyNewCardGoal: number | null = null;
   secondsUntilAnswer = 0;
+  freeFront: FreeFront = 'term';
+  freeBack: FreeBack = 'bilingual';
+  freeCards: FreeStudyCard[] = [];
+  freeIndex = 0;
+  freeFlipped = false;
+  freeListLoaded = false;
+  freeRestartConfirm = false;
+  isSavingFreeMark = false;
+  isClearingFreeMarks = false;
   private answerToken: string | null = null;
   private heldAnswer = '';
   private heldDefinition = '';
@@ -773,6 +904,13 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   private answerUnlockTimer: ReturnType<typeof setInterval> | null = null;
   private loadGeneration = 0;
   private continueAfterMeaningSubmit = false;
+  private freeKeyListener: ((event: KeyboardEvent) => void) | null = null;
+  private freePointerId: number | null = null;
+  private freePointerType = '';
+  private freePointerStartX = 0;
+  private freePointerStartY = 0;
+  private freeLastTapAt = 0;
+  private freeIgnoreMouseUntil = 0;
 
   get hasTargetMeanings(): boolean {
     return !!this.card?.targetMeanings?.trim();
@@ -799,6 +937,10 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   }
 
   get canChangeDeck(): boolean {
+    if (this.mode === 'free') {
+      return !this.isSavingFreeMark && !this.isClearingFreeMarks;
+    }
+
     return this.card === null || this.updatedProgress !== null;
   }
 
@@ -813,7 +955,30 @@ export class StudyCardComponent implements OnInit, OnDestroy {
       this.isValidating ||
       this.isSubmitting ||
       this.isAppealing ||
-      this.pendingIncorrect;
+      this.pendingIncorrect ||
+      this.isSavingFreeMark ||
+      this.isClearingFreeMarks;
+  }
+
+  get freeCard(): FreeStudyCard | null {
+    return this.freeCards[this.freeIndex] ?? null;
+  }
+
+  get freeShowingTerm(): boolean {
+    const frontIsTerm = this.freeFront === 'term';
+    return this.freeFlipped ? !frontIsTerm : frontIsTerm;
+  }
+
+  get freeKnowCount(): number {
+    return this.freeCards.filter(card => card.knows === true).length;
+  }
+
+  get freeDontKnowCount(): number {
+    return this.freeCards.filter(card => card.knows === false).length;
+  }
+
+  get freeUnmarkedCount(): number {
+    return this.freeCards.filter(card => card.knows == null).length;
   }
 
   ngOnInit(): void {
@@ -822,6 +987,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.clearAnswerTimer();
+    this.removeFreeKeyListener();
     if (this.pendingIncorrect && !this.updatedProgress && !this.isSubmitting) {
       this.submitResult(this.overrideCorrect, this.aiIncorrect, this.pendingTypedAnswer ?? undefined);
     }
@@ -833,9 +999,17 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     }
 
     this.mode = mode;
-    if (this.studying) {
-      this.loadNextCard();
+    this.syncFreeKeyListener();
+    if (!this.studying) {
+      return;
     }
+
+    if (mode === 'free') {
+      this.loadFreeCards();
+      return;
+    }
+
+    this.loadNextCard();
   }
 
   startStudy(): void {
@@ -845,6 +1019,12 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
     this.studying = true;
     this.errorMessage = null;
+    this.syncFreeKeyListener();
+    if (this.mode === 'free') {
+      this.loadFreeCards();
+      return;
+    }
+
     this.loadNextCard();
   }
 
@@ -863,6 +1043,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.isValidating = false;
     this.isAppealing = false;
     this.isExplaining = false;
+    this.clearFreeStudy();
     this.resetCardState();
   }
 
@@ -1829,6 +2010,323 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.answerToken = null;
     this.secondsUntilAnswer = 0;
     this.clearAnswerTimer();
+  }
+
+  flipFree(): void {
+    if (!this.freeCard || this.isSavingFreeMark || this.isClearingFreeMarks) {
+      return;
+    }
+
+    this.freeFlipped = !this.freeFlipped;
+  }
+
+  markFree(knows: boolean): void {
+    const card = this.freeCard;
+    if (!card || this.mode !== 'free' || this.isSavingFreeMark || this.isClearingFreeMarks) {
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    const cardId = card.id;
+    this.errorMessage = null;
+    this.isSavingFreeMark = true;
+    this.http.put<void>(`${this.apiBaseUrl}/free-study/cards/${cardId}/mark`, { knows })
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration) {
+          this.isSavingFreeMark = false;
+        }
+      }))
+      .subscribe({
+        next: () => {
+          if (generation !== this.loadGeneration || this.mode !== 'free') {
+            return;
+          }
+
+          const saved = this.freeCards.find(item => item.id === cardId);
+          if (!saved) {
+            return;
+          }
+
+          saved.knows = knows;
+          if (this.freeCard?.id === cardId) {
+            this.stepFree(1);
+          }
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration) {
+            return;
+          }
+
+          this.setHttpError(error, 'A jelölés mentése');
+        },
+      });
+  }
+
+  askRestartFree(): void {
+    if (this.isSavingFreeMark || this.isClearingFreeMarks) {
+      return;
+    }
+
+    this.freeRestartConfirm = true;
+  }
+
+  cancelRestartFree(): void {
+    if (this.isClearingFreeMarks) {
+      return;
+    }
+
+    this.freeRestartConfirm = false;
+  }
+
+  confirmRestartFree(): void {
+    if (this.isClearingFreeMarks || !this.studying || this.mode !== 'free') {
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    const params: Record<string, number> = {};
+    if (typeof this.deckChoice === 'number') {
+      params['deckId'] = this.deckChoice;
+    }
+
+    this.errorMessage = null;
+    this.isClearingFreeMarks = true;
+    this.http.delete<void>(`${this.apiBaseUrl}/free-study/marks`, { params })
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration) {
+          this.isClearingFreeMarks = false;
+        }
+      }))
+      .subscribe({
+        next: () => {
+          if (generation !== this.loadGeneration || this.mode !== 'free') {
+            return;
+          }
+
+          for (const card of this.freeCards) {
+            card.knows = null;
+          }
+
+          this.freeCards = this.shuffleFreeCards(this.freeCards);
+          this.freeIndex = 0;
+          this.freeFlipped = false;
+          this.freeRestartConfirm = false;
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration) {
+            return;
+          }
+
+          this.setHttpError(error, 'A jelölések törlése');
+        },
+      });
+  }
+
+  onFreePointerDown(event: PointerEvent): void {
+    if (!this.freeCard || this.isSavingFreeMark || this.isClearingFreeMarks) {
+      return;
+    }
+
+    if (event.pointerType === 'mouse' && (event.button !== 0 || Date.now() < this.freeIgnoreMouseUntil)) {
+      return;
+    }
+
+    const face = event.currentTarget;
+    if (face instanceof HTMLElement) {
+      face.setPointerCapture(event.pointerId);
+    }
+
+    this.freePointerId = event.pointerId;
+    this.freePointerType = event.pointerType;
+    this.freePointerStartX = event.clientX;
+    this.freePointerStartY = event.clientY;
+  }
+
+  onFreePointerUp(event: PointerEvent): void {
+    if (event.pointerId !== this.freePointerId) {
+      return;
+    }
+
+    const dx = event.clientX - this.freePointerStartX;
+    const dy = event.clientY - this.freePointerStartY;
+    const pointerType = this.freePointerType;
+    this.freePointerId = null;
+    if (pointerType !== 'mouse') {
+      this.freeIgnoreMouseUntil = Date.now() + 700;
+    }
+
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    if (absX >= 48 && absX > absY) {
+      this.freeLastTapAt = 0;
+      this.markFree(dx > 0);
+      return;
+    }
+
+    if (absX >= 48 || absY >= 48) {
+      this.freeLastTapAt = 0;
+      return;
+    }
+
+    if (pointerType !== 'mouse') {
+      const now = Date.now();
+      if (now - this.freeLastTapAt <= 300) {
+        this.freeLastTapAt = 0;
+        this.flipFree();
+      } else {
+        this.freeLastTapAt = now;
+      }
+      return;
+    }
+
+    this.flipFree();
+  }
+
+  onFreePointerCancel(event: PointerEvent): void {
+    if (event.pointerId === this.freePointerId) {
+      this.freePointerId = null;
+    }
+  }
+
+  private loadFreeCards(): void {
+    if (!this.studying || this.mode !== 'free') {
+      return;
+    }
+
+    const generation = ++this.loadGeneration;
+    this.isLoadingCard = true;
+    this.card = null;
+    this.studyStatus = null;
+    this.freeListLoaded = false;
+    this.freeCards = [];
+    this.freeIndex = 0;
+    this.freeFlipped = false;
+    this.freeRestartConfirm = false;
+    this.freePointerId = null;
+    this.resetCardState();
+
+    const params: Record<string, number> = {};
+    if (typeof this.deckChoice === 'number') {
+      params['deckId'] = this.deckChoice;
+    }
+
+    this.http.get<FreeStudyCard[]>(`${this.apiBaseUrl}/free-study/cards`, { params })
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration) {
+          this.isLoadingCard = false;
+        }
+      }))
+      .subscribe({
+        next: cards => {
+          if (generation !== this.loadGeneration || this.mode !== 'free') {
+            return;
+          }
+
+          this.freeCards = this.shuffleFreeCards(cards);
+          this.freeIndex = 0;
+          this.freeFlipped = false;
+          this.freeListLoaded = true;
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration) {
+            return;
+          }
+
+          this.setHttpError(error, 'A kártyák betöltése');
+        },
+      });
+  }
+
+  private shuffleFreeCards(cards: FreeStudyCard[]): FreeStudyCard[] {
+    const copy = [...cards];
+    for (let index = copy.length - 1; index > 0; index--) {
+      const swapIndex = Math.floor(Math.random() * (index + 1));
+      const current = copy[index];
+      copy[index] = copy[swapIndex];
+      copy[swapIndex] = current;
+    }
+
+    return copy;
+  }
+
+  private stepFree(delta: number): void {
+    const count = this.freeCards.length;
+    if (count === 0) {
+      return;
+    }
+
+    this.freeIndex = (this.freeIndex + delta + count) % count;
+    this.freeFlipped = false;
+  }
+
+  private clearFreeStudy(): void {
+    this.freeCards = [];
+    this.freeIndex = 0;
+    this.freeFlipped = false;
+    this.freeListLoaded = false;
+    this.freeRestartConfirm = false;
+    this.freePointerId = null;
+    this.isSavingFreeMark = false;
+    this.isClearingFreeMarks = false;
+  }
+
+  private syncFreeKeyListener(): void {
+    if (this.mode === 'free') {
+      if (this.freeKeyListener) {
+        return;
+      }
+
+      this.freeKeyListener = (event: KeyboardEvent) => this.onFreeKeyDown(event);
+      document.addEventListener('keydown', this.freeKeyListener);
+      return;
+    }
+
+    this.removeFreeKeyListener();
+  }
+
+  private removeFreeKeyListener(): void {
+    if (!this.freeKeyListener) {
+      return;
+    }
+
+    document.removeEventListener('keydown', this.freeKeyListener);
+    this.freeKeyListener = null;
+  }
+
+  private onFreeKeyDown(event: KeyboardEvent): void {
+    if (!this.studying || this.mode !== 'free' || !this.freeCard || this.isSavingFreeMark || this.isClearingFreeMarks || this.isLoadingCard) {
+      return;
+    }
+
+    const target = event.target;
+    if (target instanceof HTMLElement) {
+      const tag = target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+        return;
+      }
+    }
+
+    if (event.code === 'Space' || event.key === ' ') {
+      if (event.repeat) {
+        event.preventDefault();
+        return;
+      }
+
+      event.preventDefault();
+      this.flipFree();
+      return;
+    }
+
+    if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      this.stepFree(1);
+      return;
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this.stepFree(-1);
+    }
   }
 
   private setHttpError(error: HttpErrorResponse, context: string): void {
