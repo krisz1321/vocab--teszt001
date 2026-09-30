@@ -16,6 +16,8 @@ public sealed class AiService(
     ILogger<AiService> logger,
     AppDbContext dbContext) : IAiService
 {
+    private const string OffTopicText = "Ez nem kapcsolódik a tárgyhoz.";
+
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
@@ -535,6 +537,119 @@ public sealed class AiService(
         return result;
     }
 
+    public async Task<AppealAnswerResponseDto?> AppealAnswerAsync(
+        int userId,
+        AppealAnswerRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var requireAppealReason = await dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => (bool?)user.RequireAppealReason)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        var reason = request.Reason?.Trim() ?? string.Empty;
+        var requiresReason = requireAppealReason is null || requireAppealReason.Value;
+        if (reason.Length == 0 || (requiresReason && string.IsNullOrWhiteSpace(request.Reason)))
+        {
+            return null;
+        }
+
+        const string systemPrompt =
+            "The learner's answer was marked incorrect. They defend it with a justification written in Hungarian or English. " +
+            "Decide whether the justification makes the original answer acceptable against the reference definition. " +
+            "Minor grammar and spelling errors are not a reason to reject. " +
+            "A substantially different or opposite meaning stays incorrect, even with a justification. " +
+            "A weak or unrelated justification does not make the answer correct. " +
+            "For the term \"cat\", the Hungarian answer \"egy háziállat ami dorombol\" can be accepted when the justification " +
+            "shows that this meaning matches the reference. " +
+            "Return only a JSON object with exactly two properties: accepted (boolean) and feedback (a non-empty Hungarian " +
+            "string of at most two sentences).";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            request.Term,
+            referenceDefinition = request.Definition,
+            learnerAnswer = request.Answer,
+            justification = reason
+        });
+
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+        var parsed = DeserializeContent<AppealContent>(content);
+        var feedback = parsed.Feedback?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(feedback) || feedback.Length > 500)
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI appeal did not satisfy the response contract.");
+        }
+
+        return new AppealAnswerResponseDto
+        {
+            Accepted = parsed.Accepted,
+            Feedback = feedback
+        };
+    }
+
+    public async Task<ExplainAnswerResponseDto> ExplainAnswerAsync(
+        int userId,
+        ExplainAnswerRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var recentMessages = (request.Messages ?? [])
+            .Select(message => new
+            {
+                role = message.Role.Trim().ToLowerInvariant(),
+                content = message.Content.Trim()
+            })
+            .Where(message => message.content.Length > 0 && message.role is "user" or "assistant")
+            .TakeLast(8)
+            .ToList();
+
+        const string systemPrompt =
+            "You help a learner understand a vocabulary answer. The learner may write in Hungarian or English. " +
+            "Use the word, the reference definition, and the learner's answer. " +
+            "When there are no messages, explain how the learner's answer compares with the reference definition, in Hungarian, and set onTopic to true. " +
+            "When messages are present, answer the latest learner question. " +
+            "A question may be about the word, its meaning, its grammar, its synonyms, or why the answer was wrong. " +
+            "A broad question that still belongs to language learning is allowed. " +
+            "Refuse topics that are independent of this word and of language learning. Space travel and other unrelated subjects are not allowed. " +
+            "Return only a JSON object with exactly two properties: onTopic (boolean) and text (a non-empty Hungarian string of at most 1500 characters). " +
+            "When the latest question is unrelated, onTopic is false and text is exactly: Ez nem kapcsolódik a tárgyhoz. " +
+            "When onTopic is true, text answers in Hungarian.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            term = request.Term.Trim(),
+            referenceDefinition = request.Definition.Trim(),
+            learnerAnswer = request.Answer.Trim(),
+            messages = recentMessages
+        });
+
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+        var parsed = DeserializeContent<ExplainContent>(content);
+        if (!parsed.OnTopic)
+        {
+            return new ExplainAnswerResponseDto
+            {
+                OnTopic = false,
+                Text = OffTopicText
+            };
+        }
+
+        var text = parsed.Text?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(text) || text.Length > 1500)
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI explanation did not satisfy the response contract.");
+        }
+
+        return new ExplainAnswerResponseDto
+        {
+            OnTopic = true,
+            Text = text
+        };
+    }
+
     public async Task<RecognizeAmbiguityResponseDto?> RecognizeAmbiguityAsync(
         int userId,
         RecognizeAmbiguityRequestDto request,
@@ -692,6 +807,20 @@ public sealed class AiService(
         public string? Feedback { get; set; }
 
         public string? EnglishAnswer { get; set; }
+    }
+
+    private sealed class AppealContent
+    {
+        public bool Accepted { get; set; }
+
+        public string? Feedback { get; set; }
+    }
+
+    private sealed class ExplainContent
+    {
+        public bool OnTopic { get; set; }
+
+        public string? Text { get; set; }
     }
 
     private sealed class GeneratedDefinitionContent
@@ -914,6 +1043,15 @@ public sealed class AiService(
         return AiModels.IsAllowed(stored) ? stored : AiModels.Default;
     }
 
+    private async Task IncrementAiCallCountAsync(int userId, CancellationToken cancellationToken)
+    {
+        await dbContext.Users
+            .Where(user => user.Id == userId && user.AiCallCount < int.MaxValue)
+            .ExecuteUpdateAsync(
+                setters => setters.SetProperty(user => user.AiCallCount, user => user.AiCallCount + 1),
+                cancellationToken);
+    }
+
     private async Task<string> SendChatRequestAsync(
         int userId,
         string systemPrompt,
@@ -982,6 +1120,8 @@ public sealed class AiService(
 
         using (response)
         {
+            await IncrementAiCallCountAsync(userId, cancellationToken);
+
             if (!response.IsSuccessStatusCode)
             {
                 var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);

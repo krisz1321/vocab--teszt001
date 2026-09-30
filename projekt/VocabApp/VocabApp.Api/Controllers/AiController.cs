@@ -240,6 +240,76 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         }
     }
 
+    [HttpPost("appeal-answer")]
+    public async Task<ActionResult<AppealAnswerResponseDto>> AppealAnswer(
+        AppealAnswerRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var isValid = RequireText(request.Term, nameof(request.Term));
+        isValid &= RequireText(request.Definition, nameof(request.Definition));
+        isValid &= RequireText(request.Answer, nameof(request.Answer));
+        isValid &= RequireText(request.Reason, nameof(request.Reason));
+        if (!isValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            var result = await aiService.AppealAnswerAsync(userId.Value, request, cancellationToken);
+            if (result is null)
+            {
+                return BadRequest(new ProblemDetails
+                {
+                    Status = StatusCodes.Status400BadRequest,
+                    Title = "Appeal reason is required"
+                });
+            }
+
+            return Ok(result);
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
+    [HttpPost("explain-answer")]
+    public async Task<ActionResult<ExplainAnswerResponseDto>> ExplainAnswer(
+        ExplainAnswerRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var isValid = RequireText(request.Term, nameof(request.Term));
+        isValid &= RequireText(request.Definition, nameof(request.Definition));
+        isValid &= RequireText(request.Answer, nameof(request.Answer));
+        isValid &= RequireMessages(request.Messages);
+        if (!isValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            return Ok(await aiService.ExplainAnswerAsync(userId.Value, request, cancellationToken));
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
     private int? GetUserId()
     {
         var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
@@ -255,6 +325,26 @@ public sealed class AiController(IAiService aiService) : ControllerBase
 
         ModelState.AddModelError(propertyName, $"{propertyName} must not be empty or whitespace.");
         return false;
+    }
+
+    private bool RequireMessages(IReadOnlyList<ExplainMessageDto>? messages)
+    {
+        if (messages is null)
+        {
+            return true;
+        }
+
+        foreach (var message in messages)
+        {
+            var role = (message.Role ?? string.Empty).Trim().ToLowerInvariant();
+            if (role is not ("user" or "assistant") || string.IsNullOrWhiteSpace(message.Content))
+            {
+                ModelState.AddModelError(nameof(ExplainAnswerRequestDto.Messages), "Each message needs a user or assistant role and text.");
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private ActionResult MapAiException(AiServiceException exception)

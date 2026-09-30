@@ -22,7 +22,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 candidate.DailyNewCardGoal,
                 candidate.MinimumAnswerSeconds,
                 candidate.AutomaticAiCheck,
-                candidate.AcceptHungarianParaphrase
+                candidate.AcceptHungarianParaphrase,
+                candidate.RequireAppealReason
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -67,6 +68,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 user.MinimumAnswerSeconds,
                 user.AutomaticAiCheck,
                 user.AcceptHungarianParaphrase,
+                user.RequireAppealReason,
                 introducedToday,
                 hasUnseenCards ? "dailyLimitReached" : "empty",
                 null,
@@ -79,6 +81,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             user.MinimumAnswerSeconds,
             user.AutomaticAiCheck,
             user.AcceptHungarianParaphrase,
+            user.RequireAppealReason,
             introducedToday,
             "ready",
             card,
@@ -111,7 +114,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             {
                 candidate.StudyDayStreak,
                 candidate.LongestStudyDayStreak,
-                candidate.LastStudyDate
+                candidate.LastStudyDate,
+                candidate.AiCallCount
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -137,6 +141,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             TodayStudySeconds = studyDays
                 .Where(day => day.DayUtc.Date == today)
                 .Sum(day => day.SecondsStudied),
+            AiCallCount = user?.AiCallCount ?? 0,
             Days = BuildLearnedDays(learnedAt, today),
             Weeks = BuildLearnedWeeks(learnedAt, today),
             Cards = rows
@@ -174,6 +179,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 MinimumAnswerSeconds = user.MinimumAnswerSeconds,
                 AutomaticAiCheck = user.AutomaticAiCheck,
                 AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
+                RequireAppealReason = user.RequireAppealReason,
                 ReuseSavedExamples = user.ReuseSavedExamples,
                 SavedLevelPolicy = user.SavedLevelPolicy,
                 GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
@@ -216,6 +222,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.MinimumAnswerSeconds = request.MinimumAnswerSeconds;
         user.AutomaticAiCheck = request.AutomaticAiCheck;
         user.AcceptHungarianParaphrase = request.AcceptHungarianParaphrase;
+        user.RequireAppealReason = request.RequireAppealReason;
         user.ReuseSavedExamples = request.ReuseSavedExamples;
         user.SavedLevelPolicy = savedLevelPolicy;
         user.GenerateAlternateDefinitions = request.GenerateAlternateDefinitions;
@@ -228,6 +235,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             MinimumAnswerSeconds = user.MinimumAnswerSeconds,
             AutomaticAiCheck = user.AutomaticAiCheck,
             AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
+            RequireAppealReason = user.RequireAppealReason,
             ReuseSavedExamples = user.ReuseSavedExamples,
             SavedLevelPolicy = user.SavedLevelPolicy,
             GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
@@ -353,6 +361,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         int minimumAnswerSeconds,
         bool automaticAiCheck,
         bool acceptHungarianParaphrase,
+        bool requireAppealReason,
         int newCardsIntroducedToday,
         string status,
         StudyCardDto? card,
@@ -363,6 +372,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             MinimumAnswerSeconds = minimumAnswerSeconds,
             AutomaticAiCheck = automaticAiCheck,
             AcceptHungarianParaphrase = acceptHungarianParaphrase,
+            RequireAppealReason = requireAppealReason,
             NewCardsIntroducedToday = newCardsIntroducedToday,
             Status = status,
             Card = card,
@@ -568,7 +578,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         }
     }
 
-    private static int CurrentStudyDayStreak(int storedStreak, DateTime? lastStudyDate, DateTime today)
+    public static int CurrentStudyDayStreak(int storedStreak, DateTime? lastStudyDate, DateTime today)
     {
         var lastDay = lastStudyDate?.Date;
         if (lastDay == today || lastDay == today.AddDays(-1))

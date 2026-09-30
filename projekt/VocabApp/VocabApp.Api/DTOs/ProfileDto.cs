@@ -7,4 +7,6 @@ public sealed class ProfileDto
     public string? DisplayName { get; set; }
 
     public bool HasAvatar { get; set; }
+
+    public int StudyDayStreak { get; set; }
 }

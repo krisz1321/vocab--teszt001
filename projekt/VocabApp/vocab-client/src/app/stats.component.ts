@@ -39,6 +39,7 @@ interface StudyStats {
   longestStudyDayStreak: number;
   totalStudySeconds: number;
   todayStudySeconds: number;
+  aiCallCount: number;
   days: StudyStatsDay[];
   weeks: StudyStatsWeek[];
   cards: StudyStatsCard[];
@@ -70,6 +71,12 @@ interface StudyStats {
 
         @if (stats && !isLoading) {
           <div class="row g-3 mb-4">
+            <div class="col-sm-4">
+              <div class="border rounded p-3 h-100">
+                <div class="text-body-secondary">MI-hívások</div>
+                <div class="fs-3 fw-semibold">{{ stats.aiCallCount }}</div>
+              </div>
+            </div>
             <div class="col-sm-4">
               <div class="border rounded p-3 h-100">
                 <div class="text-body-secondary">Kártyák</div>

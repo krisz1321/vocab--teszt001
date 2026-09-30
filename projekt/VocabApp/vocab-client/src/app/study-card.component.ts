@@ -32,6 +32,7 @@ interface StudyNextResponse {
   minimumAnswerSeconds: number;
   automaticAiCheck: boolean;
   acceptHungarianParaphrase: boolean;
+  requireAppealReason: boolean;
   status: 'ready' | 'dailyLimitReached' | 'empty';
 }
 
@@ -84,6 +85,21 @@ interface ValidationResponse {
   isCorrect: boolean;
   feedback: string;
   englishAnswer?: string;
+}
+
+interface AppealResponse {
+  accepted: boolean;
+  feedback: string;
+}
+
+interface ExplanationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+interface ExplainResponse {
+  onTopic: boolean;
+  text: string;
 }
 
 type StudyMode = 'meaning' | 'definition' | 'recognition';
@@ -299,7 +315,7 @@ const hungarianPlain = 'aeiooouuu';
                   rows="4"
                   maxlength="1000"
                   [(ngModel)]="answer"
-                  [disabled]="isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null"
+                  [disabled]="isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null || validationResult !== null"
                   [placeholder]="acceptHungarianParaphrase ? 'Írd le angolul vagy magyarul a jelentését…' : 'Írd le angolul a jelentését…'"></textarea>
 
                 <div class="d-grid d-sm-flex gap-2 mt-3">
@@ -307,7 +323,7 @@ const hungarianPlain = 'aeiooouuu';
                     type="button"
                     class="btn btn-primary"
                     (click)="validateAnswer()"
-                    [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null">
+                    [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null || validationResult !== null">
                     @if (isValidating || isSubmitting) {
                       <span class="spinner-border spinner-border-sm me-2"></span>
                     }
@@ -497,10 +513,122 @@ const hungarianPlain = 'aeiooouuu';
                   [class.alert-success]="validationResult.isCorrect"
                   [class.alert-danger]="!validationResult.isCorrect">
                   <strong>{{ validationResult.isCorrect ? 'Helyes válasz.' : 'Még nem pontos.' }}</strong>
-                  {{ validationResult.feedback }}
+                  @if (validationResult.feedback) {
+                    {{ ' ' + validationResult.feedback }}
+                  }
                   @if (mode === 'definition' && validationResult.isCorrect && validationResult.englishAnswer) {
                     <div class="mt-2">Angolul: {{ validationResult.englishAnswer }}</div>
                   }
+                  @if (appealFeedback && !validationResult.isCorrect) {
+                    <div class="mt-2">{{ appealFeedback }}</div>
+                  }
+                </div>
+              }
+
+              @if (showChallengeActions) {
+                <div class="d-flex flex-wrap gap-2 mt-3">
+                  @if (canAppeal) {
+                    @if (!requireAppealReason) {
+                      <button
+                        type="button"
+                        class="btn btn-outline-success"
+                        (click)="acceptAppealWithoutReason()"
+                        [disabled]="isSubmitting || isAppealing">
+                        Márpedig ez jó válasz volt
+                      </button>
+                    } @else if (!appealOpen) {
+                      <button
+                        type="button"
+                        class="btn btn-outline-success"
+                        (click)="appealOpen = true"
+                        [disabled]="isSubmitting || isAppealing">
+                        Mégis helyes volt
+                      </button>
+                    }
+                  }
+                  @if (!explanationStarted) {
+                    <button
+                      type="button"
+                      class="btn btn-outline-primary"
+                      (click)="explainWhyWrong()"
+                      [disabled]="isExplaining || isSubmitting">
+                      @if (isExplaining) {
+                        <span class="spinner-border spinner-border-sm me-2"></span>
+                      }
+                      Miért volt rossz?
+                    </button>
+                  }
+                </div>
+                @if (canAppeal && requireAppealReason && appealOpen) {
+                  <label for="appeal-reason" class="form-label fw-semibold mt-3">Indoklás</label>
+                  <textarea
+                    id="appeal-reason"
+                    class="form-control"
+                    rows="3"
+                    maxlength="1000"
+                    [(ngModel)]="appealReason"
+                    [disabled]="isAppealing || isSubmitting"
+                    placeholder="Magyarul vagy angolul…"></textarea>
+                  <button
+                    type="button"
+                    class="btn btn-primary mt-2"
+                    (click)="submitAppeal()"
+                    [disabled]="!appealReason.trim() || isAppealing || isSubmitting">
+                    @if (isAppealing) {
+                      <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    Indoklás elküldése
+                  </button>
+                }
+              }
+
+              @if (explanationMessages.length > 0) {
+                <div class="mt-3">
+                  @for (message of explanationMessages; track $index) {
+                    <p class="mb-2" [class.text-body-secondary]="message.role === 'user'">
+                      @if (message.role === 'user') {
+                        <span class="fw-semibold">Kérdés. </span>
+                      }
+                      {{ message.content }}
+                    </p>
+                  }
+                </div>
+              }
+
+              @if (explanationStarted && !explanationClosed) {
+                <label for="follow-up" class="form-label fw-semibold mt-3">Kérdés</label>
+                <textarea
+                  id="follow-up"
+                  class="form-control"
+                  rows="3"
+                  maxlength="2000"
+                  [(ngModel)]="followUpQuestion"
+                  [disabled]="isExplaining || isSubmitting"
+                  placeholder="A szóról, a jelentéséről vagy a hibáról…"></textarea>
+                <button
+                  type="button"
+                  class="btn btn-outline-primary mt-2"
+                  (click)="askFollowUp()"
+                  [disabled]="!followUpQuestion.trim() || isExplaining || isSubmitting">
+                  @if (isExplaining) {
+                    <span class="spinner-border spinner-border-sm me-2"></span>
+                  }
+                  Kérdés küldése
+                </button>
+              }
+
+              @if (pendingIncorrect && !updatedProgress) {
+                <div class="border-top mt-4 pt-4">
+                  <button
+                    type="button"
+                    class="btn btn-success"
+                    (click)="savePendingAndContinue()"
+                    [disabled]="isSubmitting || isAppealing">
+                    @if (isSubmitting) {
+                      <span class="spinner-border spinner-border-sm me-2"></span>
+                    }
+                    Következő kártya
+                  </button>
                 </div>
               }
 
@@ -535,6 +663,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   mode: StudyMode = 'meaning';
   automaticAiCheck = false;
   acceptHungarianParaphrase = false;
+  requireAppealReason = true;
   meaningAwaitingGrade = false;
   answer = '';
   targetMeaningsDraft = '';
@@ -567,12 +696,30 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   isSavingTargetMeaning = false;
   isValidating = false;
   isSubmitting = false;
+  isAppealing = false;
+  isExplaining = false;
+  pendingIncorrect = false;
+  aiIncorrect = false;
+  recognitionIncorrect = false;
+  overrideCorrect = false;
+  appealUsed = false;
+  appealOpen = false;
+  appealReason = '';
+  appealFeedback: string | null = null;
+  explanationStarted = false;
+  explanationClosed = false;
+  followUpQuestion = '';
+  explanationMessages: ExplanationMessage[] = [];
   errorMessage: string | null = null;
   studyStatus: StudyNextResponse['status'] | null = null;
   newCardsIntroducedToday = 0;
   dailyNewCardGoal: number | null = null;
   secondsUntilAnswer = 0;
   private answerToken: string | null = null;
+  private heldAnswer = '';
+  private heldDefinition = '';
+  private pendingTypedAnswer: string | null = null;
+  private continueAfterSave = false;
   private answerUnlockedAt = 0;
   private answerUnlockTimer: ReturnType<typeof setInterval> | null = null;
   private loadGeneration = 0;
@@ -580,6 +727,18 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
   get hasTargetMeanings(): boolean {
     return !!this.card?.targetMeanings?.trim();
+  }
+
+  get showChallengeActions(): boolean {
+    if (!this.answer.trim() || this.overrideCorrect || this.validationResult?.isCorrect) {
+      return false;
+    }
+
+    return this.aiIncorrect || this.recognitionIncorrect;
+  }
+
+  get canAppeal(): boolean {
+    return this.showChallengeActions && this.aiIncorrect && !this.appealUsed && this.updatedProgress === null;
   }
 
   get isInteractionLocked(): boolean {
@@ -591,7 +750,9 @@ export class StudyCardComponent implements OnInit, OnDestroy {
       this.isGeneratingTargetMeaning ||
       this.isSavingTargetMeaning ||
       this.isValidating ||
-      this.isSubmitting;
+      this.isSubmitting ||
+      this.isAppealing ||
+      this.pendingIncorrect;
   }
 
   ngOnInit(): void {
@@ -600,6 +761,9 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.clearAnswerTimer();
+    if (this.pendingIncorrect && !this.updatedProgress && !this.isSubmitting) {
+      this.submitResult(this.overrideCorrect, this.aiIncorrect, this.pendingTypedAnswer ?? undefined);
+    }
   }
 
   setMode(mode: StudyMode): void {
@@ -634,6 +798,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
           this.dailyNewCardGoal = response.dailyNewCardGoal;
           this.automaticAiCheck = response.automaticAiCheck;
           this.acceptHungarianParaphrase = response.acceptHungarianParaphrase;
+          this.requireAppealReason = response.requireAppealReason;
           this.studyStatus = response.status;
           this.answerToken = response.answerToken;
           if (response.status !== 'ready' || !response.card || !response.answerToken) {
@@ -730,7 +895,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
   evaluateMeaningWithAi(): void {
     const trimmedAnswer = this.answer.trim();
-    if (!this.card || !trimmedAnswer || this.isValidating || this.isSubmitting || this.updatedProgress) {
+    if (!this.card || !trimmedAnswer || this.isValidating || this.isSubmitting || this.updatedProgress || this.validationResult || this.pendingIncorrect) {
       return;
     }
 
@@ -761,7 +926,12 @@ export class StudyCardComponent implements OnInit, OnDestroy {
           this.validationResult = result;
           this.meaningCorrect = result.isCorrect;
           this.meaningAwaitingGrade = false;
-          this.submitResult(result.isCorrect, true);
+          if (result.isCorrect) {
+            this.submitResult(true, true);
+            return;
+          }
+
+          this.holdIncorrectAnswer(this.card?.targetMeanings ?? '', null, true);
         },
         error: (error: HttpErrorResponse) => {
           if (generation !== this.loadGeneration || this.card?.id !== cardId) {
@@ -1030,7 +1200,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.updatedProgress) {
+    if (!this.updatedProgress && !this.pendingIncorrect) {
       if (!this.answerToken || this.secondsUntilAnswer > 0) {
         return;
       }
@@ -1087,7 +1257,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   }
 
   validateAnswer(): void {
-    if (!this.card || this.secondsUntilAnswer > 0) {
+    if (!this.card || this.secondsUntilAnswer > 0 || this.isValidating || this.isSubmitting || this.validationResult || this.pendingIncorrect) {
       return;
     }
 
@@ -1097,26 +1267,151 @@ export class StudyCardComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const generation = this.loadGeneration;
+    const cardId = this.card.id;
+    const definition = this.card.definition;
     this.errorMessage = null;
     this.isValidating = true;
     this.http.post<ValidationResponse>(
       `${this.apiBaseUrl}/ai/validate`,
       {
         term: this.card.term,
-        definition: this.card.definition,
+        definition,
         answer: trimmedAnswer,
         paraphrase: true,
       },
     )
-      .pipe(finalize(() => this.isValidating = false))
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration && this.card?.id === cardId) {
+          this.isValidating = false;
+        }
+      }))
       .subscribe({
         next: result => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
           this.validationResult = result;
           this.isDefinitionRevealed = true;
-          this.submitResult(result.isCorrect, true);
+          if (result.isCorrect) {
+            this.submitResult(true, true);
+            return;
+          }
+
+          this.holdIncorrectAnswer(definition, null, true);
         },
-        error: (error: HttpErrorResponse) => this.setHttpError(error, 'A válasz ellenőrzése'),
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.setHttpError(error, 'A válasz ellenőrzése');
+        },
       });
+  }
+
+  acceptAppealWithoutReason(): void {
+    if (!this.canAppeal || this.requireAppealReason || this.isSubmitting || this.isAppealing) {
+      return;
+    }
+
+    this.markAppealAccepted('');
+    this.submitResult(true, true);
+  }
+
+  submitAppeal(): void {
+    if (!this.card || !this.canAppeal || !this.requireAppealReason || this.isAppealing || this.isSubmitting) {
+      return;
+    }
+
+    const reason = this.appealReason.trim();
+    if (!reason) {
+      this.errorMessage = 'Az indoklás nem lehet üres.';
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    const cardId = this.card.id;
+    this.errorMessage = null;
+    this.isAppealing = true;
+    this.http.post<AppealResponse>(
+      `${this.apiBaseUrl}/ai/appeal-answer`,
+      {
+        term: this.card.term,
+        definition: this.heldDefinition,
+        answer: this.heldAnswer,
+        reason,
+      },
+    )
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration && this.card?.id === cardId) {
+          this.isAppealing = false;
+        }
+      }))
+      .subscribe({
+        next: result => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId || this.appealUsed) {
+            return;
+          }
+
+          this.appealUsed = true;
+          this.appealOpen = false;
+          if (result.accepted) {
+            this.markAppealAccepted(result.feedback);
+            this.submitResult(true, true);
+            return;
+          }
+
+          this.appealFeedback = result.feedback;
+          this.submitResult(false, true, this.pendingTypedAnswer ?? undefined);
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          if (error.status === 400) {
+            this.errorMessage = 'Az indoklás nem lehet üres.';
+            return;
+          }
+
+          this.setHttpError(error, 'A válasz megvédése');
+        },
+      });
+  }
+
+  explainWhyWrong(): void {
+    if (!this.showChallengeActions || this.explanationStarted || this.isExplaining) {
+      return;
+    }
+
+    this.requestExplanation(this.explanationMessages);
+  }
+
+  askFollowUp(): void {
+    if (!this.explanationStarted || this.explanationClosed || this.isExplaining || this.isSubmitting) {
+      return;
+    }
+
+    const question = this.followUpQuestion.trim();
+    if (!question) {
+      return;
+    }
+
+    this.requestExplanation(
+      [...this.explanationMessages, { role: 'user', content: question }],
+      question,
+    );
+  }
+
+  savePendingAndContinue(): void {
+    if (!this.pendingIncorrect || this.updatedProgress || this.isSubmitting || this.isAppealing) {
+      return;
+    }
+
+    this.continueAfterSave = true;
+    this.submitResult(this.overrideCorrect, this.aiIncorrect, this.pendingTypedAnswer ?? undefined);
   }
 
   continueToNext(): void {
@@ -1142,9 +1437,10 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.isRecognitionRevealed = true;
     if (isCorrect) {
       this.submitResult(true, false);
-    } else {
-      this.submitResult(false, false, trimmedAnswer);
+      return;
     }
+
+    this.holdIncorrectAnswer(this.card.definition, trimmedAnswer, false);
   }
 
   private normalizeText(value: string): string {
@@ -1195,8 +1491,89 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     return `${existing}, ${addition}`;
   }
 
+  private holdIncorrectAnswer(referenceDefinition: string, typedForConfusion: string | null, fromAi: boolean): void {
+    this.pendingIncorrect = true;
+    this.heldAnswer = this.answer.trim();
+    this.heldDefinition = referenceDefinition;
+    this.pendingTypedAnswer = typedForConfusion;
+    this.aiIncorrect = fromAi;
+    this.recognitionIncorrect = !fromAi;
+  }
+
+  private markAppealAccepted(feedback: string): void {
+    this.overrideCorrect = true;
+    this.appealUsed = true;
+    this.appealOpen = false;
+    this.appealFeedback = null;
+    this.meaningCorrect = this.mode === 'meaning' ? true : this.meaningCorrect;
+    if (this.validationResult) {
+      this.validationResult = {
+        isCorrect: true,
+        feedback,
+        englishAnswer: '',
+      };
+    }
+  }
+
+  private requestExplanation(messages: ExplanationMessage[], pendingQuestion?: string): void {
+    if (!this.card || this.explanationClosed || this.isExplaining) {
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    const cardId = this.card.id;
+    this.errorMessage = null;
+    this.isExplaining = true;
+    this.http.post<ExplainResponse>(
+      `${this.apiBaseUrl}/ai/explain-answer`,
+      {
+        term: this.card.term,
+        definition: this.heldDefinition,
+        answer: this.heldAnswer,
+        messages,
+      },
+    )
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration && this.card?.id === cardId) {
+          this.isExplaining = false;
+        }
+      }))
+      .subscribe({
+        next: result => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          if (pendingQuestion) {
+            this.explanationMessages = [
+              ...this.explanationMessages,
+              { role: 'user', content: pendingQuestion },
+            ];
+            this.followUpQuestion = '';
+          }
+
+          const text = result.onTopic ? result.text : 'Ez nem kapcsolódik a tárgyhoz.';
+          this.explanationMessages = [
+            ...this.explanationMessages,
+            { role: 'assistant', content: text },
+          ];
+          this.explanationStarted = true;
+          if (!result.onTopic) {
+            this.explanationClosed = true;
+          }
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.setHttpError(error, 'A magyarázat kérése');
+        },
+      });
+  }
+
   private submitResult(isCorrect: boolean, evaluatedByAi: boolean, typedAnswer?: string): void {
-    if (!this.card || !this.answerToken) {
+    if (!this.card || !this.answerToken || this.updatedProgress || this.isSubmitting) {
       return;
     }
 
@@ -1214,7 +1591,10 @@ export class StudyCardComponent implements OnInit, OnDestroy {
       .subscribe({
         next: progress => {
           const penalty = this.definitionPenaltyPending;
+          const continueAfter = this.continueAfterSave;
           this.definitionPenaltyPending = null;
+          this.continueAfterSave = false;
+          this.pendingIncorrect = false;
           this.updatedProgress = progress;
           if (penalty === 'reveal') {
             this.isDefinitionRevealed = true;
@@ -1223,16 +1603,20 @@ export class StudyCardComponent implements OnInit, OnDestroy {
             this.definitionPenaltyApplied = true;
             this.requestGeneratedDefinition();
           }
-          if (this.continueAfterMeaningSubmit) {
+          if (this.continueAfterMeaningSubmit || continueAfter) {
             this.continueAfterMeaningSubmit = false;
             this.loadNextCard();
           }
         },
         error: (error: HttpErrorResponse) => {
           this.definitionPenaltyPending = null;
+          this.continueAfterSave = false;
           if (error.status === 400) {
             this.errorMessage = 'A válasz még nem menthető. Várd meg a beállított minimum időt, majd próbáld újra.';
             this.continueAfterMeaningSubmit = false;
+            if (this.pendingIncorrect) {
+              return;
+            }
             if (this.mode === 'recognition') {
               this.isRecognitionRevealed = false;
               this.recognitionCorrect = null;
@@ -1305,6 +1689,22 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.recognitionCorrect = null;
     this.validationResult = null;
     this.updatedProgress = null;
+    this.pendingIncorrect = false;
+    this.aiIncorrect = false;
+    this.recognitionIncorrect = false;
+    this.overrideCorrect = false;
+    this.appealUsed = false;
+    this.appealOpen = false;
+    this.appealReason = '';
+    this.appealFeedback = null;
+    this.explanationStarted = false;
+    this.explanationClosed = false;
+    this.followUpQuestion = '';
+    this.explanationMessages = [];
+    this.heldAnswer = '';
+    this.heldDefinition = '';
+    this.pendingTypedAnswer = null;
+    this.continueAfterSave = false;
     this.isDefinitionRevealed = false;
     this.definitionPenaltyApplied = false;
     this.definitionPenaltyPending = null;

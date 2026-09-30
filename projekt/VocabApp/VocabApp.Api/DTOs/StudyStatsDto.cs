@@ -10,6 +10,7 @@ public sealed class StudyStatsDto
     public int LongestStudyDayStreak { get; set; }
     public int TotalStudySeconds { get; set; }
     public int TodayStudySeconds { get; set; }
+    public int AiCallCount { get; set; }
     public List<StudyStatsDayDto> Days { get; set; } = [];
     public List<StudyStatsWeekDto> Weeks { get; set; } = [];
     public List<StudyStatsCardDto> Cards { get; set; } = [];

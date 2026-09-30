@@ -34,6 +34,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.MinimumAnswerSeconds).HasDefaultValue(0);
         user.Property(u => u.AutomaticAiCheck).HasDefaultValue(false);
         user.Property(u => u.AcceptHungarianParaphrase).HasDefaultValue(false);
+        user.Property(u => u.RequireAppealReason).HasDefaultValue(true);
         user.Property(u => u.ReuseSavedExamples).HasDefaultValue(true);
         user.Property(u => u.SavedLevelPolicy).IsRequired().HasMaxLength(16).HasDefaultValue(SavedLevelPolicies.Exact);
         user.Property(u => u.GenerateAlternateDefinitions).HasDefaultValue(true);
@@ -41,6 +42,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.AiModel).IsRequired().HasMaxLength(64).HasDefaultValue(AiModels.Default);
         user.Property(u => u.StudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.LongestStudyDayStreak).HasDefaultValue(0);
+        user.Property(u => u.AiCallCount).HasDefaultValue(0);
         user.HasIndex(u => u.Email).IsUnique();
         user.ToTable(table =>
         {

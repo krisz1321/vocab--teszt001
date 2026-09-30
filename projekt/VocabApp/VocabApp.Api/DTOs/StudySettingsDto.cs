@@ -15,6 +15,8 @@ public sealed class StudySettingsDto
 
     public bool AcceptHungarianParaphrase { get; set; }
 
+    public bool RequireAppealReason { get; set; } = true;
+
     public bool ReuseSavedExamples { get; set; }
 
     [Required, MaxLength(16)]

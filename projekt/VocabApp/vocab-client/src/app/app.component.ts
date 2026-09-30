@@ -24,6 +24,7 @@ interface ProfileResponse {
   email: string;
   displayName: string | null;
   hasAvatar: boolean;
+  studyDayStreak: number;
 }
 
 interface StudySettings {
@@ -31,6 +32,7 @@ interface StudySettings {
   minimumAnswerSeconds: number;
   automaticAiCheck: boolean;
   acceptHungarianParaphrase: boolean;
+  requireAppealReason: boolean;
   reuseSavedExamples: boolean;
   savedLevelPolicy: string;
   generateAlternateDefinitions: boolean;
@@ -167,15 +169,15 @@ interface AiModelOption {
                 {{ initial() }}
               </span>
             }
+            <span
+              class="rounded-circle border d-inline-flex align-items-center justify-content-center flex-shrink-0 fw-semibold"
+              style="width: 2rem; height: 2rem; font-size: 0.75rem;"
+              title="Napi sorozat"
+              [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">
+              {{ studyDayStreak }}
+            </span>
             <button type="button" class="btn btn-outline-secondary" (click)="logout()">
               Kijelentkezés
-            </button>
-            <button
-              type="button"
-              class="btn btn-outline-danger"
-              (click)="deleteAccount()"
-              [disabled]="isDeletingAccount">
-              Fiók törlése
             </button>
           </div>
         </div>
@@ -219,6 +221,14 @@ interface AiModelOption {
                 {{ initial() }}
               </span>
             }
+            <span
+              class="rounded-circle border d-inline-flex flex-column align-items-center justify-content-center flex-shrink-0"
+              style="width: 6rem; height: 6rem;"
+              title="Napi sorozat"
+              [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">
+              <span class="fs-3 fw-semibold lh-1">{{ studyDayStreak }}</span>
+              <span class="small text-secondary">nap</span>
+            </span>
             <div>
               <label class="form-label" for="avatarFile">Profilkép</label>
               <input
@@ -301,6 +311,17 @@ interface AiModelOption {
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="acceptHungarianParaphrase">Magyar körülírás elfogadása</label>
               <div class="form-text">Bekapcsolva a helyes magyar mondat is elfogadható, és az MI angolul visszaírja. Kikapcsolva a körülírást angolul kell megadni.</div>
+            </div>
+            <div class="form-check mb-3">
+              <input
+                id="requireAppealReason"
+                name="requireAppealReason"
+                type="checkbox"
+                class="form-check-input"
+                [(ngModel)]="requireAppealReason"
+                [disabled]="isSavingStudySettings">
+              <label class="form-check-label" for="requireAppealReason">A hibás válasz megvédéséhez indoklás kell.</label>
+              <div class="form-text">Bekapcsolva a Mégis helyes volt gomb indoklást kér, és az MI dönt. Kikapcsolva a Márpedig ez jó válasz volt gomb indoklás nélkül helyesként ment.</div>
             </div>
             <div class="form-check mb-3">
               <input
@@ -405,6 +426,30 @@ interface AiModelOption {
             </div>
             <button type="submit" class="btn btn-primary" [disabled]="isChangingPassword">Jelszócsere</button>
           </form>
+          <section class="mt-4 pt-4 border-top">
+            <h2 class="h5 mb-2">Fiók törlése</h2>
+            <p class="mb-3">A fiók, a profilkép, a saját paklik és a tanulási adatok véglegesen törlődnek. Ez a művelet nem vonható vissza.</p>
+            <label class="form-label" for="deleteAccountSlide">Húzd jobbra a csúszkát a törlés feloldásához</label>
+            <input
+              id="deleteAccountSlide"
+              type="range"
+              class="form-range"
+              min="0"
+              max="100"
+              step="1"
+              [value]="deleteSlide"
+              (input)="onDeleteSlide($event)"
+              [disabled]="isDeletingAccount">
+            @if (deleteSlide >= 100) {
+              <button
+                type="button"
+                class="btn btn-outline-danger"
+                (click)="deleteAccount()"
+                [disabled]="isDeletingAccount">
+                Fiók törlése
+              </button>
+            }
+          </section>
         </main>
       }
     }
@@ -421,11 +466,13 @@ export class AppComponent implements OnInit {
   errorMessage: string | null = null;
   isSubmitting = false;
   isDeletingAccount = false;
+  deleteSlide = 0;
   profileEmail: string | null = null;
   displayName = '';
   savedDisplayName = '';
   hasAvatar = false;
   avatarUrl: string | null = null;
+  studyDayStreak = 0;
   profileError: string | null = null;
   profileMessage: string | null = null;
   currentPassword = '';
@@ -438,6 +485,7 @@ export class AppComponent implements OnInit {
   minimumAnswerSeconds = 0;
   automaticAiCheck = false;
   acceptHungarianParaphrase = false;
+  requireAppealReason = true;
   reuseSavedExamples = true;
   allowOtherSavedLevels = false;
   readonly savedLevelPolicies: SavedLevelPolicyOption[] = [
@@ -513,8 +561,14 @@ export class AppComponent implements OnInit {
     this.view = 'profile';
     this.profileError = null;
     this.profileMessage = null;
+    this.deleteSlide = 0;
     this.loadProfile();
     this.loadStudySettings();
+  }
+
+  onDeleteSlide(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.deleteSlide = Number.isFinite(value) ? value : 0;
   }
 
   initial(): string {
@@ -618,6 +672,7 @@ export class AppComponent implements OnInit {
       minimumAnswerSeconds: seconds,
       automaticAiCheck: this.automaticAiCheck,
       acceptHungarianParaphrase: this.acceptHungarianParaphrase,
+      requireAppealReason: this.requireAppealReason,
       reuseSavedExamples: this.reuseSavedExamples,
       savedLevelPolicy,
       generateAlternateDefinitions: this.generateAlternateDefinitions,
@@ -633,6 +688,7 @@ export class AppComponent implements OnInit {
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
         this.acceptHungarianParaphrase = settings.acceptHungarianParaphrase;
+        this.requireAppealReason = settings.requireAppealReason;
         this.reuseSavedExamples = settings.reuseSavedExamples;
         this.applySavedLevelPolicy(settings.savedLevelPolicy);
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
@@ -671,13 +727,15 @@ export class AppComponent implements OnInit {
 
   deleteAccount(): void {
     const confirmed = confirm(
-      'A saját fiókod és paklijaid végleg törlődnek. A mások által elmentett másolatok megmaradnak. Folytatod?',
+      'Biztosan törlöd a fiókodat?\n\nA fiók, a profilkép, a saját paklik és a tanulási adatok véglegesen törlődnek. Ez a művelet nem vonható vissza. A mások által elmentett másolatok megmaradnak.',
     );
     if (!confirmed) {
+      this.deleteSlide = 0;
       return;
     }
 
-    this.errorMessage = null;
+    this.profileError = null;
+    this.profileMessage = null;
     this.isDeletingAccount = true;
     this.http.delete('/api/auth/account').pipe(
       finalize(() => {
@@ -690,10 +748,7 @@ export class AppComponent implements OnInit {
         this.session.clear();
       },
       error: (error: HttpErrorResponse) => {
-        const title = (error.error as ProblemDetails | null)?.title;
-        this.errorMessage = typeof title === 'string' && title.trim()
-          ? title
-          : 'A fiók törlése sikertelen.';
+        this.profileError = this.readProblem(error, 'A fiók törlése sikertelen.');
       },
     });
   }
@@ -716,6 +771,7 @@ export class AppComponent implements OnInit {
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
         this.acceptHungarianParaphrase = settings.acceptHungarianParaphrase;
+        this.requireAppealReason = settings.requireAppealReason;
         this.reuseSavedExamples = settings.reuseSavedExamples;
         this.applySavedLevelPolicy(settings.savedLevelPolicy);
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
@@ -736,6 +792,7 @@ export class AppComponent implements OnInit {
         this.displayName = profile.displayName ?? '';
         this.savedDisplayName = this.displayName;
         this.hasAvatar = profile.hasAvatar;
+        this.studyDayStreak = profile.studyDayStreak;
         this.avatarUrl = profile.hasAvatar && this.userId
           ? `/api/auth/avatar/${this.userId}?v=${Date.now()}`
           : null;
@@ -743,6 +800,7 @@ export class AppComponent implements OnInit {
       error: () => {
         this.hasAvatar = false;
         this.avatarUrl = null;
+        this.studyDayStreak = 0;
       },
     });
   }
@@ -754,10 +812,12 @@ export class AppComponent implements OnInit {
     this.savedDisplayName = '';
     this.hasAvatar = false;
     this.avatarUrl = null;
+    this.studyDayStreak = 0;
     this.profileError = null;
     this.profileMessage = null;
     this.currentPassword = '';
     this.newPassword = '';
+    this.deleteSlide = 0;
     this.dailyNewCardGoal = 20;
     this.minimumAnswerSeconds = 0;
     this.userId = null;

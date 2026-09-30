@@ -23,6 +23,8 @@ public sealed class User
 
     public bool AcceptHungarianParaphrase { get; set; }
 
+    public bool RequireAppealReason { get; set; } = true;
+
     public bool ReuseSavedExamples { get; set; } = true;
 
     [Required, MaxLength(16)]
@@ -39,6 +41,8 @@ public sealed class User
     public int StudyDayStreak { get; set; }
 
     public int LongestStudyDayStreak { get; set; }
+
+    public int AiCallCount { get; set; }
 
     public DateTime? LastStudyDate { get; set; }
 

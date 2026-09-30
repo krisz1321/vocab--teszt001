@@ -34,6 +34,16 @@ public interface IAiService
         ValidateAnswerRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<AppealAnswerResponseDto?> AppealAnswerAsync(
+        int userId,
+        AppealAnswerRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<ExplainAnswerResponseDto> ExplainAnswerAsync(
+        int userId,
+        ExplainAnswerRequestDto request,
+        CancellationToken cancellationToken = default);
+
     Task<RecognizeAmbiguityResponseDto?> RecognizeAmbiguityAsync(
         int userId,
         RecognizeAmbiguityRequestDto request,

@@ -156,6 +156,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.Property<int>("Id").ValueGeneratedOnAdd().HasColumnType("INTEGER")
                 .HasAnnotation("Sqlite:Autoincrement", true);
             entity.Property<bool>("AcceptHungarianParaphrase").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(false);
+            entity.Property<int>("AiCallCount").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<string>("AiModel").IsRequired().ValueGeneratedOnAdd().HasMaxLength(64).HasColumnType("TEXT").HasDefaultValue("google/gemini-3.6-flash");
             entity.Property<bool>("AutomaticAiCheck").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(false);
             entity.Property<int>("DailyNewCardGoal").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(20);
@@ -167,6 +168,7 @@ partial class AppDbContextModelSnapshot : ModelSnapshot
             entity.Property<int>("LongestStudyDayStreak").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<int>("MinimumAnswerSeconds").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);
             entity.Property<string>("PasswordHash").IsRequired().HasColumnType("TEXT");
+            entity.Property<bool>("RequireAppealReason").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(true);
             entity.Property<bool>("ReuseSavedExamples").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(true);
             entity.Property<string>("SavedLevelPolicy").IsRequired().ValueGeneratedOnAdd().HasMaxLength(16).HasColumnType("TEXT").HasDefaultValue("exact");
             entity.Property<int>("StudyDayStreak").ValueGeneratedOnAdd().HasColumnType("INTEGER").HasDefaultValue(0);

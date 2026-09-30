@@ -316,7 +316,11 @@ public sealed class AuthService(
         {
             Email = user.Email,
             DisplayName = user.DisplayName,
-            HasAvatar = FindAvatar(user.Id) is not null
+            HasAvatar = FindAvatar(user.Id) is not null,
+            StudyDayStreak = StudyService.CurrentStudyDayStreak(
+                user.StudyDayStreak,
+                user.LastStudyDate,
+                DateTime.UtcNow.Date)
         };
     }
 
