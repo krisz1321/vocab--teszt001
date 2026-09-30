@@ -19,6 +19,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             {
                 Id = deck.Id,
                 Name = deck.Name,
+                CardCount = deck.Cards.Count,
                 IsPublic = deck.IsPublic,
                 ExampleLevel = deck.ExampleLevel
             })
@@ -45,7 +46,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         dbContext.Decks.Add(deck);
         await dbContext.SaveChangesAsync(cancellationToken);
 
-        return DeckCardResult<DeckDto>.Success(ToDto(deck));
+        return DeckCardResult<DeckDto>.Success(await ToDtoAsync(deck, cancellationToken));
     }
 
     public async Task<DeckCardResult<DeckDto>> RenameAsync(
@@ -74,7 +75,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
 
         deck.Name = name;
         await dbContext.SaveChangesAsync(cancellationToken);
-        return DeckCardResult<DeckDto>.Success(ToDto(deck));
+        return DeckCardResult<DeckDto>.Success(await ToDtoAsync(deck, cancellationToken));
     }
 
     public async Task<bool> DeleteAsync(int userId, int deckId, CancellationToken cancellationToken = default)
@@ -106,7 +107,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
 
         deck.IsPublic = request.IsPublic;
         await dbContext.SaveChangesAsync(cancellationToken);
-        return DeckCardResult<DeckDto>.Success(ToDto(deck));
+        return DeckCardResult<DeckDto>.Success(await ToDtoAsync(deck, cancellationToken));
     }
 
     public async Task<DeckCardResult<DeckDto>> UpdateExampleLevelAsync(
@@ -134,7 +135,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
 
         deck.ExampleLevel = exampleLevel;
         await dbContext.SaveChangesAsync(cancellationToken);
-        return DeckCardResult<DeckDto>.Success(ToDto(deck));
+        return DeckCardResult<DeckDto>.Success(await ToDtoAsync(deck, cancellationToken));
     }
 
     public async Task<IReadOnlyList<PublicDeckDto>> GetPublicAsync(
@@ -239,7 +240,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
 
         dbContext.Decks.Add(copy);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return DeckCardResult<DeckDto>.Success(ToDto(copy));
+        return DeckCardResult<DeckDto>.Success(await ToDtoAsync(copy, cancellationToken));
     }
 
     public async Task<DeckCardResult<DeckCsvFile>> ExportAsync(
@@ -316,10 +317,11 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         return DeckCardResult<ImportDeckResultDto>.Success(new ImportDeckResultDto { ImportedCount = rows.Count });
     }
 
-    private static DeckDto ToDto(Deck deck) => new()
+    private async Task<DeckDto> ToDtoAsync(Deck deck, CancellationToken cancellationToken) => new()
     {
         Id = deck.Id,
         Name = deck.Name,
+        CardCount = await dbContext.Cards.CountAsync(card => card.DeckId == deck.Id, cancellationToken),
         IsPublic = deck.IsPublic,
         ExampleLevel = deck.ExampleLevel
     };

@@ -7,6 +7,7 @@ import { finalize } from 'rxjs';
 interface Deck {
   id: number;
   name: string;
+  cardCount: number;
   isPublic: boolean;
   exampleLevel: string | null;
 }
@@ -118,13 +119,16 @@ interface ImportResult {
                     <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="isRenaming" (click)="cancelRename()">Mégse</button>
                   </form>
                 } @else {
-                  <button
-                    type="button"
-                    class="btn btn-link text-start text-decoration-none p-0"
-                    [class.fw-semibold]="selectedDeckId === deck.id"
-                    (click)="selectDeck(deck.id)">
-                    {{ deck.name }}
-                  </button>
+                  <div>
+                    <button
+                      type="button"
+                      class="btn btn-link text-start text-decoration-none p-0"
+                      [class.fw-semibold]="selectedDeckId === deck.id"
+                      (click)="selectDeck(deck.id)">
+                      {{ deck.name }}
+                    </button>
+                    <div class="text-body-secondary small">{{ deck.cardCount }} kártya</div>
+                  </div>
                   <div class="d-flex flex-wrap justify-content-end align-items-center gap-2">
                     <label class="d-flex align-items-center gap-1 mb-0 small" [attr.for]="'exampleLevel-' + deck.id">
                       Szint
@@ -897,6 +901,7 @@ export class DecksComponent implements OnInit {
         } else {
           this.cards = this.cards.map(item => item.id === card.id ? card : item);
         }
+        this.loadDecks();
         this.cancelEdit();
       },
       error: (error: HttpErrorResponse) => {
@@ -997,6 +1002,7 @@ export class DecksComponent implements OnInit {
     ).subscribe({
       next: () => {
         this.cards = this.cards.filter(item => item.id !== card.id);
+        this.loadDecks();
         if (this.editingCardId === card.id) {
           this.cancelEdit();
         }
@@ -1020,6 +1026,7 @@ export class DecksComponent implements OnInit {
     ).subscribe({
       next: (result) => {
         this.importMessage = `${result.importedCount} kártya került be.`;
+        this.loadDecks();
         if (this.selectedDeckId === deckId) {
           this.loadCards();
         }
