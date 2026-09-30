@@ -63,6 +63,32 @@ public sealed class FreeStudyController(IFreeStudyService freeStudyService) : Co
             });
     }
 
+    [HttpDelete("cards/{cardId:int}/mark")]
+    public async Task<IActionResult> ClearMark(
+        int cardId,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var result = await freeStudyService.ClearMarkAsync(userId.Value, cardId, cancellationToken);
+        if (result.ErrorStatus is null)
+        {
+            return NoContent();
+        }
+
+        return StatusCode(
+            result.ErrorStatus.Value,
+            new ProblemDetails
+            {
+                Title = result.ErrorTitle,
+                Status = result.ErrorStatus
+            });
+    }
+
     [HttpDelete("marks")]
     public async Task<IActionResult> ClearMarks(
         [FromQuery] int? deckId,

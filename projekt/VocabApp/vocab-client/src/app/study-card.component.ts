@@ -118,6 +118,12 @@ interface FreeStudyCard {
   knows: boolean | null;
 }
 
+interface FreeUndoState {
+  cardId: number;
+  index: number;
+  previousKnows: boolean | null;
+}
+
 type StudyDeckChoice = number | 'all';
 type StudyFocus = 'all' | 'due' | 'mistakes' | 'new';
 type StudyMode = 'meaning' | 'definition' | 'recognition' | 'free';
@@ -269,80 +275,84 @@ const hungarianPlain = 'aeiooouuu';
 
         @if (studying && mode === 'free' && !isLoadingCard) {
           @if (freeCard; as card) {
-          <section>
-            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
-              <span class="fw-semibold">{{ freeIndex + 1 }}/{{ freeCards.length }}</span>
-              <span>Tudom {{ freeKnowCount }}</span>
-              <span>Nem tudom {{ freeDontKnowCount }}</span>
-              <span>Jelöletlen {{ freeUnmarkedCount }}</span>
-            </div>
-            <div class="row g-3 mb-3">
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold" for="free-front">Elöl</label>
-                <select id="free-front" name="freeFront" class="form-select" [(ngModel)]="freeFront">
-                  <option [ngValue]="'term'">Angol szó</option>
-                  <option [ngValue]="'other'">A másik oldal</option>
-                </select>
+          <section class="free-study-shell" aria-label="Szabad tanulás">
+            <div class="free-study-toolbar">
+              <div>
+                <span class="free-study-kicker">{{ activeDeckLabel }}</span>
+                <strong>{{ freeIndex + 1 }} / {{ freeCards.length }}</strong>
               </div>
-              <div class="col-sm-6">
-                <label class="form-label fw-semibold" for="free-back">Szemközti oldal</label>
-                <select id="free-back" name="freeBack" class="form-select" [(ngModel)]="freeBack">
-                  <option [ngValue]="'bilingual'">Angol–magyar</option>
-                  <option [ngValue]="'definition'">Definícióval</option>
-                </select>
-              </div>
-            </div>
-            <div
-              class="card border-0 shadow-sm free-study-face"
-              (pointerdown)="onFreePointerDown($event)"
-              (pointerup)="onFreePointerUp($event)"
-              (pointercancel)="onFreePointerCancel($event)">
-              <div class="card-body d-flex flex-column justify-content-center align-items-center text-center p-4 p-md-5">
-                @if (card.knows === true) {
-                  <span class="badge text-bg-success mb-3">Tudom</span>
-                } @else if (card.knows === false) {
-                  <span class="badge text-bg-danger mb-3">Nem tudom</span>
+              <div class="d-flex align-items-center gap-2">
+                @if (freeShowStats) {
+                  <span class="free-study-progress">{{ freeKnowCount }} tudom · {{ freeDontKnowCount }} nem tudom</span>
                 }
-                @if (freeShowingTerm) {
-                  <p class="display-6" [class.mb-0]="freeBack !== 'definition'" [class.mb-3]="freeBack === 'definition'">{{ card.term }}</p>
-                  @if (freeBack === 'definition') {
-                    <p class="mb-0">{{ card.definition }}</p>
-                    @if (card.example) {
-                      <p class="mb-0 mt-2 fst-italic text-body-secondary">{{ card.example }}</p>
+                <button type="button" class="btn btn-light btn-sm free-settings-button" (click)="freeSettingsOpen = !freeSettingsOpen" aria-label="Szabad tanulás beállításai" title="Beállítások">
+                  Beállítások
+                </button>
+              </div>
+            </div>
+
+            @if (freeSettingsOpen) {
+              <div class="free-settings-panel" role="dialog" aria-label="Szabad tanulás beállításai">
+                <div class="free-settings-heading">
+                  <strong>Tanulási nézet</strong>
+                  <button type="button" class="btn-close" aria-label="Bezárás" (click)="freeSettingsOpen = false"></button>
+                </div>
+                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowStats" (ngModelChange)="saveFreeSetting('stats', $event)"> <span>Statisztikák megjelenítése</span></label>
+                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowAudio" (ngModelChange)="saveFreeSetting('audio', $event)"> <span>Kiejtés gomb megjelenítése</span></label>
+                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeKeyboardEnabled" (ngModelChange)="saveFreeSetting('keyboard', $event)"> <span>Billentyűparancsok engedélyezése</span></label>
+                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowExample" (ngModelChange)="saveFreeSetting('example', $event)"> <span>Példamondat megjelenítése</span></label>
+                <div class="row g-2 mt-2">
+                  <div class="col-6"><label class="small text-body-secondary" for="free-front">Elöl</label><select id="free-front" name="freeFront" class="form-select form-select-sm" [(ngModel)]="freeFront"><option [ngValue]="'term'">Angol szó</option><option [ngValue]="'other'">A másik oldal</option></select></div>
+                  <div class="col-6"><label class="small text-body-secondary" for="free-back">Hátul</label><select id="free-back" name="freeBack" class="form-select form-select-sm" [(ngModel)]="freeBack"><option [ngValue]="'bilingual'">Angol–magyar</option><option [ngValue]="'definition'">Definícióval</option></select></div>
+                </div>
+              </div>
+            }
+
+            <div class="free-study-stage">
+              <div class="free-swipe-label free-swipe-label-left" [class.is-visible]="freeSwipeX < -24">Nem tudom</div>
+              <div class="free-swipe-label free-swipe-label-right" [class.is-visible]="freeSwipeX > 24">Tudom</div>
+              <div
+                class="card border-0 free-study-face"
+                [class.is-dragging]="isFreeDragging"
+                [class.is-exiting]="freeSwipeAnimating"
+                [style.transform]="freeCardTransform"
+                (pointerdown)="onFreePointerDown($event)"
+                (pointermove)="onFreePointerMove($event)"
+                (pointerup)="onFreePointerUp($event)"
+                (pointercancel)="onFreePointerCancel($event)"
+                role="button"
+                tabindex="0"
+                [attr.aria-label]="freeShowingTerm ? 'A kártya eleje, fordításhoz kattints vagy használd a Space billentyűt' : 'A kártya hátulja'">
+                <div class="card-body d-flex flex-column justify-content-center align-items-center text-center p-4 p-md-5">
+                  <span class="free-card-hint">{{ freeShowingTerm ? 'Fordítsd meg a kártyát' : 'Megoldás' }}</span>
+                  @if (freeShowingTerm) {
+                    <p class="free-card-word">{{ freeFront === 'term' ? card.term : (card.targetMeanings?.trim() || 'Nincs megadva magyar jelentés.') }}</p>
+                    @if (freeFront === 'term' && freeShowAudio) {
+                      <button type="button" class="btn btn-link free-audio-button" (click)="$event.stopPropagation(); speak(card.term)" aria-label="A szó kiejtése" title="Kiejtés lejátszása">Hang</button>
+                    }
+                  } @else {
+                    <p class="free-card-word">{{ freeFront === 'term' ? (card.targetMeanings?.trim() || 'Nincs megadva magyar jelentés.') : card.term }}</p>
+                    @if (freeBack === 'definition') {
+                      <p class="free-card-definition">{{ card.definition }}</p>
+                    }
+                    @if (freeShowExample && card.example) {
+                      <p class="free-card-example">{{ card.example }}</p>
                     }
                   }
-                } @else {
-                  <p class="display-6 mb-0">{{ card.targetMeanings?.trim() || 'Nincs megadva magyar jelentés.' }}</p>
-                }
+                  <span class="free-card-hint free-card-hint-bottom">Space a fordításhoz</span>
+                </div>
               </div>
             </div>
-            <div class="d-grid d-sm-flex gap-2 mt-3">
-              <button type="button" class="btn btn-outline-primary" (click)="flipFree()" [disabled]="isSavingFreeMark || isClearingFreeMarks">
-                Fordítás
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary"
-                (click)="speak(card.term)"
-                [disabled]="isSavingFreeMark || isClearingFreeMarks"
-                aria-label="A szó kiejtése"
-                title="Kiejtés lejátszása">
-                Hang
-              </button>
-              <button type="button" class="btn btn-success" (click)="markFree(true)" [disabled]="isSavingFreeMark || isClearingFreeMarks">
-                Tudom
-              </button>
-              <button type="button" class="btn btn-outline-danger" (click)="markFree(false)" [disabled]="isSavingFreeMark || isClearingFreeMarks">
-                Nem tudom
-              </button>
+
+            <div class="free-study-actions">
+              <button type="button" class="btn free-action free-action-no" (click)="markFree(false)" [disabled]="isSavingFreeMark || isClearingFreeMarks" aria-label="Nem tudom, balra húzás"><span aria-hidden="true">←</span><span>Nem tudom</span></button>
+              <button type="button" class="btn btn-outline-secondary free-flip-button" (click)="flipFree()" [disabled]="isSavingFreeMark || isClearingFreeMarks">Fordítás</button>
+              <button type="button" class="btn free-action free-action-yes" (click)="markFree(true)" [disabled]="isSavingFreeMark || isClearingFreeMarks" aria-label="Tudom, jobbra húzás"><span>Tudom</span><span aria-hidden="true">→</span></button>
             </div>
-            <button
-              type="button"
-              class="btn btn-outline-secondary mt-3"
-              (click)="askRestartFree()"
-              [disabled]="isSavingFreeMark || isClearingFreeMarks">
-              Újrakezdés
-            </button>
+            <div class="free-study-footer">
+              <button type="button" class="btn btn-link btn-sm" (click)="undoFree()" [disabled]="!freeUndo || isSavingFreeMark || isClearingFreeMarks">Visszavonás</button>
+              <button type="button" class="btn btn-link btn-sm text-body-secondary" (click)="askRestartFree()" [disabled]="isSavingFreeMark || isClearingFreeMarks">Újrakezdés</button>
+            </div>
             @if (freeRestartConfirm) {
               <div class="alert alert-warning mt-3 mb-0">
                 <p class="mb-3">Biztosan törlöd a jelöléseket?</p>
@@ -859,15 +869,39 @@ const hungarianPlain = 'aeiooouuu';
     </main>
   `,
   styles: [`
-    .free-study-face {
-      min-height: 16rem;
-      touch-action: pan-y;
-      user-select: none;
-      display: flex;
-    }
-    .free-study-face > .card-body {
-      flex: 1 1 auto;
-    }
+    .free-study-shell { position: relative; max-width: 760px; margin: 0 auto; }
+    .free-study-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+    .free-study-kicker { display: block; color: #64748b; font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
+    .free-study-progress { color: #64748b; font-size: .85rem; }
+    .free-settings-button { border: 1px solid #dbe3ec; }
+    .free-settings-panel { position: absolute; z-index: 5; top: 3.5rem; right: 0; width: min(20rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid #dbe3ec; border-radius: .75rem; background: #fff; box-shadow: 0 .75rem 2rem rgba(15, 23, 42, .14); }
+    .free-settings-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; }
+    .free-setting-row { display: flex; align-items: center; gap: .6rem; padding: .42rem 0; font-size: .9rem; cursor: pointer; }
+    .free-setting-row input { width: 1rem; height: 1rem; accent-color: #2563eb; }
+    .free-study-stage { position: relative; min-height: 25rem; }
+    .free-study-face { min-height: 25rem; touch-action: pan-y; user-select: none; display: flex; position: relative; z-index: 2; border: 1px solid #e2e8f0 !important; border-radius: 1.25rem; background: linear-gradient(145deg, #fff, #f8fbff); box-shadow: 0 1.25rem 2.75rem rgba(30, 64, 175, .12) !important; transition: transform .22s ease, box-shadow .22s ease; cursor: grab; }
+    .free-study-face.is-dragging { transition: none; cursor: grabbing; }
+    .free-study-face.is-exiting { transition: transform .18s ease-out; }
+    .free-study-face > .card-body { flex: 1 1 auto; }
+    .free-card-hint { color: #94a3b8; font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; }
+    .free-card-word { max-width: 100%; margin: 1rem 0 .5rem; color: #172554; font-size: clamp(2rem, 7vw, 4rem); line-height: 1.1; overflow-wrap: anywhere; }
+    .free-card-definition { max-width: 42rem; margin: .4rem 0; color: #334155; font-size: 1.12rem; }
+    .free-card-example { max-width: 42rem; margin: .4rem 0; color: #64748b; font-style: italic; }
+    .free-card-hint-bottom { margin-top: auto; }
+    .free-audio-button { padding: .15rem .5rem; }
+    .free-swipe-label { position: absolute; z-index: 3; top: 1.5rem; padding: .5rem .8rem; border: 2px solid currentColor; border-radius: .5rem; font-weight: 700; opacity: 0; transition: opacity .12s ease; pointer-events: none; }
+    .free-swipe-label.is-visible { opacity: 1; }
+    .free-swipe-label-left { left: 1.5rem; color: #dc2626; transform: rotate(-8deg); }
+    .free-swipe-label-right { right: 1.5rem; color: #15803d; transform: rotate(8deg); }
+    .free-study-actions { display: grid; grid-template-columns: 1fr auto 1fr; gap: .75rem; align-items: center; margin-top: 1rem; }
+    .free-action { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 3.2rem; border: 1px solid; border-radius: .75rem; font-weight: 600; }
+    .free-action-no { color: #b91c1c; border-color: #fecaca; background: #fff7f7; }
+    .free-action-yes { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+    .free-action span:first-child, .free-action span:last-child { font-size: 1.25rem; }
+    .free-flip-button { min-height: 2.8rem; }
+    .free-study-footer { display: flex; justify-content: space-between; margin-top: .35rem; }
+    @media (max-width: 575.98px) { .free-study-toolbar { align-items: flex-start; } .free-study-progress { display: none; } .free-study-stage, .free-study-face { min-height: 22rem; } .free-study-actions { grid-template-columns: 1fr 1fr; } .free-flip-button { grid-column: 1 / -1; grid-row: 1; } .free-action { min-height: 3rem; } }
+    @media (prefers-reduced-motion: reduce) { .free-study-face, .free-swipe-label { transition: none; } }
   `],
 })
 export class StudyCardComponent implements OnInit, OnDestroy {
@@ -945,6 +979,14 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   freeFlipped = false;
   freeListLoaded = false;
   freeRestartConfirm = false;
+  freeSettingsOpen = false;
+  freeShowStats = true;
+  freeShowAudio = true;
+  freeKeyboardEnabled = true;
+  freeShowExample = true;
+  freeSwipeX = 0;
+  freeSwipeAnimating = false;
+  freeUndo: FreeUndoState | null = null;
   isSavingFreeMark = false;
   isClearingFreeMarks = false;
   private answerToken: string | null = null;
@@ -961,6 +1003,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   private freePointerType = '';
   private freePointerStartX = 0;
   private freePointerStartY = 0;
+  private freePointerMoved = false;
+  private freeSwipeTimeout: ReturnType<typeof setTimeout> | null = null;
   private freeLastTapAt = 0;
   private freeIgnoreMouseUntil = 0;
 
@@ -1025,6 +1069,15 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     return this.freeCards[this.freeIndex] ?? null;
   }
 
+  get isFreeDragging(): boolean {
+    return this.freePointerId !== null;
+  }
+
+  get freeCardTransform(): string {
+    const rotation = Math.max(-12, Math.min(12, this.freeSwipeX / 18));
+    return `translate3d(${this.freeSwipeX}px, 0, 0) rotate(${rotation}deg)`;
+  }
+
   get freeShowingTerm(): boolean {
     const frontIsTerm = this.freeFront === 'term';
     return this.freeFlipped ? !frontIsTerm : frontIsTerm;
@@ -1043,11 +1096,13 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.loadFreeSettings();
     this.loadDecks();
   }
 
   ngOnDestroy(): void {
     this.clearAnswerTimer();
+    this.clearFreeSwipeTimeout();
     this.removeFreeKeyListener();
     if (this.pendingIncorrect && !this.updatedProgress && !this.isSubmitting) {
       this.submitResult(this.overrideCorrect, this.aiIncorrect, this.pendingTypedAnswer ?? undefined);
@@ -1110,6 +1165,22 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   private preferenceKey(name: string): string {
     const identity = this.session.email()?.trim().toLowerCase() || 'anonymous';
     return `vocabapp.${identity}.${name}`;
+  }
+
+  private loadFreeSettings(): void {
+    this.freeShowStats = this.readBooleanPreference('free-stats', true);
+    this.freeShowAudio = this.readBooleanPreference('free-audio', true);
+    this.freeKeyboardEnabled = this.readBooleanPreference('free-keyboard', true);
+    this.freeShowExample = this.readBooleanPreference('free-example', true);
+  }
+
+  private readBooleanPreference(name: string, fallback: boolean): boolean {
+    const stored = localStorage.getItem(this.preferenceKey(name));
+    return stored === null ? fallback : stored === 'true';
+  }
+
+  saveFreeSetting(name: 'stats' | 'audio' | 'keyboard' | 'example', value: boolean): void {
+    localStorage.setItem(this.preferenceKey(`free-${name}`), String(value));
   }
 
   chooseAnotherDeck(): void {
@@ -2115,6 +2186,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
     const generation = this.loadGeneration;
     const cardId = card.id;
+    const previousKnows = card.knows;
     this.errorMessage = null;
     this.isSavingFreeMark = true;
     this.http.put<void>(`${this.apiBaseUrl}/free-study/cards/${cardId}/mark`, { knows })
@@ -2135,6 +2207,9 @@ export class StudyCardComponent implements OnInit, OnDestroy {
           }
 
           saved.knows = knows;
+          this.freeUndo = { cardId, index: this.freeIndex, previousKnows };
+          this.freeSwipeX = 0;
+          this.freeSwipeAnimating = false;
           if (this.freeCard?.id === cardId) {
             this.stepFree(1);
           }
@@ -2144,9 +2219,48 @@ export class StudyCardComponent implements OnInit, OnDestroy {
             return;
           }
 
+          this.freeSwipeX = 0;
+          this.freeSwipeAnimating = false;
           this.setHttpError(error, 'A jelölés mentése');
         },
       });
+  }
+
+  undoFree(): void {
+    const undo = this.freeUndo;
+    if (!undo || this.isSavingFreeMark || this.isClearingFreeMarks || this.mode !== 'free') {
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    this.isSavingFreeMark = true;
+    const request = undo.previousKnows === null
+      ? this.http.delete<void>(`${this.apiBaseUrl}/free-study/cards/${undo.cardId}/mark`)
+      : this.http.put<void>(`${this.apiBaseUrl}/free-study/cards/${undo.cardId}/mark`, { knows: undo.previousKnows });
+    request.pipe(finalize(() => {
+      if (generation === this.loadGeneration) {
+        this.isSavingFreeMark = false;
+      }
+    })).subscribe({
+      next: () => {
+        if (generation !== this.loadGeneration || this.mode !== 'free') {
+          return;
+        }
+
+        const restored = this.freeCards.find(item => item.id === undo.cardId);
+        if (restored) {
+          restored.knows = undo.previousKnows;
+        }
+        this.freeIndex = undo.index;
+        this.freeFlipped = false;
+        this.freeUndo = null;
+      },
+      error: (error: HttpErrorResponse) => {
+        if (generation === this.loadGeneration) {
+          this.setHttpError(error, 'A visszavonás');
+        }
+      },
+    });
   }
 
   askRestartFree(): void {
@@ -2228,6 +2342,22 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.freePointerType = event.pointerType;
     this.freePointerStartX = event.clientX;
     this.freePointerStartY = event.clientY;
+    this.freePointerMoved = false;
+  }
+
+  onFreePointerMove(event: PointerEvent): void {
+    if (event.pointerId !== this.freePointerId || this.isSavingFreeMark || this.isClearingFreeMarks) {
+      return;
+    }
+
+    const dx = event.clientX - this.freePointerStartX;
+    const dy = event.clientY - this.freePointerStartY;
+    if (Math.abs(dx) > 8 || Math.abs(dy) > 8) {
+      this.freePointerMoved = true;
+    }
+    if (Math.abs(dx) > Math.abs(dy)) {
+      this.freeSwipeX = dx;
+    }
   }
 
   onFreePointerUp(event: PointerEvent): void {
@@ -2247,16 +2377,24 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     const absY = Math.abs(dy);
     if (absX >= 48 && absX > absY) {
       this.freeLastTapAt = 0;
-      this.markFree(dx > 0);
+      this.freeSwipeX = dx > 0 ? 540 : -540;
+      this.freeSwipeAnimating = true;
+      this.clearFreeSwipeTimeout();
+      this.freeSwipeTimeout = setTimeout(() => {
+        this.freeSwipeTimeout = null;
+        this.markFree(dx > 0);
+      }, 180);
       return;
     }
 
     if (absX >= 48 || absY >= 48) {
       this.freeLastTapAt = 0;
+      this.freeSwipeX = 0;
       return;
     }
 
-    if (pointerType !== 'mouse') {
+    this.freeSwipeX = 0;
+    if (pointerType !== 'mouse' && !this.freePointerMoved) {
       const now = Date.now();
       if (now - this.freeLastTapAt <= 300) {
         this.freeLastTapAt = 0;
@@ -2267,12 +2405,24 @@ export class StudyCardComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (this.freePointerMoved) {
+      return;
+    }
+
     this.flipFree();
   }
 
   onFreePointerCancel(event: PointerEvent): void {
     if (event.pointerId === this.freePointerId) {
       this.freePointerId = null;
+      this.freeSwipeX = 0;
+    }
+  }
+
+  private clearFreeSwipeTimeout(): void {
+    if (this.freeSwipeTimeout !== null) {
+      clearTimeout(this.freeSwipeTimeout);
+      this.freeSwipeTimeout = null;
     }
   }
 
@@ -2308,10 +2458,14 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.isLoadingCard = true;
     this.card = null;
     this.studyStatus = null;
+    this.clearFreeSwipeTimeout();
     this.freeListLoaded = false;
     this.freeCards = [];
     this.freeIndex = 0;
     this.freeFlipped = false;
+    this.freeUndo = null;
+    this.freeSwipeX = 0;
+    this.freeSwipeAnimating = false;
     this.freeRestartConfirm = false;
     this.freePointerId = null;
     this.resetCardState();
@@ -2338,6 +2492,9 @@ export class StudyCardComponent implements OnInit, OnDestroy {
           this.freeCards = this.shuffleFreeCards(cards);
           this.freeIndex = 0;
           this.freeFlipped = false;
+          this.freeUndo = null;
+          this.freeSwipeX = 0;
+          this.freeSwipeAnimating = false;
           this.freeListLoaded = true;
         },
         error: (error: HttpErrorResponse) => {
@@ -2373,11 +2530,15 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   }
 
   private clearFreeStudy(): void {
+    this.clearFreeSwipeTimeout();
     this.freeCards = [];
     this.freeIndex = 0;
     this.freeFlipped = false;
     this.freeListLoaded = false;
     this.freeRestartConfirm = false;
+    this.freeUndo = null;
+    this.freeSwipeX = 0;
+    this.freeSwipeAnimating = false;
     this.freePointerId = null;
     this.isSavingFreeMark = false;
     this.isClearingFreeMarks = false;
@@ -2407,7 +2568,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   }
 
   private onFreeKeyDown(event: KeyboardEvent): void {
-    if (!this.studying || this.mode !== 'free' || !this.freeCard || this.isSavingFreeMark || this.isClearingFreeMarks || this.isLoadingCard) {
+    if (!this.studying || this.mode !== 'free' || !this.freeKeyboardEnabled || !this.freeCard || this.isSavingFreeMark || this.isClearingFreeMarks || this.isLoadingCard) {
       return;
     }
 
@@ -2432,13 +2593,13 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
     if (event.key === 'ArrowRight') {
       event.preventDefault();
-      this.stepFree(1);
+      this.markFree(true);
       return;
     }
 
     if (event.key === 'ArrowLeft') {
       event.preventDefault();
-      this.stepFree(-1);
+      this.markFree(false);
     }
   }
 

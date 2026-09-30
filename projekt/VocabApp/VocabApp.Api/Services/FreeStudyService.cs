@@ -89,6 +89,23 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
         return DeckCardResult<bool>.Success(true);
     }
 
+    public async Task<DeckCardResult<bool>> ClearMarkAsync(
+        int userId,
+        int cardId,
+        CancellationToken cancellationToken = default)
+    {
+        var mark = await dbContext.FreeStudyMarks
+            .FirstOrDefaultAsync(item => item.UserId == userId && item.CardId == cardId, cancellationToken);
+        if (mark is null)
+        {
+            return DeckCardResult<bool>.Success(true);
+        }
+
+        dbContext.FreeStudyMarks.Remove(mark);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return DeckCardResult<bool>.Success(true);
+    }
+
     public async Task<DeckCardResult<bool>> ClearMarksAsync(
         int userId,
         int? deckId,

@@ -16,6 +16,11 @@ public interface IFreeStudyService
         bool knows,
         CancellationToken cancellationToken = default);
 
+    Task<DeckCardResult<bool>> ClearMarkAsync(
+        int userId,
+        int cardId,
+        CancellationToken cancellationToken = default);
+
     Task<DeckCardResult<bool>> ClearMarksAsync(
         int userId,
         int? deckId,
