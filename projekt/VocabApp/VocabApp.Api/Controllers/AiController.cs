@@ -254,7 +254,6 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         var isValid = RequireText(request.Term, nameof(request.Term));
         isValid &= RequireText(request.Definition, nameof(request.Definition));
         isValid &= RequireText(request.Answer, nameof(request.Answer));
-        isValid &= RequireText(request.Reason, nameof(request.Reason));
         if (!isValid)
         {
             return ValidationProblem(ModelState);

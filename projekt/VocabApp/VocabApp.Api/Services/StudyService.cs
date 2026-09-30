@@ -26,7 +26,6 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         }
 
         var now = DateTime.UtcNow;
-        var dayStart = now.Date;
         var user = await dbContext.Users
             .AsNoTracking()
             .Where(candidate => candidate.Id == userId)
@@ -36,7 +35,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 candidate.MinimumAnswerSeconds,
                 candidate.AutomaticAiCheck,
                 candidate.AcceptHungarianParaphrase,
-                candidate.RequireAppealReason
+                candidate.RequireAppealReason,
+                candidate.TimeZoneId
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -45,13 +45,16 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             return StudyNextResult.Success(new StudyNextDto { Status = "empty" });
         }
 
+        var localToday = StudyClock.LocalDate(user.TimeZoneId, now);
+        var dayStartUtc = StudyClock.UtcStartOfLocalDate(user.TimeZoneId, localToday);
+        var dayEndUtc = StudyClock.UtcStartOfLocalDate(user.TimeZoneId, localToday.AddDays(1));
         var source = UserProgress(userId, deckId);
         var introducedToday = await source
-            .CountAsync(progress => progress.FirstReviewedAt >= dayStart, cancellationToken);
+            .CountAsync(
+                progress => progress.FirstReviewedAt >= dayStartUtc && progress.FirstReviewedAt < dayEndUtc,
+                cancellationToken);
 
-        var reviewsQuery = source.Where(progress =>
-                progress.FirstReviewedAt != null &&
-                progress.NextReviewDate <= now);
+        var reviewsQuery = source.Where(progress => progress.FirstReviewedAt != null);
         if (studyFocus == "due")
         {
             reviewsQuery = reviewsQuery.Where(progress => progress.NextReviewDate <= now);
@@ -109,7 +112,6 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
     public async Task<StudyStatsDto> GetStatsAsync(int userId, CancellationToken cancellationToken = default)
     {
         var now = DateTime.UtcNow;
-        var today = now.Date;
         var rows = await dbContext.CardProgresses
             .AsNoTracking()
             .Where(progress => progress.Card.Deck.UserId == userId)
@@ -133,9 +135,12 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 candidate.StudyDayStreak,
                 candidate.LongestStudyDayStreak,
                 candidate.LastStudyDate,
-                candidate.AiCallCount
+                candidate.AiCallCount,
+                candidate.TimeZoneId
             })
             .SingleOrDefaultAsync(cancellationToken);
+
+            var today = StudyClock.LocalDate(user?.TimeZoneId, now);
 
         var studyDays = await dbContext.UserStudyDays
             .AsNoTracking()
@@ -160,8 +165,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 .Where(day => day.DayUtc.Date == today)
                 .Sum(day => day.SecondsStudied),
             AiCallCount = user?.AiCallCount ?? 0,
-            Days = BuildLearnedDays(learnedAt, today),
-            Weeks = BuildLearnedWeeks(learnedAt, today),
+            Days = BuildLearnedDays(learnedAt, today, user?.TimeZoneId),
+            Weeks = BuildLearnedWeeks(learnedAt, today, user?.TimeZoneId),
             Cards = rows
                 .Select(row =>
                 {
@@ -203,7 +208,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 SavedLevelPolicy = user.SavedLevelPolicy,
                 GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
                 ExampleLevel = user.ExampleLevel,
-                AiModel = user.AiModel
+                AiModel = user.AiModel,
+                TimeZoneId = user.TimeZoneId
             })
             .SingleOrDefaultAsync(cancellationToken);
     }
@@ -231,6 +237,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "Saved level policy is invalid");
         }
 
+        var timeZoneId = StudyClock.NormalizeTimeZoneId(request.TimeZoneId);
+
         var user = await dbContext.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null)
         {
@@ -247,6 +255,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.GenerateAlternateDefinitions = request.GenerateAlternateDefinitions;
         user.ExampleLevel = exampleLevel;
         user.AiModel = aiModel;
+        user.TimeZoneId = timeZoneId;
         await dbContext.SaveChangesAsync(cancellationToken);
         return StudySettingsResult.Success(new StudySettingsDto
         {
@@ -259,7 +268,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             SavedLevelPolicy = user.SavedLevelPolicy,
             GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
             ExampleLevel = user.ExampleLevel,
-            AiModel = user.AiModel
+            AiModel = user.AiModel,
+            TimeZoneId = user.TimeZoneId
         });
     }
 
@@ -336,7 +346,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             progress.NextReviewDate = now;
         }
 
-        var today = now.Date;
+        var today = StudyClock.LocalDate(user.TimeZoneId, now);
         var studiedSeconds = evaluation.ShownAtUtc is DateTime shownAt
             ? ClampAnswerSeconds(shownAt, now)
             : 0;
@@ -632,16 +642,23 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         return 0;
     }
 
-    private static List<StudyStatsDayDto> BuildLearnedDays(IReadOnlyList<DateTime?> learnedAt, DateTime today)
+    private static List<StudyStatsDayDto> BuildLearnedDays(
+        IReadOnlyList<DateTime?> learnedAt,
+        DateTime today,
+        string? timeZoneId)
     {
         var windowStart = today.AddDays(-13);
-        var cumulative = learnedAt.Count(value => value is DateTime learned && learned < windowStart);
+        var localDates = learnedAt
+            .Where(value => value is not null)
+            .Select(value => StudyClock.LocalDateFromStoredUtc(timeZoneId, value!.Value))
+            .ToList();
+        var cumulative = localDates.Count(learned => learned < windowStart);
         var days = new List<StudyStatsDayDto>(14);
         for (var index = 0; index < 14; index++)
         {
             var date = windowStart.AddDays(index);
             var next = date.AddDays(1);
-            var added = learnedAt.Count(value => value is DateTime learned && learned >= date && learned < next);
+            var added = localDates.Count(learned => learned >= date && learned < next);
             cumulative += added;
             days.Add(new StudyStatsDayDto
             {
@@ -654,9 +671,16 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         return days;
     }
 
-    private static List<StudyStatsWeekDto> BuildLearnedWeeks(IReadOnlyList<DateTime?> learnedAt, DateTime today)
+    private static List<StudyStatsWeekDto> BuildLearnedWeeks(
+        IReadOnlyList<DateTime?> learnedAt,
+        DateTime today,
+        string? timeZoneId)
     {
-        var currentWeek = StartOfUtcWeek(today);
+        var currentWeek = StartOfWeek(today);
+        var localDates = learnedAt
+            .Where(value => value is not null)
+            .Select(value => StudyClock.LocalDateFromStoredUtc(timeZoneId, value!.Value))
+            .ToList();
         var weeks = new List<StudyStatsWeekDto>(4);
         for (var index = 3; index >= 0; index--)
         {
@@ -665,14 +689,14 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             weeks.Add(new StudyStatsWeekDto
             {
                 WeekStart = start,
-                NewLearned = learnedAt.Count(value => value is DateTime learned && learned >= start && learned < end)
+                NewLearned = localDates.Count(learned => learned >= start && learned < end)
             });
         }
 
         return weeks;
     }
 
-    private static DateTime StartOfUtcWeek(DateTime day)
+    private static DateTime StartOfWeek(DateTime day)
     {
         var daysSinceMonday = day.DayOfWeek == DayOfWeek.Sunday ? 6 : (int)day.DayOfWeek - 1;
         return day.AddDays(-daysSinceMonday);

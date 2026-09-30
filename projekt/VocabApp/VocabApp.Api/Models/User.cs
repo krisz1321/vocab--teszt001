@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using VocabApp.Api.Services;
 
 namespace VocabApp.Api.Models;
 
@@ -37,6 +38,9 @@ public sealed class User
 
     [Required, MaxLength(64)]
     public string AiModel { get; set; } = AiModels.Default;
+
+    [Required, MaxLength(128)]
+    public string TimeZoneId { get; set; } = StudyClock.DefaultTimeZoneId;
 
     public int StudyDayStreak { get; set; }
 

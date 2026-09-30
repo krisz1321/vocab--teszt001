@@ -320,7 +320,7 @@ public sealed class AuthService(
             StudyDayStreak = StudyService.CurrentStudyDayStreak(
                 user.StudyDayStreak,
                 user.LastStudyDate,
-                DateTime.UtcNow.Date)
+                StudyClock.LocalDate(user.TimeZoneId, DateTime.UtcNow))
         };
     }
 

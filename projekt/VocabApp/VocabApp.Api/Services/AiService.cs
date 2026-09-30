@@ -550,7 +550,7 @@ public sealed class AiService(
 
         var reason = request.Reason?.Trim() ?? string.Empty;
         var requiresReason = requireAppealReason is null || requireAppealReason.Value;
-        if (reason.Length == 0 || (requiresReason && string.IsNullOrWhiteSpace(request.Reason)))
+        if (requiresReason && reason.Length == 0)
         {
             return null;
         }

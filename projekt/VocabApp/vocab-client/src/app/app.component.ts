@@ -38,6 +38,7 @@ interface StudySettings {
   generateAlternateDefinitions: boolean;
   exampleLevel: string;
   aiModel: string;
+  timeZoneId: string;
 }
 
 type SavedLevelChoice = 'all' | 'noHarder' | 'noEasier';
@@ -504,6 +505,7 @@ export class AppComponent implements OnInit {
     { id: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
   ];
   aiModel = 'google/gemini-3.6-flash';
+  timeZoneId = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Budapest';
   isSavingStudySettings = false;
   private userId: number | null = null;
 
@@ -681,6 +683,7 @@ export class AppComponent implements OnInit {
       generateAlternateDefinitions: this.generateAlternateDefinitions,
       exampleLevel: this.exampleLevel,
       aiModel: this.aiModel,
+      timeZoneId: this.timeZoneId,
     }).pipe(
       finalize(() => {
         this.isSavingStudySettings = false;
@@ -697,6 +700,7 @@ export class AppComponent implements OnInit {
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.exampleLevel = settings.exampleLevel;
         this.aiModel = settings.aiModel;
+        this.timeZoneId = settings.timeZoneId || this.timeZoneId;
         this.profileMessage = 'A tanulási beállítások mentve.';
       },
       error: (error: HttpErrorResponse) => {
@@ -780,6 +784,7 @@ export class AppComponent implements OnInit {
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.exampleLevel = settings.exampleLevel;
         this.aiModel = settings.aiModel;
+        this.timeZoneId = settings.timeZoneId || this.timeZoneId;
       },
       error: (error: HttpErrorResponse) => {
         this.profileError = this.readProblem(error, 'A tanulási beállítások betöltése sikertelen.');

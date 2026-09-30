@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using VocabApp.Api.Models;
+using VocabApp.Api.Services;
 
 namespace VocabApp.Api.DTOs;
 
@@ -29,4 +30,7 @@ public sealed class StudySettingsDto
 
     [Required, MaxLength(64)]
     public string AiModel { get; set; } = string.Empty;
+
+    [MaxLength(128)]
+    public string TimeZoneId { get; set; } = StudyClock.DefaultTimeZoneId;
 }

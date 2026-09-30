@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VocabApp.Api.Models;
+using VocabApp.Api.Services;
 
 namespace VocabApp.Api.Data;
 
@@ -41,6 +42,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.GenerateAlternateDefinitions).HasDefaultValue(true);
         user.Property(u => u.ExampleLevel).IsRequired().HasMaxLength(2).HasDefaultValue(ExampleLevels.Default);
         user.Property(u => u.AiModel).IsRequired().HasMaxLength(64).HasDefaultValue(AiModels.Default);
+        user.Property(u => u.TimeZoneId).IsRequired().HasMaxLength(128).HasDefaultValue(StudyClock.DefaultTimeZoneId);
         user.Property(u => u.StudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.LongestStudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.AiCallCount).HasDefaultValue(0);
