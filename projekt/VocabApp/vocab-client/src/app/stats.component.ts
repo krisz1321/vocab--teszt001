@@ -11,6 +11,7 @@ interface StudyStatsCard {
   correctCount: number;
   errorRate: number | null;
   isLearned: boolean;
+  nextReviewDate: string;
 }
 
 interface StudyStatsDay {
@@ -170,6 +171,7 @@ interface StudyStats {
                     <th scope="col">Helyes sorozat</th>
                     <th scope="col">Megtanult</th>
                     <th scope="col">Időköz (nap)</th>
+                    <th scope="col">Következő ismétlés</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -182,6 +184,7 @@ interface StudyStats {
                       <td>{{ card.streak }}</td>
                       <td>{{ card.isLearned ? 'Igen' : 'Nem' }}</td>
                       <td>{{ card.interval }}</td>
+                      <td>{{ formatNextReview(card.nextReviewDate) }}</td>
                     </tr>
                   }
                 </tbody>
@@ -303,6 +306,14 @@ export class StatsComponent implements OnInit {
     }
 
     return `${Math.round(rate * 100)}%`;
+  }
+
+  formatNextReview(value: string): string {
+    return new Intl.DateTimeFormat('hu-HU', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date(value));
   }
 
   barHeight(value: number, max: number): number {

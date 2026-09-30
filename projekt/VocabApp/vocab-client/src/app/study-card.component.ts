@@ -29,6 +29,7 @@ interface StudyNextResponse {
   answerToken: string | null;
   newCardsIntroducedToday: number;
   dailyNewCardGoal: number;
+  availableCards: number;
   minimumAnswerSeconds: number;
   automaticAiCheck: boolean;
   acceptHungarianParaphrase: boolean;
@@ -117,6 +118,7 @@ interface FreeStudyCard {
 }
 
 type StudyDeckChoice = number | 'all';
+type StudyFocus = 'all' | 'due' | 'mistakes' | 'new';
 type StudyMode = 'meaning' | 'definition' | 'recognition' | 'free';
 type FreeFront = 'term' | 'other';
 type FreeBack = 'bilingual' | 'definition';
@@ -175,9 +177,13 @@ const hungarianPlain = 'aeiooouuu';
           @if (dailyNewCardGoal !== null) {
             <p class="text-body-secondary mb-0 mt-3">Új szavak ma: {{ newCardsIntroducedToday }}/{{ dailyNewCardGoal }}</p>
           }
+          @if (studying && mode !== 'free' && studyStatus === 'ready') {
+            <p class="text-body-secondary mb-0 mt-2">Ebben a gyakorlásban még {{ availableCards > 0 ? availableCards - 1 : 0 }} kártya választható.</p>
+          }
           @if (studying) {
             <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-3">
               <span class="fw-semibold">{{ activeDeckLabel }}</span>
+              <span class="text-body-secondary">· {{ studyFocusLabel }}</span>
               <button
                 type="button"
                 class="btn btn-outline-secondary btn-sm"
@@ -196,6 +202,13 @@ const hungarianPlain = 'aeiooouuu';
         @if (!studying) {
           <form class="card border-0 shadow-sm" (ngSubmit)="startStudy()">
             <div class="card-body p-4">
+              @if (showStudyGuide) {
+                <div class="alert alert-info" role="note">
+                  <h2 class="h6">Így működik a tanulás</h2>
+                  <p class="mb-2">Válassz paklit és gyakorlási típust. Az esedékes ismétlések elsőbbséget kapnak, a hibás kártyákat pedig külön is gyakorolhatod.</p>
+                  <button type="button" class="btn btn-sm btn-outline-primary" (click)="dismissStudyGuide()">Értem</button>
+                </div>
+              }
               @if (isLoadingDecks) {
                 <div class="text-center py-4" role="status">
                   <div class="spinner-border text-primary"></div>
@@ -213,6 +226,18 @@ const hungarianPlain = 'aeiooouuu';
                   @for (deck of decks; track deck.id) {
                     <option [ngValue]="deck.id">{{ deck.name }}</option>
                   }
+                </select>
+                <label class="form-label fw-semibold" for="study-focus">Gyakorlás típusa</label>
+                <select
+                  id="study-focus"
+                  name="studyFocus"
+                  class="form-select mb-3"
+                  [(ngModel)]="studyFocus"
+                  (ngModelChange)="saveStudyFocus()">
+                  <option [ngValue]="'all'">Összes tanulható kártya</option>
+                  <option [ngValue]="'due'">Csak esedékes ismétlések</option>
+                  <option [ngValue]="'mistakes'">Csak korábban hibás kártyák</option>
+                  <option [ngValue]="'new'">Csak új kártyák</option>
                 </select>
                 <button type="submit" class="btn btn-primary" [disabled]="deckChoice === null">Tanulás</button>
               }
@@ -294,6 +319,15 @@ const hungarianPlain = 'aeiooouuu';
               <button type="button" class="btn btn-outline-primary" (click)="flipFree()" [disabled]="isSavingFreeMark || isClearingFreeMarks">
                 Fordítás
               </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                (click)="speak(card.term)"
+                [disabled]="isSavingFreeMark || isClearingFreeMarks"
+                aria-label="A szó kiejtése"
+                title="Kiejtés lejátszása">
+                Hang
+              </button>
               <button type="button" class="btn btn-success" (click)="markFree(true)" [disabled]="isSavingFreeMark || isClearingFreeMarks">
                 Tudom
               </button>
@@ -333,7 +367,17 @@ const hungarianPlain = 'aeiooouuu';
             <div class="card-body p-4 p-md-5">
               <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
                 @if (mode !== 'recognition' || isRecognitionRevealed) {
-                  <h2 class="h1 mb-0">{{ card.term }}</h2>
+                  <div class="d-flex align-items-center gap-2">
+                    <h2 class="h1 mb-0">{{ card.term }}</h2>
+                    <button
+                      type="button"
+                      class="btn btn-outline-secondary btn-sm"
+                      (click)="speak(card.term)"
+                      aria-label="A szó kiejtése"
+                      title="Kiejtés lejátszása">
+                      Hang
+                    </button>
+                  </div>
                 } @else {
                   <h2 class="h3 mb-0">Körülírás</h2>
                 }
@@ -359,6 +403,7 @@ const hungarianPlain = 'aeiooouuu';
                     rows="4"
                     maxlength="1000"
                     [(ngModel)]="answer"
+                    (keydown.control.enter)="submitShortcut($event)"
                     [disabled]="isSubmitting || updatedProgress !== null || isMeaningRevealed"
                     placeholder="pl. kaja"></textarea>
 
@@ -471,6 +516,7 @@ const hungarianPlain = 'aeiooouuu';
                   rows="4"
                   maxlength="1000"
                   [(ngModel)]="answer"
+                  (keydown.control.enter)="submitShortcut($event)"
                   [disabled]="isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null || validationResult !== null"
                   [placeholder]="acceptHungarianParaphrase ? 'Írd le angolul vagy magyarul a jelentését…' : 'Írd le angolul a jelentését…'"></textarea>
 
@@ -574,6 +620,7 @@ const hungarianPlain = 'aeiooouuu';
                     rows="3"
                     maxlength="100"
                     [(ngModel)]="answer"
+                    (keydown.control.enter)="submitShortcut($event)"
                     [disabled]="isLoadingPrompt || isCheckingRecognition || isSubmitting || updatedProgress !== null"
                     placeholder="Írd be az angol szót…"></textarea>
 
@@ -860,6 +907,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   studying = false;
   decks: StudyDeck[] = [];
   deckChoice: StudyDeckChoice | null = null;
+  studyFocus: StudyFocus = this.readStudyFocus();
+  showStudyGuide = localStorage.getItem('vocabapp.study-guide-dismissed') !== 'true';
   isLoadingPrompt = false;
   isGeneratingDefinition = false;
   isGeneratingExample = false;
@@ -885,6 +934,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   studyStatus: StudyNextResponse['status'] | null = null;
   newCardsIntroducedToday = 0;
   dailyNewCardGoal: number | null = null;
+  availableCards = 0;
   secondsUntilAnswer = 0;
   freeFront: FreeFront = 'term';
   freeBack: FreeBack = 'bilingual';
@@ -934,6 +984,15 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     }
 
     return this.decks.find(deck => deck.id === this.deckChoice)?.name ?? 'Pakli';
+  }
+
+  get studyFocusLabel(): string {
+    return {
+      all: 'összes tanulható kártya',
+      due: 'esedékes ismétlések',
+      mistakes: 'hibás kártyák',
+      new: 'új kártyák',
+    }[this.studyFocus];
   }
 
   get canChangeDeck(): boolean {
@@ -1028,6 +1087,20 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.loadNextCard();
   }
 
+  dismissStudyGuide(): void {
+    localStorage.setItem('vocabapp.study-guide-dismissed', 'true');
+    this.showStudyGuide = false;
+  }
+
+  saveStudyFocus(): void {
+    localStorage.setItem('vocabapp.study-focus', this.studyFocus);
+  }
+
+  private readStudyFocus(): StudyFocus {
+    const stored = localStorage.getItem('vocabapp.study-focus');
+    return stored === 'due' || stored === 'mistakes' || stored === 'new' ? stored : 'all';
+  }
+
   chooseAnotherDeck(): void {
     if (!this.canChangeDeck) {
       return;
@@ -1070,10 +1143,11 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.card = null;
     this.resetCardState();
 
-    const params: Record<string, number> = {};
+    const params: Record<string, string | number> = {};
     if (typeof this.deckChoice === 'number') {
       params['deckId'] = this.deckChoice;
     }
+    params['focus'] = this.studyFocus;
 
     this.http.get<StudyNextResponse>(`${this.apiBaseUrl}/study/next`, { params })
       .pipe(finalize(() => {
@@ -1089,6 +1163,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
           this.newCardsIntroducedToday = response.newCardsIntroducedToday;
           this.dailyNewCardGoal = response.dailyNewCardGoal;
+          this.availableCards = response.availableCards;
           this.automaticAiCheck = response.automaticAiCheck;
           this.acceptHungarianParaphrase = response.acceptHungarianParaphrase;
           this.requireAppealReason = response.requireAppealReason;
@@ -2009,6 +2084,7 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.errorMessage = null;
     this.answerToken = null;
     this.secondsUntilAnswer = 0;
+    this.availableCards = 0;
     this.clearAnswerTimer();
   }
 
@@ -2084,10 +2160,11 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     }
 
     const generation = this.loadGeneration;
-    const params: Record<string, number> = {};
+    const params: Record<string, string | number> = {};
     if (typeof this.deckChoice === 'number') {
       params['deckId'] = this.deckChoice;
     }
+    params['focus'] = this.studyFocus;
 
     this.errorMessage = null;
     this.isClearingFreeMarks = true;
@@ -2185,6 +2262,29 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   onFreePointerCancel(event: PointerEvent): void {
     if (event.pointerId === this.freePointerId) {
       this.freePointerId = null;
+    }
+  }
+
+  speak(text: string): void {
+    if (!('speechSynthesis' in window) || !text.trim()) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text.trim());
+    utterance.lang = 'en-US';
+    utterance.rate = 0.85;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  submitShortcut(event: Event): void {
+    event.preventDefault();
+    if (this.mode === 'meaning') {
+      this.checkMeaningAnswer();
+    } else if (this.mode === 'definition') {
+      this.validateAnswer();
+    } else if (this.mode === 'recognition') {
+      this.checkRecognitionAnswer();
     }
   }
 

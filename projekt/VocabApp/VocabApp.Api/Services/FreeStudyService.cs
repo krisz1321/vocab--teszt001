@@ -10,6 +10,7 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
     public async Task<DeckCardResult<IReadOnlyList<FreeStudyCardDto>>> GetCardsAsync(
         int userId,
         int? deckId,
+        string? focus,
         CancellationToken cancellationToken = default)
     {
         if (deckId is int selectedDeckId && !await OwnsDeckAsync(userId, selectedDeckId, cancellationToken))
@@ -20,6 +21,22 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
         }
 
         var cards = UserCards(userId, deckId);
+        var normalizedFocus = focus?.Trim().ToLowerInvariant();
+        if (normalizedFocus == "due")
+        {
+            cards = cards.Where(card => card.Progress != null
+                && card.Progress.FirstReviewedAt != null
+                && card.Progress.NextReviewDate <= DateTime.UtcNow);
+        }
+        else if (normalizedFocus == "mistakes")
+        {
+            cards = cards.Where(card => card.Progress != null && card.Progress.IncorrectCount > 0);
+        }
+        else if (normalizedFocus == "new")
+        {
+            cards = cards.Where(card => card.Progress != null && card.Progress.FirstReviewedAt == null);
+        }
+
         var marks = dbContext.FreeStudyMarks.Where(mark => mark.UserId == userId);
         var list = await (
             from card in cards

@@ -46,4 +46,5 @@ public sealed class StudyStatsCardDto
     public int CorrectCount { get; set; }
     public double? ErrorRate { get; set; }
     public bool IsLearned { get; set; }
+    public DateTime NextReviewDate { get; set; }
 }

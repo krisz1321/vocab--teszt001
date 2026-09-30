@@ -6,6 +6,7 @@ public sealed class StudyNextDto
     public string? AnswerToken { get; set; }
     public int NewCardsIntroducedToday { get; set; }
     public int DailyNewCardGoal { get; set; }
+    public int AvailableCards { get; set; }
     public int MinimumAnswerSeconds { get; set; }
     public bool AutomaticAiCheck { get; set; }
     public bool AcceptHungarianParaphrase { get; set; }

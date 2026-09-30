@@ -4,7 +4,11 @@ namespace VocabApp.Api.Services;
 
 public interface IStudyService
 {
-    Task<StudyNextResult> GetNextCardAsync(int userId, int? deckId, CancellationToken cancellationToken = default);
+    Task<StudyNextResult> GetNextCardAsync(
+        int userId,
+        int? deckId,
+        string? focus,
+        CancellationToken cancellationToken = default);
     Task<StudySubmitResult> SubmitAsync(int userId, StudySubmitDto request, CancellationToken cancellationToken = default);
     Task<StudyStatsDto> GetStatsAsync(int userId, CancellationToken cancellationToken = default);
     Task<StudySettingsDto?> GetSettingsAsync(int userId, CancellationToken cancellationToken = default);

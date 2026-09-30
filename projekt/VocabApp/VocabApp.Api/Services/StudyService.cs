@@ -13,8 +13,10 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
     public async Task<StudyNextResult> GetNextCardAsync(
         int userId,
         int? deckId,
+        string? focus,
         CancellationToken cancellationToken = default)
     {
+        var studyFocus = NormalizeStudyFocus(focus);
         if (deckId is int selectedDeckId &&
             !await dbContext.Decks.AsNoTracking().AnyAsync(
                 deck => deck.Id == selectedDeckId && deck.UserId == userId,
@@ -43,20 +45,28 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             return StudyNextResult.Success(new StudyNextDto { Status = "empty" });
         }
 
-        var introducedToday = await dbContext.CardProgresses
-            .AsNoTracking()
-            .CountAsync(
-                progress => progress.Card.Deck.UserId == userId && progress.FirstReviewedAt >= dayStart,
-                cancellationToken);
-
         var source = UserProgress(userId, deckId);
-        var reviews = await SelectCards(source.Where(progress =>
+        var introducedToday = await source
+            .CountAsync(progress => progress.FirstReviewedAt >= dayStart, cancellationToken);
+
+        var reviewsQuery = source.Where(progress =>
                 progress.FirstReviewedAt != null &&
-                progress.NextReviewDate <= now))
-            .ToListAsync(cancellationToken);
+                progress.NextReviewDate <= now);
+        if (studyFocus == "due")
+        {
+            reviewsQuery = reviewsQuery.Where(progress => progress.NextReviewDate <= now);
+        }
+        else if (studyFocus == "mistakes")
+        {
+            reviewsQuery = reviewsQuery.Where(progress => progress.IncorrectCount > 0);
+        }
+
+        var reviews = studyFocus == "new"
+            ? []
+            : await SelectCards(reviewsQuery).ToListAsync(cancellationToken);
 
         var newCards = new List<StudyCardDto>();
-        if (introducedToday < user.DailyNewCardGoal)
+        if (studyFocus is "all" or "new" && introducedToday < user.DailyNewCardGoal)
         {
             newCards = await SelectCards(source.Where(progress => progress.FirstReviewedAt == null))
                 .ToListAsync(cancellationToken);
@@ -65,7 +75,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var pool = reviews.Concat(newCards).ToList();
         if (pool.Count == 0)
         {
-            var hasUnseenCards = introducedToday >= user.DailyNewCardGoal
+            var hasUnseenCards = studyFocus is "all" or "new"
+                && introducedToday >= user.DailyNewCardGoal
                 && await source.AnyAsync(progress => progress.FirstReviewedAt == null, cancellationToken);
 
             return StudyNextResult.Success(Envelope(
@@ -75,6 +86,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 user.AcceptHungarianParaphrase,
                 user.RequireAppealReason,
                 introducedToday,
+                0,
                 hasUnseenCards ? "dailyLimitReached" : "empty",
                 null,
                 null));
@@ -88,6 +100,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             user.AcceptHungarianParaphrase,
             user.RequireAppealReason,
             introducedToday,
+            pool.Count,
             "ready",
             card,
             answerToken.Create(userId, card.Id, now)));
@@ -161,7 +174,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                         Interval = row.Interval,
                         CorrectCount = row.CorrectCount,
                         ErrorRate = attempts == 0 ? null : (double)row.IncorrectCount / attempts,
-                        IsLearned = row.LearnedAt != null
+                        IsLearned = row.LearnedAt != null,
+                        NextReviewDate = row.NextReviewDate
                     };
                 })
                 .OrderBy(card => card.CorrectCount + card.IncorrectCount == 0)
@@ -360,6 +374,14 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         return query;
     }
 
+    private static string NormalizeStudyFocus(string? focus) => focus?.Trim().ToLowerInvariant() switch
+    {
+        "due" => "due",
+        "mistakes" => "mistakes",
+        "new" => "new",
+        _ => "all"
+    };
+
     private static IQueryable<StudyCardDto> SelectCards(IQueryable<CardProgress> progresses) =>
         progresses.Select(progress => new StudyCardDto
         {
@@ -382,6 +404,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         bool acceptHungarianParaphrase,
         bool requireAppealReason,
         int newCardsIntroducedToday,
+        int availableCards,
         string status,
         StudyCardDto? card,
         string? answerToken) =>
@@ -393,6 +416,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             AcceptHungarianParaphrase = acceptHungarianParaphrase,
             RequireAppealReason = requireAppealReason,
             NewCardsIntroducedToday = newCardsIntroducedToday,
+            AvailableCards = availableCards,
             Status = status,
             Card = card,
             AnswerToken = answerToken

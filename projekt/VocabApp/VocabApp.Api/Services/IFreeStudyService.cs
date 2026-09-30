@@ -7,6 +7,7 @@ public interface IFreeStudyService
     Task<DeckCardResult<IReadOnlyList<FreeStudyCardDto>>> GetCardsAsync(
         int userId,
         int? deckId,
+        string? focus,
         CancellationToken cancellationToken = default);
 
     Task<DeckCardResult<bool>> MarkAsync(
