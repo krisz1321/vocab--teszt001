@@ -163,11 +163,11 @@ interface AiModelOption {
         </div>
       }
       @if (view === 'study') {
-        <app-study-card (openDecks)="goTo('decks')" />
+        <app-study-card [initialDeckId]="studyDeckId" (openDecks)="goTo('decks')" />
       } @else if (view === 'stats') {
         <app-stats />
       } @else if (view === 'decks') {
-        <app-decks />
+        <app-decks (studyDeck)="studyDeck($event)" />
       } @else {
         <main class="container py-4 page-wrap">
           <div class="d-flex justify-content-between align-items-center mb-4">
@@ -579,7 +579,15 @@ export class AppComponent implements OnInit {
     this.session.clear();
   }
 
+  studyDeckId: number | null = null;
+
+  studyDeck(deckId: number): void {
+    this.studyDeckId = deckId;
+    this.view = 'study';
+  }
+
   goTo(view: AppView): void {
+    this.studyDeckId = null;
     if (view === 'profile') {
       this.openProfile();
       return;

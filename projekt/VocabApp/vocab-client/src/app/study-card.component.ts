@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { AfterViewChecked, Component, ElementRef, EventEmitter, OnDestroy, OnInit, Output, inject } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
@@ -948,6 +948,7 @@ const hungarianPlain = 'aeiooouuu';
   `],
 })
 export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
+  @Input() initialDeckId: number | null = null;
   @Output() readonly openDecks = new EventEmitter<void>();
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
@@ -1320,6 +1321,11 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
       .subscribe({
         next: decks => {
           this.decks = decks;
+          if (this.initialDeckId !== null && !this.studying && decks.some(deck => deck.id === this.initialDeckId)) {
+            this.deckChoice = this.initialDeckId;
+            this.initialDeckId = null;
+            this.startStudy();
+          }
         },
         error: (error: HttpErrorResponse) => this.setHttpError(error, 'A paklik betöltése'),
       });
