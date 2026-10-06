@@ -17,6 +17,8 @@ interface PublicDeck {
   name: string;
   cardCount: number;
   ownerEmail: string;
+  exampleLevel: string | null;
+  levelIsAutomatic: boolean;
 }
 
 interface VocabCard {
@@ -105,7 +107,7 @@ interface ImportResult {
               </button>
             </div>
             @for (deck of decks; track deck.id) {
-              <div class="list-group-item d-flex justify-content-between align-items-center gap-2">
+              <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
                 @if (renamingDeckId === deck.id) {
                   <form class="d-flex flex-grow-1 gap-2" (ngSubmit)="renameDeck(deck)">
                     <input
@@ -127,7 +129,15 @@ interface ImportResult {
                       (click)="selectDeck(deck.id)">
                       {{ deck.name }}
                     </button>
-                    <div class="text-body-secondary small">{{ deck.cardCount }} kártya</div>
+                    <div class="text-body-secondary small">
+                      {{ deck.cardCount }} kártya
+                      @if (deck.isPublic) {
+                        · megosztva
+                        <span class="badge level-badge ms-1" [attr.title]="deck.exampleLevel ? 'Beállított szint' : 'Automatikus: a fiókod szintje'">
+                          {{ deck.exampleLevel ?? accountLevel }}@if (!deck.exampleLevel) { <span class="fw-normal"> · auto</span> }
+                        </span>
+                      }
+                    </div>
                   </div>
                   <div class="d-flex flex-wrap justify-content-end align-items-center gap-2">
                     <label class="d-flex align-items-center gap-1 mb-0 small" [attr.for]="'exampleLevel-' + deck.id">
@@ -156,7 +166,7 @@ interface ImportResult {
                       type="button"
                       class="btn btn-outline-secondary btn-sm"
                       [disabled]="sharingDeckId === deck.id"
-                      (click)="toggleShare(deck)">
+                      (click)="onShareClick(deck)">
                       {{ deck.isPublic ? 'Megosztás visszavonása' : 'Megosztás' }}
                     </button>
                     <button
@@ -167,6 +177,27 @@ interface ImportResult {
                       Törlés
                     </button>
                   </div>
+                  @if (shareChooserDeckId === deck.id) {
+                    <div class="w-100 border-top pt-3 mt-1">
+                      <label class="form-label mb-1" [attr.for]="'shareLevel-' + deck.id">Milyen mondatszintre készült a pakli?</label>
+                      <div class="d-flex flex-wrap align-items-center gap-2">
+                        <select
+                          class="form-select form-select-sm"
+                          style="width: auto;"
+                          [id]="'shareLevel-' + deck.id"
+                          [name]="'shareLevel-' + deck.id"
+                          [(ngModel)]="shareLevelChoice">
+                          <option value="">Automatikus ({{ deck.exampleLevel ?? accountLevel }})</option>
+                          @for (level of exampleLevels; track level) {
+                            <option [value]="level">{{ level }}</option>
+                          }
+                        </select>
+                        <button type="button" class="btn btn-primary btn-sm" [disabled]="sharingDeckId === deck.id" (click)="confirmShare(deck)">Megosztás</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="shareChooserDeckId = null">Mégse</button>
+                      </div>
+                      <div class="form-text">Ha nem választasz, automatikusan a pakli szintje, annak hiányában a fiókod szintje jelenik meg a közös listában.</div>
+                    </div>
+                  }
                 }
               </div>
             }
@@ -399,6 +430,15 @@ interface ImportResult {
                 [disabled]="isLoadingPublic">
             </div>
             <div class="col-auto">
+              <label class="form-label" for="publicLevel">Szint</label>
+              <select id="publicLevel" name="publicLevel" class="form-select" [(ngModel)]="publicLevelFilter">
+                <option value="">Mind</option>
+                @for (level of exampleLevels; track level) {
+                  <option [value]="level">{{ level }}</option>
+                }
+              </select>
+            </div>
+            <div class="col-auto">
               <button type="submit" class="btn btn-outline-primary" [disabled]="isLoadingPublic">Keresés</button>
             </div>
           </form>
@@ -407,15 +447,22 @@ interface ImportResult {
             <div class="text-center py-3" role="status">
               <div class="spinner-border text-primary"></div>
             </div>
-          } @else if (publicDecks.length === 0) {
+          } @else if (filteredPublicDecks().length === 0) {
             <div class="alert alert-info mb-0">Nincs közös pakli.</div>
           } @else {
             <div class="list-group">
-              @for (deck of publicDecks; track deck.id) {
+              @for (deck of filteredPublicDecks(); track deck.id) {
                 <div class="list-group-item">
                   <div class="d-flex justify-content-between align-items-center gap-2">
                     <div>
-                      <div class="fw-semibold">{{ deck.name }}</div>
+                      <div class="d-flex align-items-center gap-2">
+                        <span class="fw-semibold">{{ deck.name }}</span>
+                        @if (deck.exampleLevel) {
+                          <span class="badge level-badge" [attr.title]="deck.levelIsAutomatic ? 'Automatikus szint: a készítő fiókszintje (' + deck.exampleLevel + ')' : 'A pakli példamondatai ' + deck.exampleLevel + ' szintre készültek'">
+                            {{ deck.exampleLevel }}@if (deck.levelIsAutomatic) { <span class="fw-normal"> · auto</span> }
+                          </span>
+                        }
+                      </div>
                       <div class="text-body-secondary">{{ deck.cardCount }} kártya · {{ deck.ownerEmail }}</div>
                     </div>
                     <div class="d-flex gap-2">
@@ -504,6 +551,16 @@ export class DecksComponent implements OnInit {
   copyingDeckId: number | null = null;
   savingLevelDeckId: number | null = null;
   readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  publicLevelFilter = '';
+  shareChooserDeckId: number | null = null;
+  shareLevelChoice = '';
+  accountLevel = 'B1';
+
+  filteredPublicDecks(): PublicDeck[] {
+    return this.publicLevelFilter
+      ? this.publicDecks.filter((deck) => deck.exampleLevel === this.publicLevelFilter)
+      : this.publicDecks;
+  }
   isLoadingPublic = false;
   isLoadingPreview = false;
   private previewRequest = 0;
@@ -513,6 +570,11 @@ export class DecksComponent implements OnInit {
   importMessage: string | null = null;
 
   ngOnInit(): void {
+    this.http.get<{ exampleLevel: string }>('/api/study/settings').subscribe({
+      next: (settings) => {
+        this.accountLevel = settings.exampleLevel;
+      },
+    });
     this.loadDecks();
     this.searchPublicDecks();
   }
@@ -730,15 +792,35 @@ export class DecksComponent implements OnInit {
     });
   }
 
-  toggleShare(deck: Deck): void {
+  onShareClick(deck: Deck): void {
+    if (deck.isPublic) {
+      this.toggleShare(deck);
+      return;
+    }
+
+    this.shareChooserDeckId = this.shareChooserDeckId === deck.id ? null : deck.id;
+    this.shareLevelChoice = '';
+  }
+
+  confirmShare(deck: Deck): void {
+    this.toggleShare(deck, this.shareLevelChoice || null);
+  }
+
+  toggleShare(deck: Deck, exampleLevel: string | null = null): void {
     this.errorMessage = null;
     this.sharingDeckId = deck.id;
-    this.http.put<Deck>(`/api/decks/${deck.id}/share`, { isPublic: !deck.isPublic }).pipe(
+    const body: { isPublic: boolean; exampleLevel?: string } = { isPublic: !deck.isPublic };
+    if (!deck.isPublic && exampleLevel) {
+      body.exampleLevel = exampleLevel;
+    }
+
+    this.http.put<Deck>(`/api/decks/${deck.id}/share`, body).pipe(
       finalize(() => {
         this.sharingDeckId = null;
       }),
     ).subscribe({
       next: (updated) => {
+        this.shareChooserDeckId = null;
         this.decks = this.decks.map(item => item.id === updated.id ? updated : item);
         this.searchPublicDecks();
       },

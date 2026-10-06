@@ -9,4 +9,8 @@ public sealed class PublicDeckDto
     public int CardCount { get; set; }
 
     public string OwnerEmail { get; set; } = string.Empty;
+
+    public string? ExampleLevel { get; set; }
+
+    public bool LevelIsAutomatic { get; set; }
 }

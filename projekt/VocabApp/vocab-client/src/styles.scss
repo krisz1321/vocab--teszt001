@@ -603,3 +603,9 @@ $tabbar-height: 4.25rem;
   --bs-btn-active-color: var(--app-text);
   --bs-btn-active-bg: var(--app-surface-2);
 }
+
+.level-badge {
+  background: rgba(var(--app-primary-rgb), .15);
+  color: var(--app-primary);
+  border: 1px solid rgba(var(--app-primary-rgb), .35);
+}

@@ -105,6 +105,17 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
         }
 
+        if (request.IsPublic && !string.IsNullOrWhiteSpace(request.ExampleLevel))
+        {
+            var level = request.ExampleLevel.Trim();
+            if (!ExampleLevels.IsAllowed(level))
+            {
+                return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "Example level is invalid.");
+            }
+
+            deck.ExampleLevel = level;
+        }
+
         deck.IsPublic = request.IsPublic;
         await dbContext.SaveChangesAsync(cancellationToken);
         return DeckCardResult<DeckDto>.Success(await ToDtoAsync(deck, cancellationToken));
@@ -162,7 +173,9 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Id = deck.Id,
                 Name = deck.Name,
                 CardCount = deck.Cards.Count,
-                OwnerEmail = deck.User.Email
+                OwnerEmail = deck.User.Email,
+                ExampleLevel = deck.ExampleLevel ?? deck.User.ExampleLevel,
+                LevelIsAutomatic = deck.ExampleLevel == null
             })
             .ToListAsync(cancellationToken);
     }
