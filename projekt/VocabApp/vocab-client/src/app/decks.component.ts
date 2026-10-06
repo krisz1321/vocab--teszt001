@@ -337,7 +337,7 @@ interface ImportResult {
               <div class="list-group">
                 @for (card of learnedCards; track card.id) {
                   <div class="list-group-item">
-                    <div class="d-flex justify-content-between align-items-start gap-2">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                       <div>
                         <div class="fw-semibold">{{ card.term }}</div>
                         <div>{{ card.definition }}</div>
@@ -376,8 +376,8 @@ interface ImportResult {
               <div class="list-group">
                 @for (card of cards; track card.id) {
                   <div class="list-group-item">
-                    <div class="d-flex justify-content-between align-items-start gap-2">
-                      <div class="d-flex align-items-start gap-3">
+                    <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                      <div class="d-flex align-items-start gap-3 text-break" style="min-width: 0;">
                         <div class="form-check mb-0">
                           <input
                             class="form-check-input"
@@ -420,7 +420,7 @@ interface ImportResult {
         <section class="mt-5">
           <h2 class="h4 mb-3">Közös paklik</h2>
           <form class="row g-2 align-items-end mb-3" (ngSubmit)="searchPublicDecks()">
-            <div class="col">
+            <div class="col-12 col-sm">
               <label class="form-label" for="publicQuery">Keresés</label>
               <input
                 id="publicQuery"
@@ -453,9 +453,9 @@ interface ImportResult {
             <div class="list-group">
               @for (deck of filteredPublicDecks(); track deck.id) {
                 <div class="list-group-item">
-                  <div class="d-flex justify-content-between align-items-center gap-2">
-                    <div>
-                      <div class="d-flex align-items-center gap-2">
+                  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                    <div class="text-break" style="min-width: 0;">
+                      <div class="d-flex flex-wrap align-items-center gap-2">
                         <span class="fw-semibold">{{ deck.name }}</span>
                         @if (deck.exampleLevel) {
                           <span class="badge level-badge" [attr.title]="deck.levelIsAutomatic ? 'Automatikus szint: a készítő fiókszintje (' + deck.exampleLevel + ')' : 'A pakli példamondatai ' + deck.exampleLevel + ' szintre készültek'">

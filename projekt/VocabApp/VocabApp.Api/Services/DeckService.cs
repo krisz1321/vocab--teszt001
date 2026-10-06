@@ -159,13 +159,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             .AsNoTracking()
             .Where(deck => deck.IsPublic && deck.UserId != userId);
 
-        if (!string.IsNullOrEmpty(term))
-        {
-            var lowered = term.ToLower();
-            decks = decks.Where(deck => deck.Name.ToLower().Contains(lowered));
-        }
-
-        return await decks
+        var result = await decks
             .OrderBy(deck => deck.Name)
             .ThenBy(deck => deck.Id)
             .Select(deck => new PublicDeckDto
@@ -178,6 +172,17 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 LevelIsAutomatic = deck.ExampleLevel == null
             })
             .ToListAsync(cancellationToken);
+
+        if (string.IsNullOrEmpty(term))
+        {
+            return result;
+        }
+
+        // A szűrés a memóriában fut: az SQLite ToLower()/LIKE csak az ASCII betűket kezeli kis- és
+        // nagybetű-függetlenül, így a nagy ékezetes betűvel kezdődő nevek (pl. "Ősz") nem találódnának meg.
+        return result
+            .Where(deck => deck.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
+            .ToList();
     }
 
     public async Task<DeckCardResult<IReadOnlyList<CardDto>>> GetPublicCardsAsync(
