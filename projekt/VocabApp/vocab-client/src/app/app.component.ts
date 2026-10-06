@@ -6,6 +6,7 @@ import { finalize } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
 import { DecksComponent } from './decks.component';
 import { StatsComponent } from './stats.component';
+import { SpeechSettingsComponent } from './speech-settings.component';
 import { StudyCardComponent } from './study-card.component';
 import { ThemePickerComponent } from './theme-picker.component';
 
@@ -57,7 +58,7 @@ interface AiModelOption {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, StudyCardComponent, StatsComponent, DecksComponent, ThemePickerComponent],
+  imports: [CommonModule, FormsModule, StudyCardComponent, StatsComponent, DecksComponent, ThemePickerComponent, SpeechSettingsComponent],
   template: `
     @if (!session.isLoggedIn()) {
       <div class="auth-shell">
@@ -242,6 +243,11 @@ interface AiModelOption {
             <h2 class="h5 mb-3">Megjelenés</h2>
             <p class="text-body-secondary">Válassz kinézetet, és hogy világos vagy sötét változatban használod. A beállítás ezen az eszközön megmarad.</p>
             <app-theme-picker [inline]="true" />
+          </section>
+          <section class="mb-4">
+            <h2 class="h5 mb-3">Hang és felolvasás</h2>
+            <p class="text-body-secondary">A tanulás közben a kártyák angol és magyar szövegei felolvashatók a hangszóró gombbal. Itt állíthatod be, mit és milyen hangon olvasson fel.</p>
+            <app-speech-settings />
           </section>
           <form class="mb-4" (ngSubmit)="saveStudySettings()">
             <h2 class="h5 mb-3">Tanulási beállítások</h2>

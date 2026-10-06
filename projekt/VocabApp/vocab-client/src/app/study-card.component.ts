@@ -4,6 +4,8 @@ import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, OnDestroy
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
+import { SpeakButtonComponent } from './speak-button.component';
+import { SpeechService } from './speech.service';
 
 interface StudyCard {
   id: number;
@@ -137,7 +139,7 @@ const hungarianPlain = 'aeiooouuu';
 @Component({
   selector: 'app-study-card',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, SpeakButtonComponent],
   template: `
     <main class="container py-5">
       <div class="mx-auto page-wrap">
@@ -360,16 +362,31 @@ const hungarianPlain = 'aeiooouuu';
                   <span class="free-card-hint">{{ freeShowingTerm ? 'Fordítsd meg a kártyát' : 'Megoldás' }}</span>
                   @if (freeShowingTerm) {
                     <p class="free-card-word">{{ freeFront === 'term' ? card.term : (card.targetMeanings?.trim() || 'Nincs megadva magyar jelentés.') }}</p>
-                    @if (freeFront === 'term' && freeShowAudio) {
-                      <button type="button" class="btn btn-link free-audio-button" (click)="$event.stopPropagation(); speak(card.term)" aria-label="A szó kiejtése" title="Kiejtés lejátszása">Hang</button>
+                    @if (freeShowAudio) {
+                      <app-speak-button
+                        [text]="freeFront === 'term' ? card.term : card.targetMeanings"
+                        [lang]="freeFront === 'term' ? 'en' : 'hu'"
+                        [label]="freeFront === 'term' ? 'A szó' : 'A magyar jelentés'" />
                     }
                   } @else {
                     <p class="free-card-word">{{ freeFront === 'term' ? (card.targetMeanings?.trim() || 'Nincs megadva magyar jelentés.') : card.term }}</p>
+                    @if (freeShowAudio) {
+                      <app-speak-button
+                        [text]="freeFront === 'term' ? card.targetMeanings : card.term"
+                        [lang]="freeFront === 'term' ? 'hu' : 'en'"
+                        [label]="freeFront === 'term' ? 'A magyar jelentés' : 'A szó'" />
+                    }
                     @if (freeBack === 'definition') {
                       <p class="free-card-definition">{{ card.definition }}</p>
+                      @if (freeShowAudio) {
+                        <app-speak-button [text]="card.definition" lang="en" label="A definíció" />
+                      }
                     }
                     @if (freeShowExample && card.example) {
                       <p class="free-card-example">{{ card.example }}</p>
+                      @if (freeShowAudio) {
+                        <app-speak-button [text]="card.example" lang="en" label="A példamondat" />
+                      }
                     }
                   }
                   <span class="free-card-hint free-card-hint-bottom">Space a fordításhoz</span>
@@ -413,14 +430,7 @@ const hungarianPlain = 'aeiooouuu';
                 @if (mode !== 'recognition' || isRecognitionRevealed) {
                   <div class="d-flex align-items-center gap-2">
                     <h2 class="h1 mb-0 text-break">{{ card.term }}</h2>
-                    <button
-                      type="button"
-                      class="btn btn-outline-secondary btn-sm"
-                      (click)="speak(card.term)"
-                      aria-label="A szó kiejtése"
-                      title="Kiejtés lejátszása">
-                      Hang
-                    </button>
+                    <app-speak-button [text]="card.term" lang="en" label="A szó" />
                   </div>
                 } @else {
                   <h2 class="h3 mb-0">Körülírás</h2>
@@ -477,10 +487,19 @@ const hungarianPlain = 'aeiooouuu';
                   @if (isMeaningRevealed) {
                     <div class="mt-4 p-3 bg-body-tertiary rounded">
                       <h3 class="h6">Célnyelvi jelentés</h3>
-                      <p class="mb-2">{{ card.targetMeanings }}</p>
-                      <p class="mb-2">{{ card.definition }}</p>
+                      <div class="speak-row mb-2">
+                        <p class="mb-0">{{ card.targetMeanings }}</p>
+                        <app-speak-button [text]="card.targetMeanings" lang="hu" label="A magyar jelentés" />
+                      </div>
+                      <div class="speak-row mb-2">
+                        <p class="mb-0">{{ card.definition }}</p>
+                        <app-speak-button [text]="card.definition" lang="en" label="A definíció" />
+                      </div>
                       @if (card.example) {
-                        <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
+                        <div class="speak-row">
+                          <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
+                          <app-speak-button [text]="card.example" lang="en" label="A példamondat" />
+                        </div>
                       }
                     </div>
                     @if (meaningCorrect !== null && !validationResult && !isValidating) {
@@ -615,9 +634,15 @@ const hungarianPlain = 'aeiooouuu';
                 @if (isDefinitionRevealed) {
                   <div class="mt-4 p-3 bg-body-tertiary rounded">
                     <h3 class="h6">Referencia-definíció</h3>
-                    <p class="mb-2">{{ card.definition }}</p>
+                    <div class="speak-row mb-2">
+                      <p class="mb-0">{{ card.definition }}</p>
+                      <app-speak-button [text]="card.definition" lang="en" label="A definíció" />
+                    </div>
                     @if (card.example) {
-                      <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
+                      <div class="speak-row">
+                        <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
+                        <app-speak-button [text]="card.example" lang="en" label="A példamondat" />
+                      </div>
                     }
                   </div>
                 }
@@ -633,7 +658,10 @@ const hungarianPlain = 'aeiooouuu';
                     <p class="mt-3 mb-0">Körülírás készítése…</p>
                   </div>
                 } @else if (promptDefinition) {
-                  <p class="lead">{{ promptDefinition }}</p>
+                  <div class="speak-row mb-3">
+                    <p class="lead mb-0">{{ promptDefinition }}</p>
+                    <app-speak-button [text]="promptDefinition" lang="en" label="A körülírás" />
+                  </div>
                   @if (recognitionSecondChance && !isRecognitionRevealed) {
                     @if (recognitionHint) {
                       <p class="small text-body-secondary">{{ recognitionHint }}</p>
@@ -712,10 +740,19 @@ const hungarianPlain = 'aeiooouuu';
                 @if (isRecognitionRevealed) {
                   <div class="mt-4 p-3 bg-body-tertiary rounded">
                     <h3 class="h6">A szó</h3>
-                    <p class="mb-2 fw-semibold">{{ card.term }}</p>
-                    <p class="mb-2">{{ card.definition }}</p>
+                    <div class="speak-row mb-2">
+                      <p class="mb-0 fw-semibold">{{ card.term }}</p>
+                      <app-speak-button [text]="card.term" lang="en" label="A szó" />
+                    </div>
+                    <div class="speak-row mb-2">
+                      <p class="mb-0">{{ card.definition }}</p>
+                      <app-speak-button [text]="card.definition" lang="en" label="A definíció" />
+                    </div>
                     @if (card.example) {
-                      <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
+                      <div class="speak-row">
+                        <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
+                        <app-speak-button [text]="card.example" lang="en" label="A példamondat" />
+                      </div>
                     }
                   </div>
                   @if (recognitionCorrect !== null) {
@@ -747,14 +784,16 @@ const hungarianPlain = 'aeiooouuu';
               }
 
               @if (generatedDefinition) {
-                <div class="alert alert-info mt-3 mb-0">
-                  <strong>{{ generatedDefinitionLabel() }}:</strong> {{ generatedDefinition }}
+                <div class="alert alert-info mt-3 mb-0 speak-row">
+                  <div><strong>{{ generatedDefinitionLabel() }}:</strong> {{ generatedDefinition }}</div>
+                  <app-speak-button [text]="generatedDefinition" lang="en" label="A definíció" />
                 </div>
               }
 
               @if (generatedExample) {
-                <div class="alert alert-info mt-3 mb-0">
-                  <strong>{{ generatedExampleReused ? 'Mentett példamondat' : 'MI-példamondat' }}:</strong> {{ generatedExample }}
+                <div class="alert alert-info mt-3 mb-0 speak-row">
+                  <div><strong>{{ generatedExampleReused ? 'Mentett példamondat' : 'MI-példamondat' }}:</strong> {{ generatedExample }}</div>
+                  <app-speak-button [text]="generatedExample" lang="en" label="A példamondat" />
                 </div>
               }
 
@@ -931,7 +970,6 @@ const hungarianPlain = 'aeiooouuu';
     .free-card-definition { max-width: 42rem; margin: .4rem 0; color: var(--app-text); font-size: 1.12rem; }
     .free-card-example { max-width: 42rem; margin: .4rem 0; color: var(--app-muted); font-style: italic; }
     .free-card-hint-bottom { margin-top: auto; }
-    .free-audio-button { padding: .15rem .5rem; }
     .free-swipe-label { position: absolute; z-index: 3; top: 1.5rem; padding: .5rem .8rem; border: 2px solid currentColor; border-radius: .5rem; font-weight: 700; opacity: 0; transition: opacity .12s ease; pointer-events: none; }
     .free-swipe-label.is-visible { opacity: 1; }
     .free-swipe-label-left { left: 1.5rem; color: var(--app-danger); transform: rotate(-8deg); }
@@ -954,6 +992,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly http = inject(HttpClient);
   private readonly session = inject(AuthSessionService);
+  private readonly speech = inject(SpeechService);
   private readonly apiBaseUrl = '/api';
 
   card: StudyCard | null = null;
@@ -1228,6 +1267,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
     this.clearAnswerTimer();
     this.clearFreeSwipeTimeout();
     this.removeFreeKeyListener();
+    this.speech.stop();
     if (this.pendingIncorrect && !this.updatedProgress && !this.isSubmitting) {
       this.submitResult(this.overrideCorrect, this.aiIncorrect, this.pendingTypedAnswer ?? undefined);
     }
@@ -1408,6 +1448,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
       return;
     }
 
+    this.speech.stop();
     const generation = ++this.loadGeneration;
     this.isLoadingCard = true;
     this.studyStatus = null;
@@ -2368,6 +2409,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
       return;
     }
 
+    this.speech.stop();
     this.freeFlipped = !this.freeFlipped;
   }
 
@@ -2380,6 +2422,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
     const generation = this.loadGeneration;
     const cardId = card.id;
     const previousKnows = card.knows;
+    this.speech.stop();
     this.errorMessage = null;
     this.isSavingFreeMark = true;
     this.http.put<void>(`${this.apiBaseUrl}/free-study/cards/${cardId}/mark`, { knows })
@@ -2617,18 +2660,6 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
       clearTimeout(this.freeSwipeTimeout);
       this.freeSwipeTimeout = null;
     }
-  }
-
-  speak(text: string): void {
-    if (!('speechSynthesis' in window) || !text.trim()) {
-      return;
-    }
-
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(text.trim());
-    utterance.lang = 'en-US';
-    utterance.rate = 0.85;
-    window.speechSynthesis.speak(utterance);
   }
 
   onAnswerEnter(event: Event): void {
