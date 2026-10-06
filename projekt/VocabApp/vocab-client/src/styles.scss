@@ -1,5 +1,107 @@
-@import 'bootstrap/dist/css/bootstrap.min.css';
+@use 'sass:color';
+@use 'sass:map';
 
+// A Bootstrap CSS az angular.json "styles" listájából töltődik be.
+//
+// Témarendszer: a <html> elemen két attribútum dönt.
+//   data-theme="ocean|forest|sunset"  → a kinézet (színek, lekerekítés, árnyék)
+//   data-bs-theme="light|dark"        → világos / sötét változat (Bootstrap 5.3 szabvány)
+
+$palettes: (
+  ocean: (
+    light: (bg: #f2f5fc, surface: #ffffff, surface2: #e9eefb, border: #dde3f3, text: #151a33, muted: #5d6585, primary: #4f46e5, onprimary: #ffffff, accent: #0ea5e9, success: #15803d, danger: #dc2626),
+    dark: (bg: #0a0f20, surface: #131a33, surface2: #1b2442, border: #263054, text: #e8ecfb, muted: #98a2c8, primary: #8b93ff, onprimary: #0a0f20, accent: #38bdf8, success: #4ade80, danger: #f87171),
+  ),
+  forest: (
+    light: (bg: #f3f5ef, surface: #fdfdfb, surface2: #e8eee2, border: #d6dece, text: #1c261f, muted: #5b6a5f, primary: #2f7d5b, onprimary: #ffffff, accent: #c98a1b, success: #2f7d3a, danger: #b4412f),
+    dark: (bg: #0d1511, surface: #15201a, surface2: #1d2c24, border: #2a3d32, text: #e5efe8, muted: #8fa597, primary: #5fc79a, onprimary: #08130d, accent: #e0b04f, success: #6fd48a, danger: #f0836f),
+  ),
+  sunset: (
+    light: (bg: #fff5ee, surface: #ffffff, surface2: #ffe8da, border: #f7d9c7, text: #2b1a16, muted: #85635a, primary: #e5533c, onprimary: #ffffff, accent: #f59e0b, success: #16803c, danger: #c81e3a),
+    dark: (bg: #170e11, surface: #241619, surface2: #321f23, border: #43292e, text: #fbeae4, muted: #c29f95, primary: #ff8a70, onprimary: #2b0f08, accent: #fbbf24, success: #5fd68b, danger: #ff7a8c),
+  ),
+);
+
+// Témánként eltérő forma: lekerekítés, árnyék erőssége, betűstílus.
+$shapes: (
+  ocean: (radius: 14px, radius-sm: 10px, radius-lg: 20px, shadow: 0 6px 24px -8px, shadow-alpha: .16, font: ('Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif), heading-weight: 650),
+  forest: (radius: 8px, radius-sm: 6px, radius-lg: 12px, shadow: 0 1px 0, shadow-alpha: .10, font: (unquote('"Source Sans 3"'), system-ui, 'Segoe UI', Roboto, sans-serif), heading-weight: 700),
+  sunset: (radius: 22px, radius-sm: 14px, radius-lg: 30px, shadow: 0 10px 28px -10px, shadow-alpha: .28, font: ('Nunito', system-ui, 'Segoe UI', Roboto, sans-serif), heading-weight: 800),
+);
+
+@function rgb-triplet($c) {
+  @return '#{color.channel($c, "red", $space: rgb)}, #{color.channel($c, "green", $space: rgb)}, #{color.channel($c, "blue", $space: rgb)}';
+}
+
+@mixin theme-vars($name, $mode) {
+  $p: map.get(map.get($palettes, $name), $mode);
+  $s: map.get($shapes, $name);
+  $primary: map.get($p, primary);
+  $text: map.get($p, text);
+  $bg: map.get($p, bg);
+  $surface: map.get($p, surface);
+  $shadow-base: if($mode == dark, #000000, map.get($p, text));
+
+  color-scheme: $mode;
+
+  --app-bg: #{$bg};
+  --app-surface: #{$surface};
+  --app-surface-2: #{map.get($p, surface2)};
+  --app-border: #{map.get($p, border)};
+  --app-text: #{$text};
+  --app-muted: #{map.get($p, muted)};
+  --app-primary: #{$primary};
+  --app-primary-rgb: #{rgb-triplet($primary)};
+  --app-on-primary: #{map.get($p, onprimary)};
+  --app-accent: #{map.get($p, accent)};
+  --app-success: #{map.get($p, success)};
+  --app-danger: #{map.get($p, danger)};
+  --app-radius: #{map.get($s, radius)};
+  --app-radius-sm: #{map.get($s, radius-sm)};
+  --app-radius-lg: #{map.get($s, radius-lg)};
+  --app-shadow: #{map.get($s, shadow)} rgba(#{rgb-triplet($shadow-base)}, #{map.get($s, shadow-alpha)});
+  --app-font: #{map.get($s, font)};
+  --app-heading-weight: #{map.get($s, heading-weight)};
+
+  // Bootstrap változók átállítása a téma színeire
+  --bs-body-font-family: var(--app-font);
+  --bs-body-bg: #{$bg};
+  --bs-body-bg-rgb: #{rgb-triplet($bg)};
+  --bs-body-color: #{$text};
+  --bs-body-color-rgb: #{rgb-triplet($text)};
+  --bs-emphasis-color: #{$text};
+  --bs-secondary-color: #{map.get($p, muted)};
+  --bs-secondary-bg: #{map.get($p, surface2)};
+  --bs-tertiary-bg: #{map.get($p, surface2)};
+  --bs-tertiary-bg-rgb: #{rgb-triplet(map.get($p, surface2))};
+  --bs-border-color: #{map.get($p, border)};
+  --bs-border-radius: #{map.get($s, radius-sm)};
+  --bs-border-radius-lg: #{map.get($s, radius)};
+  --bs-border-radius-xl: #{map.get($s, radius-lg)};
+  --bs-primary: #{$primary};
+  --bs-primary-rgb: #{rgb-triplet($primary)};
+  --bs-link-color: #{$primary};
+  --bs-link-color-rgb: #{rgb-triplet($primary)};
+  --bs-link-hover-color: #{$primary};
+  --bs-link-hover-color-rgb: #{rgb-triplet($primary)};
+  --bs-success: #{map.get($p, success)};
+  --bs-success-rgb: #{rgb-triplet(map.get($p, success))};
+  --bs-danger: #{map.get($p, danger)};
+  --bs-danger-rgb: #{rgb-triplet(map.get($p, danger))};
+  --bs-info: #{map.get($p, accent)};
+  --bs-info-rgb: #{rgb-triplet(map.get($p, accent))};
+  --bs-focus-ring-color: rgba(#{rgb-triplet($primary)}, .25);
+}
+
+@each $name, $modes in $palettes {
+  :root[data-theme='#{$name}'][data-bs-theme='light'] { @include theme-vars($name, light); }
+  :root[data-theme='#{$name}'][data-bs-theme='dark'] { @include theme-vars($name, dark); }
+}
+
+// Ha valamiért nincs attribútum, az alapértelmezett az "ocean" világos.
+:root:not([data-theme]) { @include theme-vars(ocean, light); }
+
+// ---------------------------------------------------------------- alap
 html,
 body {
   min-height: 100%;
@@ -8,31 +110,496 @@ body {
 body {
   min-height: 100vh;
   margin: 0;
-  background: #f8f9fa;
+  background: var(--app-bg);
+  color: var(--app-text);
+  font-family: var(--app-font);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color .2s ease, color .2s ease;
 }
 
-.app-nav-actions {
-  flex-wrap: wrap;
+h1, h2, h3, h4, h5, h6, .h1, .h2, .h3, .h4, .h5, .h6, .display-6 {
+  font-weight: var(--app-heading-weight);
+  letter-spacing: -.01em;
 }
 
-.app-nav-view {
-  order: 3;
+// ------------------------------------------------ Bootstrap elemek újrafestése
+.btn {
+  --bs-btn-border-radius: var(--app-radius-sm);
+  font-weight: 600;
+  transition: background-color .15s ease, border-color .15s ease, transform .1s ease, box-shadow .15s ease;
+  &:active:not(:disabled) { transform: translateY(1px); }
 }
 
-@media (max-width: 767.98px) {
-  .app-navbar .container {
-    flex-wrap: wrap;
-    gap: 0.75rem;
+.btn-primary {
+  --bs-btn-color: var(--app-on-primary);
+  --bs-btn-bg: var(--app-primary);
+  --bs-btn-border-color: var(--app-primary);
+  --bs-btn-hover-color: var(--app-on-primary);
+  --bs-btn-hover-bg: color-mix(in srgb, var(--app-primary) 88%, #000);
+  --bs-btn-hover-border-color: color-mix(in srgb, var(--app-primary) 88%, #000);
+  --bs-btn-active-color: var(--app-on-primary);
+  --bs-btn-active-bg: color-mix(in srgb, var(--app-primary) 80%, #000);
+  --bs-btn-active-border-color: color-mix(in srgb, var(--app-primary) 80%, #000);
+  --bs-btn-disabled-color: var(--app-on-primary);
+  --bs-btn-disabled-bg: var(--app-primary);
+  --bs-btn-disabled-border-color: var(--app-primary);
+  --bs-btn-focus-shadow-rgb: var(--app-primary-rgb);
+}
+
+.btn-outline-primary {
+  --bs-btn-color: var(--app-primary);
+  --bs-btn-border-color: color-mix(in srgb, var(--app-primary) 55%, transparent);
+  --bs-btn-hover-color: var(--app-on-primary);
+  --bs-btn-hover-bg: var(--app-primary);
+  --bs-btn-hover-border-color: var(--app-primary);
+  --bs-btn-active-color: var(--app-on-primary);
+  --bs-btn-active-bg: var(--app-primary);
+  --bs-btn-active-border-color: var(--app-primary);
+  --bs-btn-disabled-color: var(--app-primary);
+  --bs-btn-disabled-border-color: var(--app-primary);
+  --bs-btn-focus-shadow-rgb: var(--app-primary-rgb);
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: var(--app-muted);
+  --bs-btn-border-color: var(--app-border);
+  --bs-btn-hover-color: var(--app-text);
+  --bs-btn-hover-bg: var(--app-surface-2);
+  --bs-btn-hover-border-color: var(--app-border);
+  --bs-btn-active-color: var(--app-text);
+  --bs-btn-active-bg: var(--app-surface-2);
+  --bs-btn-active-border-color: var(--app-border);
+  --bs-btn-disabled-color: var(--app-muted);
+  --bs-btn-disabled-border-color: var(--app-border);
+}
+
+.btn-success {
+  --bs-btn-bg: var(--app-success);
+  --bs-btn-border-color: var(--app-success);
+  --bs-btn-hover-bg: color-mix(in srgb, var(--app-success) 88%, #000);
+  --bs-btn-hover-border-color: color-mix(in srgb, var(--app-success) 88%, #000);
+  --bs-btn-active-bg: color-mix(in srgb, var(--app-success) 80%, #000);
+  --bs-btn-active-border-color: color-mix(in srgb, var(--app-success) 80%, #000);
+  --bs-btn-disabled-bg: var(--app-success);
+  --bs-btn-disabled-border-color: var(--app-success);
+}
+
+.btn-outline-success {
+  --bs-btn-color: var(--app-success);
+  --bs-btn-border-color: var(--app-success);
+  --bs-btn-hover-bg: var(--app-success);
+  --bs-btn-hover-border-color: var(--app-success);
+  --bs-btn-active-bg: var(--app-success);
+  --bs-btn-active-border-color: var(--app-success);
+  --bs-btn-disabled-color: var(--app-success);
+  --bs-btn-disabled-border-color: var(--app-success);
+}
+
+.btn-outline-danger {
+  --bs-btn-color: var(--app-danger);
+  --bs-btn-border-color: color-mix(in srgb, var(--app-danger) 55%, transparent);
+  --bs-btn-hover-bg: var(--app-danger);
+  --bs-btn-hover-border-color: var(--app-danger);
+  --bs-btn-active-bg: var(--app-danger);
+  --bs-btn-active-border-color: var(--app-danger);
+  --bs-btn-disabled-color: var(--app-danger);
+  --bs-btn-disabled-border-color: var(--app-danger);
+}
+
+.btn-danger {
+  --bs-btn-bg: var(--app-danger);
+  --bs-btn-border-color: var(--app-danger);
+  --bs-btn-hover-bg: color-mix(in srgb, var(--app-danger) 88%, #000);
+  --bs-btn-hover-border-color: color-mix(in srgb, var(--app-danger) 88%, #000);
+  --bs-btn-disabled-bg: var(--app-danger);
+  --bs-btn-disabled-border-color: var(--app-danger);
+}
+
+.btn-link {
+  --bs-btn-color: var(--app-primary);
+  --bs-btn-hover-color: var(--app-primary);
+}
+
+.form-control,
+.form-select {
+  background-color: var(--app-surface);
+  border-color: var(--app-border);
+  border-radius: var(--app-radius-sm);
+  color: var(--app-text);
+
+  &:focus {
+    background-color: var(--app-surface);
+    color: var(--app-text);
+    border-color: var(--app-primary);
+    box-shadow: 0 0 0 .25rem rgba(var(--app-primary-rgb), .2);
   }
 
-  .app-nav-actions {
-    flex: 1 1 100%;
-    justify-content: flex-end;
+  &:disabled {
+    background-color: var(--app-surface-2);
+  }
+}
+
+.form-check-input:checked {
+  background-color: var(--app-primary);
+  border-color: var(--app-primary);
+}
+
+.form-check-input:focus {
+  border-color: var(--app-primary);
+  box-shadow: 0 0 0 .25rem rgba(var(--app-primary-rgb), .2);
+}
+
+.form-range::-webkit-slider-thumb { background-color: var(--app-primary); }
+.form-range::-moz-range-thumb { background-color: var(--app-primary); }
+
+.card {
+  --bs-card-bg: var(--app-surface);
+  --bs-card-border-color: var(--app-border);
+  --bs-card-border-radius: var(--app-radius);
+  --bs-card-inner-border-radius: var(--app-radius);
+  box-shadow: var(--app-shadow);
+}
+
+.shadow-sm { box-shadow: var(--app-shadow) !important; }
+
+.list-group {
+  --bs-list-group-bg: var(--app-surface);
+  --bs-list-group-border-color: var(--app-border);
+  --bs-list-group-border-radius: var(--app-radius);
+  --bs-list-group-color: var(--app-text);
+}
+
+.table {
+  --bs-table-bg: transparent;
+  --bs-table-color: var(--app-text);
+  --bs-table-border-color: var(--app-border);
+}
+
+.border { border-color: var(--app-border) !important; }
+.bg-body-tertiary { background-color: var(--app-surface-2) !important; }
+.text-body-secondary { color: var(--app-muted) !important; }
+
+// A listák és dobozok, amik a "border rounded p-3" osztályt használják
+.border.rounded { background: var(--app-surface); border-radius: var(--app-radius) !important; }
+
+.alert {
+  --bs-alert-border-radius: var(--app-radius-sm);
+  border-width: 1px;
+}
+
+// Bootstrap alert színek: a téma színeiből keverve, így sötétben is olvashatók
+.alert-info { --bs-alert-color: var(--app-text); --bs-alert-bg: color-mix(in srgb, var(--app-accent) 14%, var(--app-surface)); --bs-alert-border-color: color-mix(in srgb, var(--app-accent) 40%, transparent); }
+.alert-success { --bs-alert-color: var(--app-text); --bs-alert-bg: color-mix(in srgb, var(--app-success) 14%, var(--app-surface)); --bs-alert-border-color: color-mix(in srgb, var(--app-success) 45%, transparent); }
+.alert-danger { --bs-alert-color: var(--app-text); --bs-alert-bg: color-mix(in srgb, var(--app-danger) 13%, var(--app-surface)); --bs-alert-border-color: color-mix(in srgb, var(--app-danger) 45%, transparent); }
+.alert-warning { --bs-alert-color: var(--app-text); --bs-alert-bg: color-mix(in srgb, var(--app-accent) 16%, var(--app-surface)); --bs-alert-border-color: color-mix(in srgb, var(--app-accent) 50%, transparent); }
+
+.badge { border-radius: 999px; font-weight: 600; }
+.text-bg-success { background-color: var(--app-success) !important; }
+.text-bg-danger { background-color: var(--app-danger) !important; }
+.text-bg-info { background-color: var(--app-accent) !important; color: #111 !important; }
+.text-bg-secondary { background-color: var(--app-surface-2) !important; color: var(--app-muted) !important; }
+
+.spinner-border.text-primary { color: var(--app-primary) !important; }
+
+// ------------------------------------------------------------ alkalmazás-váz
+$sidebar-width: 15.5rem;
+$tabbar-height: 4.25rem;
+
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-content {
+  min-width: 0;
+}
+
+.page-wrap {
+  max-width: 880px;
+}
+
+// --- Oldalsáv (számítógép) ---
+.app-sidebar {
+  display: none;
+}
+
+.app-topbar,
+.app-tabbar {
+  display: none;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: .6rem;
+  font-weight: var(--app-heading-weight);
+  font-size: 1.2rem;
+  letter-spacing: -.02em;
+  color: var(--app-text);
+  text-decoration: none;
+}
+
+.brand-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: var(--app-radius-sm);
+  background: linear-gradient(135deg, var(--app-primary), var(--app-accent));
+  color: var(--app-on-primary);
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.nav-item-btn {
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  width: 100%;
+  padding: .7rem .9rem;
+  border: 0;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-muted);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color .15s ease, color .15s ease;
+
+  &:hover { background: var(--app-surface-2); color: var(--app-text); }
+
+  &.is-active {
+    background: rgba(var(--app-primary-rgb), .13);
+    color: var(--app-primary);
   }
 
-  .app-nav-view {
-    flex: 1 1 100%;
-    max-width: 100%;
-    overflow-x: auto;
+  svg { flex: 0 0 auto; width: 1.35rem; height: 1.35rem; }
+}
+
+.icon {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.avatar-sm {
+  display: inline-grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  background: var(--app-surface-2);
+  color: var(--app-primary);
+  font-weight: 700;
+  object-fit: cover;
+  border: 1px solid var(--app-border);
+  flex: 0 0 auto;
+}
+
+.streak-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  white-space: nowrap;
+  padding: .2rem .65rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-accent) 18%, var(--app-surface));
+  border: 1px solid color-mix(in srgb, var(--app-accent) 45%, transparent);
+  font-weight: 700;
+  font-size: .85rem;
+  color: var(--app-text);
+}
+
+// Számítógépes nézet: bal oldalsáv + tartalom
+@media (min-width: 992px) {
+  .app-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+    position: fixed;
+    inset: 0 auto 0 0;
+    width: $sidebar-width;
+    padding: 1.25rem 1rem;
+    background: var(--app-surface);
+    border-right: 1px solid var(--app-border);
+    z-index: 20;
   }
+
+  .app-sidebar .brand { margin: .25rem .4rem 1.25rem; }
+  .app-sidebar .sidebar-spacer { flex: 1 1 auto; }
+
+  .sidebar-user {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    padding: .7rem;
+    margin-top: .5rem;
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius);
+    background: var(--app-bg);
+    min-width: 0;
+  }
+
+  .sidebar-user .who { min-width: 0; flex: 1 1 auto; line-height: 1.2; }
+  .sidebar-user .who strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .9rem; }
+
+  .app-content {
+    margin-left: $sidebar-width;
+    padding: 1rem 2rem 3rem;
+  }
+}
+
+// Telefonos nézet: felső sáv + alsó fül-navigáció
+@media (max-width: 991.98px) {
+  .app-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: .65rem 1rem;
+    background: color-mix(in srgb, var(--app-surface) 88%, transparent);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--app-border);
+  }
+
+  .app-tabbar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 30;
+    padding: .35rem .5rem calc(.35rem + env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, var(--app-surface) 92%, transparent);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--app-border);
+  }
+
+  .tab-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: .2rem;
+    padding: .45rem .25rem;
+    border: 0;
+    border-radius: var(--app-radius-sm);
+    background: transparent;
+    color: var(--app-muted);
+    font: inherit;
+    font-size: .72rem;
+    font-weight: 600;
+    cursor: pointer;
+
+    svg { width: 1.45rem; height: 1.45rem; }
+    &.is-active { color: var(--app-primary); background: rgba(var(--app-primary-rgb), .12); }
+  }
+
+  .app-content { padding: .25rem 0 calc(#{$tabbar-height} + 1.5rem); }
+
+  // az oldalak saját "container py-5" sora mobilon kevesebb helyet foglaljon
+  .app-content main.container { padding-top: 1.25rem !important; padding-bottom: 1rem !important; }
+}
+
+// --- Belépő oldal ---
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(60rem 30rem at 85% -10%, rgba(var(--app-primary-rgb), .16), transparent 60%),
+    radial-gradient(50rem 28rem at -10% 110%, color-mix(in srgb, var(--app-accent) 18%, transparent), transparent 60%),
+    var(--app-bg);
+}
+
+.auth-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+}
+
+.auth-card {
+  width: min(26rem, 100%);
+  margin: auto;
+  padding: 2rem;
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  box-shadow: var(--app-shadow);
+}
+
+.seg {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: .25rem;
+  padding: .25rem;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-2);
+
+  button {
+    padding: .5rem .75rem;
+    border: 0;
+    border-radius: calc(var(--app-radius-sm) - 3px);
+    background: transparent;
+    color: var(--app-muted);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+
+    &.is-active { background: var(--app-surface); color: var(--app-primary); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+  }
+}
+
+// --- Tanulás: kártya-nézet átfestése ---
+.study-modes {
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: .25rem;
+  padding: .25rem;
+  border-radius: 999px;
+  background: var(--app-surface-2);
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.study-modes .btn {
+  --bs-btn-border-radius: 999px;
+  white-space: nowrap;
+  border: 0;
+  background: transparent;
+  color: var(--app-muted);
+
+  &.btn-primary { background: var(--app-primary); color: var(--app-on-primary); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+.study-modes .btn:hover:not(.btn-primary) { background: var(--app-surface); color: var(--app-text); }
+
+@media (max-width: 575.98px) {
+  .study-modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-flow: row;
+    width: 100%;
+    border-radius: var(--app-radius);
+  }
+}
+
+.btn-light {
+  --bs-btn-color: var(--app-text);
+  --bs-btn-bg: var(--app-surface);
+  --bs-btn-border-color: var(--app-border);
+  --bs-btn-hover-color: var(--app-text);
+  --bs-btn-hover-bg: var(--app-surface-2);
+  --bs-btn-hover-border-color: var(--app-border);
+  --bs-btn-active-color: var(--app-text);
+  --bs-btn-active-bg: var(--app-surface-2);
 }

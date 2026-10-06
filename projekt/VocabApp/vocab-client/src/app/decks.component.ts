@@ -63,7 +63,7 @@ interface ImportResult {
   imports: [CommonModule, FormsModule],
   template: `
     <main class="container py-5">
-      <div class="mx-auto" style="max-width: 760px;">
+      <div class="mx-auto page-wrap">
         <header class="mb-4">
           <h1 class="display-6 fw-semibold">Paklik</h1>
           <p class="text-body-secondary mb-0">Saját paklik és a bennük lévő kártyák.</p>

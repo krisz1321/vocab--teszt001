@@ -53,7 +53,7 @@ interface StudyStats {
   imports: [CommonModule],
   template: `
     <main class="container py-5">
-      <div class="mx-auto" style="max-width: 760px;">
+      <div class="mx-auto page-wrap">
         <header class="mb-4">
           <h1 class="display-6 fw-semibold">Statisztika</h1>
           <p class="text-body-secondary mb-0">A kártyák haladása és a legtöbbet elrontott szavak.</p>
@@ -245,16 +245,16 @@ interface StudyStats {
       .learn-bar {
         width: 100%;
         max-width: 2.25rem;
-        background-color: #0d6efd;
+        background-color: var(--app-primary);
         border-radius: 0.2rem 0.2rem 0 0;
       }
       .learn-bar-empty {
-        background-color: #dee2e6;
+        background-color: var(--app-border);
       }
       .learn-label {
         margin-top: 0.35rem;
         font-size: 0.75rem;
-        color: #6c757d;
+        color: var(--app-muted);
         text-align: center;
       }
     `,

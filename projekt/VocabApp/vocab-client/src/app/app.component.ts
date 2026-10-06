@@ -7,6 +7,7 @@ import { AuthSessionService } from './auth-session.service';
 import { DecksComponent } from './decks.component';
 import { StatsComponent } from './stats.component';
 import { StudyCardComponent } from './study-card.component';
+import { ThemePickerComponent } from './theme-picker.component';
 
 type AppView = 'study' | 'stats' | 'decks' | 'profile';
 type AuthMode = 'login' | 'register';
@@ -56,135 +57,108 @@ interface AiModelOption {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, StudyCardComponent, StatsComponent, DecksComponent],
+  imports: [CommonModule, FormsModule, StudyCardComponent, StatsComponent, DecksComponent, ThemePickerComponent],
   template: `
     @if (!session.isLoggedIn()) {
-      <nav class="navbar bg-body-tertiary border-bottom app-navbar">
-        <div class="container" style="max-width: 760px;">
-          <span class="navbar-brand mb-0 h1">VocabApp</span>
-        </div>
-      </nav>
-      <main class="container py-5">
-        <div class="mx-auto" style="max-width: 420px;">
-          <h1 class="h3 mb-3">Belépés</h1>
-          <div class="btn-group mb-4" role="group" aria-label="Belépés módja">
-            <button
-              type="button"
-              class="btn"
-              [class.btn-primary]="mode === 'login'"
-              [class.btn-outline-primary]="mode !== 'login'"
-              (click)="setMode('login')">
-              Bejelentkezés
-            </button>
-            <button
-              type="button"
-              class="btn"
-              [class.btn-primary]="mode === 'register'"
-              [class.btn-outline-primary]="mode !== 'register'"
-              (click)="setMode('register')">
-              Regisztráció
-            </button>
+      <div class="auth-shell">
+        <header class="auth-top">
+          <span class="brand"><span class="brand-mark">V</span>VocabApp</span>
+          <app-theme-picker />
+        </header>
+        <main class="container d-flex pb-5">
+          <div class="auth-card">
+            <h1 class="h3 mb-1">{{ mode === 'login' ? 'Üdv újra!' : 'Fiók létrehozása' }}</h1>
+            <p class="text-body-secondary mb-4">MI-támogatott angol szókártyák, ismétléssel.</p>
+            <div class="seg mb-4" role="group" aria-label="Belépés módja">
+              <button type="button" [class.is-active]="mode === 'login'" (click)="setMode('login')">Bejelentkezés</button>
+              <button type="button" [class.is-active]="mode === 'register'" (click)="setMode('register')">Regisztráció</button>
+            </div>
+            <form (ngSubmit)="submit()">
+              <div class="mb-3">
+                <label class="form-label" for="email">Email</label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  class="form-control form-control-lg"
+                  autocomplete="username"
+                  placeholder="nev@példa.hu"
+                  [(ngModel)]="email"
+                  [disabled]="isSubmitting">
+              </div>
+              <div class="mb-3">
+                <label class="form-label" for="password">Jelszó</label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  class="form-control form-control-lg"
+                  [attr.autocomplete]="mode === 'register' ? 'new-password' : 'current-password'"
+                  [placeholder]="mode === 'register' ? 'Legalább 8 karakter' : ''"
+                  [(ngModel)]="password"
+                  [disabled]="isSubmitting">
+              </div>
+              @if (errorMessage) {
+                <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+              }
+              <button type="submit" class="btn btn-primary btn-lg w-100" [disabled]="isSubmitting">
+                {{ mode === 'login' ? 'Bejelentkezés' : 'Regisztráció' }}
+              </button>
+            </form>
           </div>
-          <form (ngSubmit)="submit()">
-            <div class="mb-3">
-              <label class="form-label" for="email">Email</label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                class="form-control"
-                autocomplete="username"
-                [(ngModel)]="email"
-                [disabled]="isSubmitting">
-            </div>
-            <div class="mb-3">
-              <label class="form-label" for="password">Jelszó</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                class="form-control"
-                [attr.autocomplete]="mode === 'register' ? 'new-password' : 'current-password'"
-                [(ngModel)]="password"
-                [disabled]="isSubmitting">
-            </div>
-            @if (errorMessage) {
-              <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
-            }
-            <button type="submit" class="btn btn-primary" [disabled]="isSubmitting">
-              {{ mode === 'login' ? 'Bejelentkezés' : 'Regisztráció' }}
-            </button>
-          </form>
-        </div>
-      </main>
+        </main>
+      </div>
     } @else {
-      <nav class="navbar bg-body-tertiary border-bottom app-navbar">
-        <div class="container" style="max-width: 760px;">
-          <span class="navbar-brand mb-0 h1">VocabApp</span>
-          <div class="d-flex align-items-center gap-3 app-nav-actions">
-            <div class="btn-group app-nav-view" role="group" aria-label="Nézet">
-              <button
-                type="button"
-                class="btn"
-                [class.btn-primary]="view === 'study'"
-                [class.btn-outline-primary]="view !== 'study'"
-                (click)="view = 'study'">
-                Tanulás
-              </button>
-              <button
-                type="button"
-                class="btn"
-                [class.btn-primary]="view === 'stats'"
-                [class.btn-outline-primary]="view !== 'stats'"
-                (click)="view = 'stats'">
-                Statisztika
-              </button>
-              <button
-                type="button"
-                class="btn"
-                [class.btn-primary]="view === 'decks'"
-                [class.btn-outline-primary]="view !== 'decks'"
-                (click)="view = 'decks'">
-                Paklik
-              </button>
-              <button
-                type="button"
-                class="btn"
-                [class.btn-primary]="view === 'profile'"
-                [class.btn-outline-primary]="view !== 'profile'"
-                (click)="openProfile()">
-                Profil
-              </button>
-            </div>
+      <div class="app-shell">
+        <aside class="app-sidebar" aria-label="Fő navigáció">
+          <span class="brand"><span class="brand-mark">V</span>VocabApp</span>
+          @for (item of navItems; track item.id) {
+            <button
+              type="button"
+              class="nav-item-btn"
+              [class.is-active]="view === item.id"
+              [attr.aria-current]="view === item.id ? 'page' : null"
+              (click)="goTo(item.id)">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="item.icon" /></svg>
+              {{ item.label }}
+            </button>
+          }
+          <span class="sidebar-spacer"></span>
+          <app-theme-picker class="from-sidebar block" />
+          <div class="sidebar-user">
             @if (hasAvatar && avatarUrl) {
-              <img
-                [src]="avatarUrl"
-                alt=""
-                class="rounded-circle border"
-                style="width: 2rem; height: 2rem; object-fit: cover;"
-                (error)="hasAvatar = false">
+              <img [src]="avatarUrl" alt="" class="avatar-sm" (error)="hasAvatar = false">
             } @else {
-              <span
-                class="rounded-circle border d-inline-flex align-items-center justify-content-center bg-secondary text-white"
-                style="width: 2rem; height: 2rem;">
-                {{ initial() }}
-              </span>
+              <span class="avatar-sm">{{ initial() }}</span>
             }
-            <span
-              class="rounded-circle border d-inline-flex align-items-center justify-content-center flex-shrink-0 fw-semibold"
-              style="width: 2rem; height: 2rem; font-size: 0.75rem;"
-              title="Napi sorozat"
-              [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">
-              {{ studyDayStreak }}
-            </span>
-            <button type="button" class="btn btn-outline-secondary" (click)="logout()">
-              Kijelentkezés
+            <div class="who">
+              <strong>{{ savedDisplayName || profileEmail || session.email() }}</strong>
+              <span class="streak-chip" title="Napi sorozat" [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">{{ studyDayStreak }} nap</span>
+            </div>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="logout()" aria-label="Kijelentkezés" title="Kijelentkezés">
+              <svg class="icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path [attr.d]="logoutIcon" /></svg>
             </button>
           </div>
-        </div>
-      </nav>
+        </aside>
+
+        <header class="app-topbar">
+          <span class="brand"><span class="brand-mark">V</span>VocabApp</span>
+          <div class="d-flex align-items-center gap-2">
+            <span class="streak-chip" title="Napi sorozat" [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">{{ studyDayStreak }} nap</span>
+            <app-theme-picker [compact]="true" />
+            <button type="button" class="btn p-0 border-0" (click)="openProfile()" aria-label="Profil">
+              @if (hasAvatar && avatarUrl) {
+                <img [src]="avatarUrl" alt="" class="avatar-sm" (error)="hasAvatar = false">
+              } @else {
+                <span class="avatar-sm">{{ initial() }}</span>
+              }
+            </button>
+          </div>
+        </header>
+
+        <div class="app-content">
       @if (errorMessage) {
-        <div class="container pt-3" style="max-width: 760px;">
+        <div class="container pt-3 page-wrap">
           <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
         </div>
       }
@@ -195,8 +169,11 @@ interface AiModelOption {
       } @else if (view === 'decks') {
         <app-decks />
       } @else {
-        <main class="container py-4" style="max-width: 760px;">
-          <h1 class="h3 mb-4">Profil</h1>
+        <main class="container py-4 page-wrap">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">Profil</h1>
+            <button type="button" class="btn btn-outline-secondary" (click)="logout()">Kijelentkezés</button>
+          </div>
           @if (profileError) {
             <div class="alert alert-danger" role="alert">{{ profileError }}</div>
           }
@@ -261,6 +238,11 @@ interface AiModelOption {
               <button type="submit" class="btn btn-primary" [disabled]="isSavingName">Mentés</button>
             </div>
           </form>
+          <section class="mb-4">
+            <h2 class="h5 mb-3">Megjelenés</h2>
+            <p class="text-body-secondary">Válassz kinézetet, és hogy világos vagy sötét változatban használod. A beállítás ezen az eszközön megmarad.</p>
+            <app-theme-picker [inline]="true" />
+          </section>
           <form class="mb-4" (ngSubmit)="saveStudySettings()">
             <h2 class="h5 mb-3">Tanulási beállítások</h2>
             <div class="mb-3">
@@ -453,6 +435,21 @@ interface AiModelOption {
           </section>
         </main>
       }
+        </div>
+        <nav class="app-tabbar" aria-label="Fő navigáció">
+          @for (item of navItems; track item.id) {
+            <button
+              type="button"
+              class="tab-btn"
+              [class.is-active]="view === item.id"
+              [attr.aria-current]="view === item.id ? 'page' : null"
+              (click)="goTo(item.id)">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="item.icon" /></svg>
+              {{ item.label }}
+            </button>
+          }
+        </nav>
+      </div>
     }
   `,
 })
@@ -461,6 +458,13 @@ export class AppComponent implements OnInit {
   readonly session = inject(AuthSessionService);
 
   view: AppView = 'study';
+  readonly navItems: { id: AppView; label: string; icon: string }[] = [
+    { id: 'study', label: 'Tanulás', icon: 'M3 7l9-4 9 4-9 4-9-4Zm0 5l9 4 9-4M3 17l9 4 9-4' },
+    { id: 'stats', label: 'Statisztika', icon: 'M5 20V10M12 20V4M19 20v-7' },
+    { id: 'decks', label: 'Paklik', icon: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z' },
+    { id: 'profile', label: 'Profil', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0' },
+  ];
+  readonly logoutIcon = 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9';
   mode: AuthMode = 'login';
   email = '';
   password = '';
@@ -557,6 +561,15 @@ export class AppComponent implements OnInit {
     this.errorMessage = null;
     this.clearProfile();
     this.session.clear();
+  }
+
+  goTo(view: AppView): void {
+    if (view === 'profile') {
+      this.openProfile();
+      return;
+    }
+
+    this.view = view;
   }
 
   openProfile(): void {

@@ -139,11 +139,11 @@ const hungarianPlain = 'aeiooouuu';
   imports: [CommonModule, FormsModule],
   template: `
     <main class="container py-5">
-      <div class="mx-auto" style="max-width: 760px;">
+      <div class="mx-auto page-wrap">
         <header class="mb-4 text-center">
-          <h1 class="display-6 fw-semibold">VocabApp</h1>
-          <p class="text-body-secondary mb-3">MI-támogatott angol szókártyák</p>
-          <div class="d-flex flex-wrap justify-content-center gap-2" role="group" aria-label="Tanulási mód">
+          <h1 class="h3 mb-1">Tanulás</h1>
+          <p class="text-body-secondary mb-3">Válassz gyakorlási módot.</p>
+          <div class="study-modes" role="group" aria-label="Tanulási mód">
             <button
               type="button"
               class="btn"
@@ -869,34 +869,34 @@ const hungarianPlain = 'aeiooouuu';
     </main>
   `,
   styles: [`
-    .free-study-shell { position: relative; max-width: 760px; margin: 0 auto; }
+    .free-study-shell { position: relative; max-width: 880px; margin: 0 auto; }
     .free-study-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-    .free-study-kicker { display: block; color: #64748b; font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
-    .free-study-progress { color: #64748b; font-size: .85rem; }
-    .free-settings-button { border: 1px solid #dbe3ec; }
-    .free-settings-panel { position: absolute; z-index: 5; top: 3.5rem; right: 0; width: min(20rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid #dbe3ec; border-radius: .75rem; background: #fff; box-shadow: 0 .75rem 2rem rgba(15, 23, 42, .14); }
+    .free-study-kicker { display: block; color: var(--app-muted); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
+    .free-study-progress { color: var(--app-muted); font-size: .85rem; }
+    .free-settings-button { border: 1px solid var(--app-border); }
+    .free-settings-panel { position: absolute; z-index: 5; top: 3.5rem; right: 0; width: min(20rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid var(--app-border); border-radius: .75rem; background: var(--app-surface); box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .25); }
     .free-settings-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; }
     .free-setting-row { display: flex; align-items: center; gap: .6rem; padding: .42rem 0; font-size: .9rem; cursor: pointer; }
-    .free-setting-row input { width: 1rem; height: 1rem; accent-color: #2563eb; }
+    .free-setting-row input { width: 1rem; height: 1rem; accent-color: var(--app-primary); }
     .free-study-stage { position: relative; min-height: 25rem; }
-    .free-study-face { min-height: 25rem; touch-action: pan-y; user-select: none; display: flex; position: relative; z-index: 2; border: 1px solid #e2e8f0 !important; border-radius: 1.25rem; background: linear-gradient(145deg, #fff, #f8fbff); box-shadow: 0 1.25rem 2.75rem rgba(30, 64, 175, .12) !important; transition: transform .22s ease, box-shadow .22s ease; cursor: grab; }
+    .free-study-face { min-height: 25rem; touch-action: pan-y; user-select: none; display: flex; position: relative; z-index: 2; border: 1px solid var(--app-border) !important; border-radius: var(--app-radius-lg); background: linear-gradient(145deg, var(--app-surface), color-mix(in srgb, var(--app-primary) 6%, var(--app-surface))); box-shadow: var(--app-shadow) !important; transition: transform .22s ease, box-shadow .22s ease; cursor: grab; }
     .free-study-face.is-dragging { transition: none; cursor: grabbing; }
     .free-study-face.is-exiting { transition: transform .18s ease-out; }
     .free-study-face > .card-body { flex: 1 1 auto; }
-    .free-card-hint { color: #94a3b8; font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; }
-    .free-card-word { max-width: 100%; margin: 1rem 0 .5rem; color: #172554; font-size: clamp(2rem, 7vw, 4rem); line-height: 1.1; overflow-wrap: anywhere; }
-    .free-card-definition { max-width: 42rem; margin: .4rem 0; color: #334155; font-size: 1.12rem; }
-    .free-card-example { max-width: 42rem; margin: .4rem 0; color: #64748b; font-style: italic; }
+    .free-card-hint { color: var(--app-muted); font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; }
+    .free-card-word { max-width: 100%; margin: 1rem 0 .5rem; color: var(--app-text); font-size: clamp(2rem, 7vw, 4rem); line-height: 1.1; overflow-wrap: anywhere; }
+    .free-card-definition { max-width: 42rem; margin: .4rem 0; color: var(--app-text); font-size: 1.12rem; }
+    .free-card-example { max-width: 42rem; margin: .4rem 0; color: var(--app-muted); font-style: italic; }
     .free-card-hint-bottom { margin-top: auto; }
     .free-audio-button { padding: .15rem .5rem; }
     .free-swipe-label { position: absolute; z-index: 3; top: 1.5rem; padding: .5rem .8rem; border: 2px solid currentColor; border-radius: .5rem; font-weight: 700; opacity: 0; transition: opacity .12s ease; pointer-events: none; }
     .free-swipe-label.is-visible { opacity: 1; }
-    .free-swipe-label-left { left: 1.5rem; color: #dc2626; transform: rotate(-8deg); }
-    .free-swipe-label-right { right: 1.5rem; color: #15803d; transform: rotate(8deg); }
+    .free-swipe-label-left { left: 1.5rem; color: var(--app-danger); transform: rotate(-8deg); }
+    .free-swipe-label-right { right: 1.5rem; color: var(--app-success); transform: rotate(8deg); }
     .free-study-actions { display: grid; grid-template-columns: 1fr auto 1fr; gap: .75rem; align-items: center; margin-top: 1rem; }
-    .free-action { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 3.2rem; border: 1px solid; border-radius: .75rem; font-weight: 600; }
-    .free-action-no { color: #b91c1c; border-color: #fecaca; background: #fff7f7; }
-    .free-action-yes { color: #166534; border-color: #bbf7d0; background: #f0fdf4; }
+    .free-action { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 3.2rem; border: 1px solid; border-radius: var(--app-radius); font-weight: 600; }
+    .free-action-no { color: var(--app-danger); border-color: color-mix(in srgb, var(--app-danger) 40%, transparent); background: color-mix(in srgb, var(--app-danger) 10%, var(--app-surface)); }
+    .free-action-yes { color: var(--app-success); border-color: color-mix(in srgb, var(--app-success) 40%, transparent); background: color-mix(in srgb, var(--app-success) 10%, var(--app-surface)); }
     .free-action span:first-child, .free-action span:last-child { font-size: 1.25rem; }
     .free-flip-button { min-height: 2.8rem; }
     .free-study-footer { display: flex; justify-content: space-between; margin-top: .35rem; }
