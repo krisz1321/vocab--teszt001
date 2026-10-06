@@ -957,7 +957,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
   private readonly apiBaseUrl = '/api';
 
   card: StudyCard | null = null;
-  mode: StudyMode = 'meaning';
+  mode: StudyMode = this.readStudyMode();
   automaticAiCheck = false;
   acceptHungarianParaphrase = false;
   requireAppealReason = true;
@@ -1123,7 +1123,21 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
       return !this.isSavingFreeMark && !this.isClearingFreeMarks;
     }
 
-    return this.card === null || this.updatedProgress !== null;
+    // Megválaszolatlan kártyánál bármikor lehet paklit váltani, de egy kiértékelt,
+    // még el nem mentett válasz esetén előbb a "Következő kártya" gombbal le kell zárni.
+    return this.card === null
+      || this.updatedProgress !== null
+      || (!this.hasUnsavedAnswer && !this.isInteractionLocked);
+  }
+
+  get hasUnsavedAnswer(): boolean {
+    return this.isMeaningRevealed
+      || this.isRecognitionRevealed
+      || this.isDefinitionRevealed
+      || this.validationResult !== null
+      || this.meaningAwaitingGrade
+      || this.pendingIncorrect
+      || this.definitionPenaltyPending !== null;
   }
 
   get isInteractionLocked(): boolean {
@@ -1225,6 +1239,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
     }
 
     this.mode = mode;
+    this.saveStudyMode();
     this.syncFreeKeyListener();
     if (!this.studying) {
       return;
@@ -1243,6 +1258,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
       return;
     }
 
+    this.saveStudyDeck();
     this.studying = true;
     this.errorMessage = null;
     this.sessionAnswered = 0;
@@ -1263,6 +1279,49 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
 
   saveStudyFocus(): void {
     localStorage.setItem(this.preferenceKey('study-focus'), this.studyFocus);
+  }
+
+  private saveStudyDeck(): void {
+    if (this.deckChoice === null) {
+      return;
+    }
+
+    try {
+      localStorage.setItem(this.preferenceKey('study-deck'), String(this.deckChoice));
+    } catch {
+      // A böngésző tárolója nem elérhető, ilyenkor a pakli nem jegyződik meg.
+    }
+  }
+
+  private readStudyDeck(): StudyDeckChoice | null {
+    try {
+      const stored = localStorage.getItem(this.preferenceKey('study-deck'));
+      if (stored === 'all') {
+        return 'all';
+      }
+
+      const id = Number(stored);
+      return stored !== null && Number.isInteger(id) && id > 0 ? id : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private saveStudyMode(): void {
+    try {
+      localStorage.setItem(this.preferenceKey('study-mode'), this.mode);
+    } catch {
+      // A böngésző tárolója nem elérhető, ilyenkor a mód nem jegyződik meg.
+    }
+  }
+
+  private readStudyMode(): StudyMode {
+    try {
+      const stored = localStorage.getItem(this.preferenceKey('study-mode'));
+      return stored === 'definition' || stored === 'recognition' || stored === 'free' ? stored : 'meaning';
+    } catch {
+      return 'meaning';
+    }
   }
 
   private readStudyFocus(): StudyFocus {
@@ -1321,9 +1380,22 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
       .subscribe({
         next: decks => {
           this.decks = decks;
-          if (this.initialDeckId !== null && !this.studying && decks.some(deck => deck.id === this.initialDeckId)) {
+          if (this.studying) {
+            return;
+          }
+
+          if (this.initialDeckId !== null && decks.some(deck => deck.id === this.initialDeckId)) {
             this.deckChoice = this.initialDeckId;
             this.initialDeckId = null;
+            this.startStudy();
+            return;
+          }
+
+          // Az utoljára használt pakli megjegyződik: ha még él és van benne kártya, a tanulás
+          // rögtön indul, a pakli a "Másik pakli" gombbal módosítható.
+          const remembered = this.readStudyDeck();
+          if (remembered === 'all' ? decks.some(deck => (deck.cardCount ?? 0) > 0) : decks.some(deck => deck.id === remembered && (deck.cardCount ?? 0) > 0)) {
+            this.deckChoice = remembered;
             this.startStudy();
           }
         },
