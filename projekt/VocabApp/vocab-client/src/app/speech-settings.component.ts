@@ -36,6 +36,13 @@ interface LangBlock {
         <div class="form-text">Kikapcsolva a kártyákról eltűnnek a hangszóró gombok.</div>
       </div>
 
+      @if (settings().muted && settings().enabled) {
+        <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2" role="status">
+          <span>A hang jelenleg némítva van, ezért semmi nem szólal meg.</span>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="speech.toggleMute()">Némítás feloldása</button>
+        </div>
+      }
+
       <div class="speech-options" [class.is-disabled]="!settings().enabled">
         <div class="form-check form-switch">
           <input
@@ -81,7 +88,7 @@ interface LangBlock {
                   <button
                     type="button"
                     class="btn btn-outline-secondary flex-shrink-0"
-                    [disabled]="!settings().enabled"
+                    [disabled]="!settings().enabled || settings().muted"
                     (click)="preview(block)">
                     Kipróbálás
                   </button>

@@ -429,6 +429,7 @@ $tabbar-height: 4.25rem;
 
   .app-sidebar .brand { margin: .25rem .4rem 1.25rem; }
   .app-sidebar .sidebar-spacer { flex: 1 1 auto; }
+  .sidebar-tools { display: flex; align-items: center; gap: .5rem; padding: 0 .1rem; }
 
   .sidebar-user {
     display: flex;

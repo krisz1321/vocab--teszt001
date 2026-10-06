@@ -6,11 +6,12 @@ import { finalize } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
 import { DecksComponent } from './decks.component';
 import { StatsComponent } from './stats.component';
+import { MuteButtonComponent } from './mute-button.component';
 import { SpeechSettingsComponent } from './speech-settings.component';
 import { StudyCardComponent } from './study-card.component';
 import { ThemePickerComponent } from './theme-picker.component';
 
-type AppView = 'study' | 'stats' | 'decks' | 'profile';
+type AppView = 'study' | 'stats' | 'decks' | 'profile' | 'settings';
 type AuthMode = 'login' | 'register';
 
 interface AuthResponse {
@@ -58,7 +59,7 @@ interface AiModelOption {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, StudyCardComponent, StatsComponent, DecksComponent, ThemePickerComponent, SpeechSettingsComponent],
+  imports: [CommonModule, FormsModule, StudyCardComponent, StatsComponent, DecksComponent, ThemePickerComponent, SpeechSettingsComponent, MuteButtonComponent],
   template: `
     @if (!session.isLoggedIn()) {
       <div class="auth-shell">
@@ -125,7 +126,19 @@ interface AiModelOption {
             </button>
           }
           <span class="sidebar-spacer"></span>
-          <app-theme-picker class="from-sidebar block" />
+          <div class="sidebar-tools">
+            <app-mute-button [compact]="true" />
+            <app-theme-picker class="from-sidebar" [compact]="true" />
+            <button
+              type="button"
+              class="btn btn-outline-secondary p-2 d-inline-flex"
+              [class.is-active]="view === 'settings'"
+              (click)="goTo('settings')"
+              aria-label="Beállítások"
+              title="Beállítások">
+              <svg class="icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path [attr.d]="settingsIcon" /></svg>
+            </button>
+          </div>
           <div class="sidebar-user">
             @if (hasAvatar && avatarUrl) {
               <img [src]="avatarUrl" alt="" class="avatar-sm" (error)="hasAvatar = false">
@@ -146,7 +159,11 @@ interface AiModelOption {
           <span class="brand"><span class="brand-mark">V</span>VocabApp</span>
           <div class="d-flex align-items-center gap-2">
             <span class="streak-chip" title="Napi sorozat" [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">{{ studyDayStreak }} nap</span>
+            <app-mute-button [compact]="true" />
             <app-theme-picker [compact]="true" />
+            <button type="button" class="btn btn-outline-secondary p-2 d-inline-flex" [class.is-active]="view === 'settings'" (click)="goTo('settings')" aria-label="Beállítások" title="Beállítások">
+              <svg class="icon" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path [attr.d]="settingsIcon" /></svg>
+            </button>
             <button type="button" class="btn p-0 border-0" (click)="openProfile()" aria-label="Profil">
               @if (hasAvatar && avatarUrl) {
                 <img [src]="avatarUrl" alt="" class="avatar-sm" (error)="hasAvatar = false">
@@ -169,76 +186,15 @@ interface AiModelOption {
         <app-stats />
       } @else if (view === 'decks') {
         <app-decks (studyDeck)="studyDeck($event)" />
-      } @else {
+      } @else if (view === 'settings') {
         <main class="container py-4 page-wrap">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0">Profil</h1>
-            <button type="button" class="btn btn-outline-secondary" (click)="logout()">Kijelentkezés</button>
-          </div>
+          <h1 class="h3 mb-4">Beállítások</h1>
           @if (profileError) {
             <div class="alert alert-danger" role="alert">{{ profileError }}</div>
           }
           @if (profileMessage) {
             <div class="alert alert-success" role="alert">{{ profileMessage }}</div>
           }
-          <p class="mb-4">
-            <span class="text-secondary d-block">Email</span>
-            {{ profileEmail || session.email() }}
-          </p>
-          <div class="d-flex align-items-center gap-3 mb-4">
-            @if (hasAvatar && avatarUrl) {
-              <img
-                [src]="avatarUrl"
-                alt=""
-                class="rounded-circle border"
-                style="width: 6rem; height: 6rem; object-fit: cover;"
-                (error)="hasAvatar = false">
-            } @else {
-              <span
-                class="rounded-circle border d-inline-flex align-items-center justify-content-center bg-secondary text-white fs-3"
-                style="width: 6rem; height: 6rem;">
-                {{ initial() }}
-              </span>
-            }
-            <span
-              class="rounded-circle border d-inline-flex flex-column align-items-center justify-content-center flex-shrink-0"
-              style="width: 6rem; height: 6rem;"
-              title="Napi sorozat"
-              [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">
-              <span class="fs-3 fw-semibold lh-1">{{ studyDayStreak }}</span>
-              <span class="small text-secondary">nap</span>
-            </span>
-            <div>
-              <label class="form-label" for="avatarFile">Profilkép</label>
-              <input
-                id="avatarFile"
-                type="file"
-                class="form-control"
-                accept="image/jpeg,image/png,image/webp"
-                (change)="uploadAvatar($event)"
-                [disabled]="isUploadingAvatar">
-              <button
-                type="button"
-                class="btn btn-outline-danger mt-2"
-                (click)="deleteAvatar()"
-                [disabled]="isDeletingAvatar">
-                Kép törlése
-              </button>
-            </div>
-          </div>
-          <form class="mb-4" (ngSubmit)="saveDisplayName()">
-            <label class="form-label" for="displayName">Megjelenített név</label>
-            <div class="input-group">
-              <input
-                id="displayName"
-                name="displayName"
-                type="text"
-                class="form-control"
-                [(ngModel)]="displayName"
-                [disabled]="isSavingName">
-              <button type="submit" class="btn btn-primary" [disabled]="isSavingName">Mentés</button>
-            </div>
-          </form>
           <section class="mb-4">
             <h2 class="h5 mb-3">Megjelenés</h2>
             <p class="text-body-secondary">Válassz kinézetet, és hogy világos vagy sötét változatban használod. A beállítás ezen az eszközön megmarad.</p>
@@ -394,6 +350,77 @@ interface AiModelOption {
             </details>
             <button type="submit" class="btn btn-primary" [disabled]="isSavingStudySettings">Mentés</button>
           </form>
+        </main>
+      } @else {
+        <main class="container py-4 page-wrap">
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1 class="h3 mb-0">Profil</h1>
+            <button type="button" class="btn btn-outline-secondary" (click)="logout()">Kijelentkezés</button>
+          </div>
+          @if (profileError) {
+            <div class="alert alert-danger" role="alert">{{ profileError }}</div>
+          }
+          @if (profileMessage) {
+            <div class="alert alert-success" role="alert">{{ profileMessage }}</div>
+          }
+          <p class="mb-4">
+            <span class="text-secondary d-block">Email</span>
+            {{ profileEmail || session.email() }}
+          </p>
+          <div class="d-flex align-items-center gap-3 mb-4">
+            @if (hasAvatar && avatarUrl) {
+              <img
+                [src]="avatarUrl"
+                alt=""
+                class="rounded-circle border"
+                style="width: 6rem; height: 6rem; object-fit: cover;"
+                (error)="hasAvatar = false">
+            } @else {
+              <span
+                class="rounded-circle border d-inline-flex align-items-center justify-content-center bg-secondary text-white fs-3"
+                style="width: 6rem; height: 6rem;">
+                {{ initial() }}
+              </span>
+            }
+            <span
+              class="rounded-circle border d-inline-flex flex-column align-items-center justify-content-center flex-shrink-0"
+              style="width: 6rem; height: 6rem;"
+              title="Napi sorozat"
+              [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">
+              <span class="fs-3 fw-semibold lh-1">{{ studyDayStreak }}</span>
+              <span class="small text-secondary">nap</span>
+            </span>
+            <div>
+              <label class="form-label" for="avatarFile">Profilkép</label>
+              <input
+                id="avatarFile"
+                type="file"
+                class="form-control"
+                accept="image/jpeg,image/png,image/webp"
+                (change)="uploadAvatar($event)"
+                [disabled]="isUploadingAvatar">
+              <button
+                type="button"
+                class="btn btn-outline-danger mt-2"
+                (click)="deleteAvatar()"
+                [disabled]="isDeletingAvatar">
+                Kép törlése
+              </button>
+            </div>
+          </div>
+          <form class="mb-4" (ngSubmit)="saveDisplayName()">
+            <label class="form-label" for="displayName">Megjelenített név</label>
+            <div class="input-group">
+              <input
+                id="displayName"
+                name="displayName"
+                type="text"
+                class="form-control"
+                [(ngModel)]="displayName"
+                [disabled]="isSavingName">
+              <button type="submit" class="btn btn-primary" [disabled]="isSavingName">Mentés</button>
+            </div>
+          </form>
           <form (ngSubmit)="changePassword()">
             <h2 class="h5 mb-3">Jelszócsere</h2>
             <div class="mb-3">
@@ -481,6 +508,7 @@ export class AppComponent implements OnInit {
     { id: 'decks', label: 'Paklik', icon: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z' },
     { id: 'profile', label: 'Profil', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0' },
   ];
+  readonly settingsIcon = 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6';
   readonly logoutIcon = 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9';
   mode: AuthMode = 'login';
   email = '';
@@ -599,6 +627,11 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    if (view === 'settings') {
+      this.openSettings();
+      return;
+    }
+
     this.view = view;
   }
 
@@ -608,6 +641,12 @@ export class AppComponent implements OnInit {
     this.profileMessage = null;
     this.deleteSlide = 0;
     this.loadProfile();
+  }
+
+  openSettings(): void {
+    this.view = 'settings';
+    this.profileError = null;
+    this.profileMessage = null;
     this.loadStudySettings();
   }
 

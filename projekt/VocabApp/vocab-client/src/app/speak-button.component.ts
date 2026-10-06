@@ -14,6 +14,7 @@ const stopIcon = 'M7 7h10v10H7z';
         type="button"
         class="btn btn-outline-secondary btn-sm speak-btn"
         [class.is-speaking]="isSpeaking()"
+        [disabled]="speech.settings().muted"
         [attr.aria-pressed]="isSpeaking()"
         [attr.aria-label]="ariaLabel()"
         [attr.title]="ariaLabel()"
@@ -47,6 +48,10 @@ export class SpeakButtonComponent {
   }
 
   ariaLabel(): string {
+    if (this.speech.settings().muted) {
+      return 'A hang némítva van, a felolvasáshoz kapcsold vissza';
+    }
+
     if (this.isSpeaking()) {
       return 'Felolvasás leállítása';
     }
