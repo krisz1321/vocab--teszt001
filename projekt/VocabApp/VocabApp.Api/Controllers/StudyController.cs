@@ -35,7 +35,7 @@ public sealed class StudyController(IStudyService studyService) : ControllerBase
 
         var settings = await studyService.GetSettingsAsync(userId.Value, cancellationToken);
         return settings is null
-            ? NotFound(new ProblemDetails { Title = "User not found", Status = StatusCodes.Status404NotFound })
+            ? NotFound(new ProblemDetails { Title = "A felhasználó nem található.", Status = StatusCodes.Status404NotFound })
             : Ok(settings);
     }
 

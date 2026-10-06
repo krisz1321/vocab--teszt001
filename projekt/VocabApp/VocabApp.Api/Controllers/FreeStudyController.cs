@@ -43,7 +43,7 @@ public sealed class FreeStudyController(IFreeStudyService freeStudyService) : Co
         {
             return BadRequest(new ProblemDetails
             {
-                Title = "Knows is required.",
+                Title = "A „tudom / nem tudom” érték megadása kötelező.",
                 Status = StatusCodes.Status400BadRequest
             });
         }

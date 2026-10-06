@@ -34,7 +34,7 @@ public sealed class AiController(IAiService aiService) : ControllerBase
             return result is null
                 ? NotFound(new ProblemDetails
                 {
-                    Title = "Card not found",
+                    Title = "A kártya nem található.",
                     Status = StatusCodes.Status404NotFound
                 })
                 : Ok(result);
@@ -67,7 +67,7 @@ public sealed class AiController(IAiService aiService) : ControllerBase
             return result is null
                 ? NotFound(new ProblemDetails
                 {
-                    Title = "Deck not found",
+                    Title = "A pakli nem található.",
                     Status = StatusCodes.Status404NotFound
                 })
                 : Ok(result);
@@ -102,7 +102,7 @@ public sealed class AiController(IAiService aiService) : ControllerBase
             return result is null
                 ? NotFound(new ProblemDetails
                 {
-                    Title = "Card not found",
+                    Title = "A kártya nem található.",
                     Status = StatusCodes.Status404NotFound
                 })
                 : Ok(result);
@@ -137,7 +137,7 @@ public sealed class AiController(IAiService aiService) : ControllerBase
             return result is null
                 ? NotFound(new ProblemDetails
                 {
-                    Title = "Card not found",
+                    Title = "A kártya nem található.",
                     Status = StatusCodes.Status404NotFound
                 })
                 : Ok(result);
@@ -200,7 +200,7 @@ public sealed class AiController(IAiService aiService) : ControllerBase
             return result is null
                 ? NotFound(new ProblemDetails
                 {
-                    Title = "Card not found",
+                    Title = "A kártya nem található.",
                     Status = StatusCodes.Status404NotFound
                 })
                 : Ok(result);
@@ -267,7 +267,7 @@ public sealed class AiController(IAiService aiService) : ControllerBase
                 return BadRequest(new ProblemDetails
                 {
                     Status = StatusCodes.Status400BadRequest,
-                    Title = "Appeal reason is required"
+                    Title = "Az indoklás megadása kötelező."
                 });
             }
 
@@ -338,7 +338,7 @@ public sealed class AiController(IAiService aiService) : ControllerBase
             var role = (message.Role ?? string.Empty).Trim().ToLowerInvariant();
             if (role is not ("user" or "assistant") || string.IsNullOrWhiteSpace(message.Content))
             {
-                ModelState.AddModelError(nameof(ExplainAnswerRequestDto.Messages), "Each message needs a user or assistant role and text.");
+                ModelState.AddModelError(nameof(ExplainAnswerRequestDto.Messages), "Minden üzenethez szerep (user vagy assistant) és szöveg kell.");
                 return false;
             }
         }
@@ -351,18 +351,18 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         var (status, title) = exception.Kind switch
         {
             AiServiceErrorKind.Configuration =>
-                (StatusCodes.Status503ServiceUnavailable, "AI service unavailable"),
+                (StatusCodes.Status503ServiceUnavailable, "Az MI-szolgáltatás jelenleg nem érhető el."),
             AiServiceErrorKind.Upstream =>
-                (StatusCodes.Status502BadGateway, "AI provider error"),
+                (StatusCodes.Status502BadGateway, "Hiba történt az MI-szolgáltatónál."),
             _ =>
-                (StatusCodes.Status502BadGateway, "Invalid AI response")
+                (StatusCodes.Status502BadGateway, "Az MI érvénytelen választ adott.")
         };
 
         return StatusCode(status, new ProblemDetails
         {
             Status = status,
             Title = title,
-            Detail = "The AI request could not be completed."
+            Detail = "Az MI-kérést nem sikerült teljesíteni."
         });
     }
 }

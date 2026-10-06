@@ -2,6 +2,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using VocabApp.Api.Data;
@@ -16,7 +17,19 @@ public class Program
     {
         var builder = WebApplication.CreateBuilder(args);
 
-        builder.Services.AddControllers();
+        builder.Services.AddControllers().ConfigureApiBehaviorOptions(options =>
+        {
+            // A beépített validációs hibák címe magyar legyen, mert a felület ezt a címet jeleníti meg.
+            options.InvalidModelStateResponseFactory = context => new BadRequestObjectResult(
+                new ValidationProblemDetails(context.ModelState)
+                {
+                    Title = "A megadott adatok hiányosak vagy érvénytelenek.",
+                    Status = StatusCodes.Status400BadRequest
+                })
+            {
+                ContentTypes = { "application/problem+json" }
+            };
+        });
         builder.Services.AddEndpointsApiExplorer();
         builder.Services.AddSwaggerGen();
 

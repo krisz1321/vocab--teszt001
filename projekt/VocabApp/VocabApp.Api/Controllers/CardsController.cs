@@ -84,7 +84,7 @@ public sealed class CardsController(ICardService cardService) : ControllerBase
         var deleted = await cardService.DeleteAsync(userId.Value, id, cancellationToken);
         return deleted
             ? NoContent()
-            : NotFound(new ProblemDetails { Title = "Card not found", Status = StatusCodes.Status404NotFound });
+            : NotFound(new ProblemDetails { Title = "A kártya nem található.", Status = StatusCodes.Status404NotFound });
     }
 
     [HttpPost("{id:int}/reset-learned")]
@@ -99,7 +99,7 @@ public sealed class CardsController(ICardService cardService) : ControllerBase
         var reset = await cardService.ResetLearnedAsync(userId.Value, id, cancellationToken);
         return reset
             ? NoContent()
-            : NotFound(new ProblemDetails { Title = "Card not found", Status = StatusCodes.Status404NotFound });
+            : NotFound(new ProblemDetails { Title = "A kártya nem található.", Status = StatusCodes.Status404NotFound });
     }
 
     private ActionResult<T> ToActionResult<T>(DeckCardResult<T> result)

@@ -21,7 +21,7 @@ public static partial class DeckCsv
     private const int MaxTextLength = 500;
     private const int MaxTargetMeaningsLength = 200;
     private const string HeaderError =
-        "CSV header must be term,definition,example or term,definition,example,targetMeanings.";
+        "A CSV fejléce term,definition,example vagy term,definition,example,targetMeanings legyen.";
 
     public static string ToFileName(string deckName)
     {
@@ -86,7 +86,7 @@ public static partial class DeckCsv
         var dataRecords = contentRecords.Skip(1).ToList();
         if (dataRecords.Count > MaxDataRows)
         {
-            error = "CSV has more than 200 data rows.";
+            error = "A CSV legfeljebb 200 adatsort tartalmazhat.";
             return false;
         }
 
@@ -106,7 +106,36 @@ public static partial class DeckCsv
 
     private static string Quote(string? value)
     {
-        return "\"" + (value ?? string.Empty).Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+        var text = NeutralizeFormula(value ?? string.Empty);
+        return "\"" + text.Replace("\"", "\"\"", StringComparison.Ordinal) + "\"";
+    }
+
+    // Az Excel és a LibreOffice a "=", "+", "@" (és a számként kezdődő "-") jellel induló cellát
+    // képletként értelmezi, ezért ezek elé aposztróf kerül. Az import ezt visszacsinálja.
+    private static bool StartsLikeFormula(string text)
+    {
+        if (text.Length == 0)
+        {
+            return false;
+        }
+
+        var first = text[0];
+        if (first is '=' or '+' or '@' or '\t' or '\r')
+        {
+            return true;
+        }
+
+        return first == '-' && (text.Length == 1 || !char.IsLetter(text[1]));
+    }
+
+    private static string NeutralizeFormula(string text)
+    {
+        return StartsLikeFormula(text) ? "'" + text : text;
+    }
+
+    private static string RestoreFormula(string text)
+    {
+        return text.Length > 1 && text[0] == '\'' && StartsLikeFormula(text[1..]) ? text[1..] : text;
     }
 
     private static bool TrySplitRecords(string text, out List<string> records, out string? error)
@@ -152,7 +181,7 @@ public static partial class DeckCsv
 
         if (inQuotes)
         {
-            error = "The CSV file is invalid.";
+            error = "A CSV fájl érvénytelen.";
             records = [];
             return false;
         }
@@ -178,51 +207,51 @@ public static partial class DeckCsv
         if (fields.Count != expectedCount)
         {
             error = includeTargetMeanings
-                ? $"CSV row {rowNumber} must have term, definition, example and target meanings."
-                : $"CSV row {rowNumber} must have term, definition and example.";
+                ? $"A CSV {rowNumber}. sorának négy oszlopa kell legyen: term, definition, example, targetMeanings."
+                : $"A CSV {rowNumber}. sorának három oszlopa kell legyen: term, definition, example.";
             return false;
         }
 
-        var term = fields[0].Trim();
+        var term = RestoreFormula(fields[0].Trim());
         if (string.IsNullOrEmpty(term))
         {
-            error = $"CSV row {rowNumber}: Term is required.";
+            error = $"CSV {rowNumber}. sor: a szó megadása kötelező.";
             return false;
         }
 
         if (term.Length > MaxTermLength)
         {
-            error = $"CSV row {rowNumber}: Term must be at most 100 characters.";
+            error = $"CSV {rowNumber}. sor: a szó legfeljebb 100 karakter lehet.";
             return false;
         }
 
-        var definition = fields[1].Trim();
+        var definition = RestoreFormula(fields[1].Trim());
         if (string.IsNullOrEmpty(definition))
         {
-            error = $"CSV row {rowNumber}: Definition is required.";
+            error = $"CSV {rowNumber}. sor: a definíció megadása kötelező.";
             return false;
         }
 
         if (definition.Length > MaxTextLength)
         {
-            error = $"CSV row {rowNumber}: Definition must be at most 500 characters.";
+            error = $"CSV {rowNumber}. sor: a definíció legfeljebb 500 karakter lehet.";
             return false;
         }
 
-        var example = fields[2].Trim();
+        var example = RestoreFormula(fields[2].Trim());
         if (example.Length > MaxTextLength)
         {
-            error = $"CSV row {rowNumber}: Example must be at most 500 characters.";
+            error = $"CSV {rowNumber}. sor: a példa legfeljebb 500 karakter lehet.";
             return false;
         }
 
         string? targetMeanings = null;
         if (includeTargetMeanings)
         {
-            var meanings = fields[3].Trim();
+            var meanings = RestoreFormula(fields[3].Trim());
             if (meanings.Length > MaxTargetMeaningsLength)
             {
-                error = $"CSV row {rowNumber}: Target meanings must be at most 200 characters.";
+                error = $"CSV {rowNumber}. sor: a célnyelvi jelentés legfeljebb 200 karakter lehet.";
                 return false;
             }
 
@@ -272,7 +301,7 @@ public static partial class DeckCsv
             {
                 if (current.Length > 0 || closedQuote)
                 {
-                    error = "The CSV file is invalid.";
+                    error = "A CSV fájl érvénytelen.";
                     fields = [];
                     return false;
                 }
@@ -291,7 +320,7 @@ public static partial class DeckCsv
 
             if (closedQuote)
             {
-                error = "The CSV file is invalid.";
+                error = "A CSV fájl érvénytelen.";
                 fields = [];
                 return false;
             }
@@ -301,7 +330,7 @@ public static partial class DeckCsv
 
         if (inQuotes)
         {
-            error = "The CSV file is invalid.";
+            error = "A CSV fájl érvénytelen.";
             fields = [];
             return false;
         }

@@ -22,7 +22,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             .AnyAsync(deck => deck.Id == deckId && deck.UserId == userId, cancellationToken);
         if (!ownsDeck)
         {
-            return DeckCardResult<IReadOnlyList<CardDto>>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+            return DeckCardResult<IReadOnlyList<CardDto>>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         var cards = await dbContext.Cards
@@ -112,7 +112,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             .AnyAsync(deck => deck.Id == request.DeckId && deck.UserId == userId, cancellationToken);
         if (!ownsDeck)
         {
-            return DeckCardResult<CardDto>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+            return DeckCardResult<CardDto>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         var card = new Card
@@ -154,7 +154,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             .FirstOrDefaultAsync(candidate => candidate.Id == cardId && candidate.Deck.UserId == userId, cancellationToken);
         if (card is null)
         {
-            return DeckCardResult<CardDto>.Fail(StatusCodes.Status404NotFound, "Card not found.");
+            return DeckCardResult<CardDto>.Fail(StatusCodes.Status404NotFound, "A kártya nem található.");
         }
 
         card.Term = request.Term!.Trim();
@@ -176,7 +176,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             .FirstOrDefaultAsync(candidate => candidate.Id == cardId && candidate.Deck.UserId == userId, cancellationToken);
         if (card?.Progress is null)
         {
-            return DeckCardResult<CardDto>.Fail(StatusCodes.Status404NotFound, "Card not found.");
+            return DeckCardResult<CardDto>.Fail(StatusCodes.Status404NotFound, "A kártya nem található.");
         }
 
         var progress = card.Progress;
@@ -251,35 +251,35 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         var normalizedTerm = term?.Trim();
         if (string.IsNullOrEmpty(normalizedTerm))
         {
-            return "Term is required.";
+            return "A szó megadása kötelező.";
         }
 
         if (normalizedTerm.Length > MaxTermLength)
         {
-            return "Term must be at most 100 characters.";
+            return "A szó legfeljebb 100 karakter lehet.";
         }
 
         var normalizedDefinition = definition?.Trim();
         if (string.IsNullOrEmpty(normalizedDefinition))
         {
-            return "Definition is required.";
+            return "A definíció megadása kötelező.";
         }
 
         if (normalizedDefinition.Length > MaxTextLength)
         {
-            return "Definition must be at most 500 characters.";
+            return "A definíció legfeljebb 500 karakter lehet.";
         }
 
         var normalizedExample = example?.Trim();
         if (!string.IsNullOrEmpty(normalizedExample) && normalizedExample.Length > MaxTextLength)
         {
-            return "Example must be at most 500 characters.";
+            return "A példa legfeljebb 500 karakter lehet.";
         }
 
         var normalizedMeanings = targetMeanings?.Trim();
         if (!string.IsNullOrEmpty(normalizedMeanings) && normalizedMeanings.Length > MaxTargetMeaningsLength)
         {
-            return "Target meanings must be at most 200 characters.";
+            return "A célnyelvi jelentés legfeljebb 200 karakter lehet.";
         }
 
         return null;

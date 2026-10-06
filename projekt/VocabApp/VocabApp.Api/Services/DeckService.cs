@@ -34,12 +34,12 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         var name = request.Name?.Trim();
         if (string.IsNullOrEmpty(name))
         {
-            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "Name is required.");
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "A pakli nevének megadása kötelező.");
         }
 
         if (name.Length > MaxNameLength)
         {
-            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "Name must be at most 100 characters.");
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "A pakli neve legfeljebb 100 karakter lehet.");
         }
 
         var deck = new Deck { UserId = userId, Name = name, IsPublic = false };
@@ -58,19 +58,19 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         var name = request.Name?.Trim();
         if (string.IsNullOrEmpty(name))
         {
-            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "Name is required.");
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "A pakli nevének megadása kötelező.");
         }
 
         if (name.Length > MaxNameLength)
         {
-            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "Name must be at most 100 characters.");
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "A pakli neve legfeljebb 100 karakter lehet.");
         }
 
         var deck = await dbContext.Decks
             .FirstOrDefaultAsync(candidate => candidate.Id == deckId && candidate.UserId == userId, cancellationToken);
         if (deck is null)
         {
-            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         deck.Name = name;
@@ -102,7 +102,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             .FirstOrDefaultAsync(candidate => candidate.Id == deckId && candidate.UserId == userId, cancellationToken);
         if (deck is null)
         {
-            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         if (request.IsPublic && !string.IsNullOrWhiteSpace(request.ExampleLevel))
@@ -110,7 +110,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             var level = request.ExampleLevel.Trim();
             if (!ExampleLevels.IsAllowed(level))
             {
-                return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "Example level is invalid.");
+                return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "A mondatszint érvénytelen.");
             }
 
             deck.ExampleLevel = level;
@@ -133,7 +133,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             exampleLevel = request.ExampleLevel.Trim();
             if (!ExampleLevels.IsAllowed(exampleLevel))
             {
-                return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "Example level is invalid.");
+                return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "A mondatszint érvénytelen.");
             }
         }
 
@@ -141,7 +141,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             .FirstOrDefaultAsync(candidate => candidate.Id == deckId && candidate.UserId == userId, cancellationToken);
         if (deck is null)
         {
-            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         deck.ExampleLevel = exampleLevel;
@@ -195,7 +195,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             .AnyAsync(deck => deck.Id == deckId && deck.IsPublic && deck.UserId != userId, cancellationToken);
         if (!isShared)
         {
-            return DeckCardResult<IReadOnlyList<CardDto>>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+            return DeckCardResult<IReadOnlyList<CardDto>>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         var cards = await dbContext.Cards
@@ -229,7 +229,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 cancellationToken);
         if (source is null)
         {
-            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         var now = DateTime.UtcNow;
@@ -271,7 +271,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             .FirstOrDefaultAsync(candidate => candidate.Id == deckId && candidate.UserId == userId, cancellationToken);
         if (deck is null)
         {
-            return DeckCardResult<DeckCsvFile>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+            return DeckCardResult<DeckCsvFile>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         var cards = await dbContext.Cards
@@ -298,12 +298,12 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             .AnyAsync(candidate => candidate.Id == deckId && candidate.UserId == userId, cancellationToken);
         if (!ownsDeck)
         {
-            return DeckCardResult<ImportDeckResultDto>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+            return DeckCardResult<ImportDeckResultDto>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         if (!DeckCsv.TryRead(csv, out var rows, out var error))
         {
-            return DeckCardResult<ImportDeckResultDto>.Fail(StatusCodes.Status400BadRequest, error ?? "The CSV file is invalid.");
+            return DeckCardResult<ImportDeckResultDto>.Fail(StatusCodes.Status400BadRequest, error ?? "A CSV fájl érvénytelen.");
         }
 
         var now = DateTime.UtcNow;

@@ -126,7 +126,7 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
         var deleted = await deckService.DeleteAsync(userId.Value, id, cancellationToken);
         return deleted
             ? NoContent()
-            : NotFound(new ProblemDetails { Title = "Deck not found", Status = StatusCodes.Status404NotFound });
+            : NotFound(new ProblemDetails { Title = "A pakli nem található.", Status = StatusCodes.Status404NotFound });
     }
 
     [HttpGet("{id:int}/export")]

@@ -39,7 +39,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
 
         var profile = await authService.GetProfileAsync(userId.Value, cancellationToken);
         return profile is null
-            ? NotFound(new ProblemDetails { Title = "User not found", Status = StatusCodes.Status404NotFound })
+            ? NotFound(new ProblemDetails { Title = "A felhasználó nem található.", Status = StatusCodes.Status404NotFound })
             : Ok(profile);
     }
 
@@ -128,7 +128,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         var deleted = await authService.DeleteAccountAsync(userId.Value, cancellationToken);
         return deleted
             ? NoContent()
-            : NotFound(new ProblemDetails { Title = "User not found", Status = StatusCodes.Status404NotFound });
+            : NotFound(new ProblemDetails { Title = "A felhasználó nem található.", Status = StatusCodes.Status404NotFound });
     }
 
     private int? GetUserId()

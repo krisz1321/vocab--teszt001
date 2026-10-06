@@ -532,6 +532,11 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    if (this.mode === 'register' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      this.errorMessage = 'Az email cím formátuma érvénytelen.';
+      return;
+    }
+
     if (this.mode === 'register' && password.length < 8) {
       this.errorMessage = 'A jelszónak legalább 8 karakter hosszúnak kell lennie.';
       return;

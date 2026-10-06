@@ -22,7 +22,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 deck => deck.Id == selectedDeckId && deck.UserId == userId,
                 cancellationToken))
         {
-            return StudyNextResult.Fail(StatusCodes.Status404NotFound, "Deck not found");
+            return StudyNextResult.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         var now = DateTime.UtcNow;
@@ -222,19 +222,19 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var exampleLevel = request.ExampleLevel?.Trim();
         if (!ExampleLevels.IsAllowed(exampleLevel))
         {
-            return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "Example level is invalid");
+            return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "A mondatszint érvénytelen.");
         }
 
         var aiModel = request.AiModel?.Trim();
         if (!AiModels.IsAllowed(aiModel))
         {
-            return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "AI model is invalid");
+            return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "Az MI-modell érvénytelen.");
         }
 
         var savedLevelPolicy = request.SavedLevelPolicy?.Trim();
         if (!SavedLevelPolicies.IsAllowed(savedLevelPolicy))
         {
-            return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "Saved level policy is invalid");
+            return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "A mentett szintek szabálya érvénytelen.");
         }
 
         var timeZoneId = StudyClock.NormalizeTimeZoneId(request.TimeZoneId);
@@ -242,7 +242,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var user = await dbContext.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null)
         {
-            return StudySettingsResult.Fail(StatusCodes.Status404NotFound, "User not found");
+            return StudySettingsResult.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.");
         }
 
         user.DailyNewCardGoal = request.DailyNewCardGoal;
@@ -285,7 +285,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
 
         if (progress is null)
         {
-            return StudySubmitResult.Fail(StatusCodes.Status404NotFound, "Card not found");
+            return StudySubmitResult.Fail(StatusCodes.Status404NotFound, "A kártya nem található.");
         }
 
         var user = await dbContext.Users
@@ -293,7 +293,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
 
         if (user is null)
         {
-            return StudySubmitResult.Fail(StatusCodes.Status404NotFound, "User not found");
+            return StudySubmitResult.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.");
         }
 
         var now = DateTime.UtcNow;
@@ -306,12 +306,12 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
 
         if (evaluation.Status == StudyAnswerTokenStatus.Invalid)
         {
-            return StudySubmitResult.Fail(StatusCodes.Status400BadRequest, "Invalid answer token");
+            return StudySubmitResult.Fail(StatusCodes.Status400BadRequest, "Érvénytelen válasz-azonosító, töltsd be újra a kártyát.");
         }
 
         if (evaluation.Status == StudyAnswerTokenStatus.TooEarly)
         {
-            return StudySubmitResult.Fail(StatusCodes.Status400BadRequest, "Answer submitted too early");
+            return StudySubmitResult.Fail(StatusCodes.Status400BadRequest, "A választ túl korán küldted be.");
         }
 
         if (progress.FirstReviewedAt is null)

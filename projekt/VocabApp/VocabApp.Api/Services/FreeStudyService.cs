@@ -17,7 +17,7 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
         {
             return DeckCardResult<IReadOnlyList<FreeStudyCardDto>>.Fail(
                 StatusCodes.Status404NotFound,
-                "Deck not found.");
+                "A pakli nem található.");
         }
 
         var cards = UserCards(userId, deckId);
@@ -66,7 +66,7 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
             .AnyAsync(card => card.Id == cardId && card.Deck.UserId == userId, cancellationToken);
         if (!ownsCard)
         {
-            return DeckCardResult<bool>.Fail(StatusCodes.Status404NotFound, "Card not found.");
+            return DeckCardResult<bool>.Fail(StatusCodes.Status404NotFound, "A kártya nem található.");
         }
 
         var mark = await dbContext.FreeStudyMarks
@@ -113,7 +113,7 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
     {
         if (deckId is int selectedDeckId && !await OwnsDeckAsync(userId, selectedDeckId, cancellationToken))
         {
-            return DeckCardResult<bool>.Fail(StatusCodes.Status404NotFound, "Deck not found.");
+            return DeckCardResult<bool>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
         var marks = dbContext.FreeStudyMarks.Where(mark => mark.UserId == userId);

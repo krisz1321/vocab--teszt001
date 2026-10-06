@@ -21,7 +21,7 @@ public sealed class AuthService(
     private const int MaxEmailLength = 256;
     private const int MaxDisplayNameLength = 80;
     private const int MaxAvatarBytes = 1024 * 1024;
-    private const string InvalidCredentials = "Invalid email or password.";
+    private const string InvalidCredentials = "Hibás email vagy jelszó.";
     private const string InvalidAvatar = "Csak JPEG, PNG vagy WebP kép tölthető fel, legfeljebb 1 MB.";
     private static readonly EmailAddressAttribute EmailValidator = new();
     private static readonly (string Extension, string ContentType)[] AvatarTypes =
@@ -36,27 +36,27 @@ public sealed class AuthService(
         var email = NormalizeEmail(request.Email);
         if (email is null)
         {
-            return AuthResult.Fail(StatusCodes.Status400BadRequest, "Email is required.");
+            return AuthResult.Fail(StatusCodes.Status400BadRequest, "Az email megadása kötelező.");
         }
 
         if (email.Length > MaxEmailLength)
         {
-            return AuthResult.Fail(StatusCodes.Status400BadRequest, "Email must be at most 256 characters.");
+            return AuthResult.Fail(StatusCodes.Status400BadRequest, "Az email cím legfeljebb 256 karakter lehet.");
         }
 
         if (!EmailValidator.IsValid(email))
         {
-            return AuthResult.Fail(StatusCodes.Status400BadRequest, "Email is invalid.");
+            return AuthResult.Fail(StatusCodes.Status400BadRequest, "Az email cím formátuma érvénytelen.");
         }
 
         if (string.IsNullOrEmpty(request.Password) || request.Password.Length < 8)
         {
-            return AuthResult.Fail(StatusCodes.Status400BadRequest, "Password must be at least 8 characters.");
+            return AuthResult.Fail(StatusCodes.Status400BadRequest, "A jelszónak legalább 8 karakter hosszúnak kell lennie.");
         }
 
         if (await dbContext.Users.AnyAsync(user => user.Email == email, cancellationToken))
         {
-            return AuthResult.Fail(StatusCodes.Status409Conflict, "Email is already registered.");
+            return AuthResult.Fail(StatusCodes.Status409Conflict, "Ez az email cím már regisztrálva van.");
         }
 
         var user = new User { Email = email };
@@ -70,7 +70,7 @@ public sealed class AuthService(
         }
         catch (DbUpdateException exception) when (IsUniqueViolation(exception))
         {
-            return AuthResult.Fail(StatusCodes.Status409Conflict, "Email is already registered.");
+            return AuthResult.Fail(StatusCodes.Status409Conflict, "Ez az email cím már regisztrálva van.");
         }
 
         return AuthResult.Success(CreateResponse(user));
@@ -132,7 +132,7 @@ public sealed class AuthService(
         var user = await dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null)
         {
-            return StatusResult.Fail(StatusCodes.Status404NotFound, "User not found");
+            return StatusResult.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.");
         }
 
         var normalized = string.IsNullOrWhiteSpace(displayName) ? null : displayName.Trim();
@@ -185,7 +185,7 @@ public sealed class AuthService(
     {
         if (!await dbContext.Users.AnyAsync(candidate => candidate.Id == userId, cancellationToken))
         {
-            return StatusResult.Fail(StatusCodes.Status404NotFound, "User not found");
+            return StatusResult.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.");
         }
 
         var extension = ExtensionFor(file?.ContentType);
