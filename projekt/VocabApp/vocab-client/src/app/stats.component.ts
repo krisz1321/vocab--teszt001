@@ -71,51 +71,51 @@ interface StudyStats {
         }
 
         @if (stats && !isLoading) {
-          <div class="row g-3 mb-4">
-            <div class="col-sm-4">
-              <div class="border rounded p-3 h-100">
+          <div class="row g-2 g-md-3 mb-4 stat-grid">
+            <div class="col-6 col-md-4">
+              <div class="border rounded p-2 p-md-3 h-100 stat-tile">
                 <div class="text-body-secondary">MI-hívások</div>
                 <div class="fs-3 fw-semibold">{{ stats.aiCallCount }}</div>
               </div>
             </div>
-            <div class="col-sm-4">
-              <div class="border rounded p-3 h-100">
+            <div class="col-6 col-md-4">
+              <div class="border rounded p-2 p-md-3 h-100 stat-tile">
                 <div class="text-body-secondary">Kártyák</div>
                 <div class="fs-3 fw-semibold">{{ stats.totalCards }}</div>
               </div>
             </div>
-            <div class="col-sm-4">
-              <div class="border rounded p-3 h-100">
+            <div class="col-6 col-md-4">
+              <div class="border rounded p-2 p-md-3 h-100 stat-tile">
                 <div class="text-body-secondary">Esedékes</div>
                 <div class="fs-3 fw-semibold">{{ stats.dueCards }}</div>
               </div>
             </div>
-            <div class="col-sm-4">
-              <div class="border rounded p-3 h-100">
+            <div class="col-6 col-md-4">
+              <div class="border rounded p-2 p-md-3 h-100 stat-tile">
                 <div class="text-body-secondary">Hibák összesen</div>
                 <div class="fs-3 fw-semibold">{{ stats.totalIncorrect }}</div>
               </div>
             </div>
-            <div class="col-sm-4">
-              <div class="border rounded p-3 h-100">
+            <div class="col-6 col-md-4">
+              <div class="border rounded p-2 p-md-3 h-100 stat-tile">
                 <div class="text-body-secondary">Megtanult szavak</div>
                 <div class="fs-3 fw-semibold">{{ stats.learnedCards }}</div>
               </div>
             </div>
-            <div class="col-sm-4">
-              <div class="border rounded p-3 h-100">
+            <div class="col-6 col-md-4">
+              <div class="border rounded p-2 p-md-3 h-100 stat-tile">
                 <div class="text-body-secondary">Napi sorozat</div>
                 <div class="fs-3 fw-semibold">{{ stats.studyDayStreak }}</div>
               </div>
             </div>
-            <div class="col-sm-4">
-              <div class="border rounded p-3 h-100">
+            <div class="col-6 col-md-4">
+              <div class="border rounded p-2 p-md-3 h-100 stat-tile">
                 <div class="text-body-secondary">Leghosszabb sorozat</div>
                 <div class="fs-3 fw-semibold">{{ stats.longestStudyDayStreak }}</div>
               </div>
             </div>
-            <div class="col-sm-4">
-              <div class="border rounded p-3 h-100">
+            <div class="col-6 col-md-4">
+              <div class="border rounded p-2 p-md-3 h-100 stat-tile">
                 <div class="text-body-secondary">Teljes idő</div>
                 <div class="fs-3 fw-semibold">{{ formatStudyTime(stats.totalStudySeconds) }}</div>
                 <div class="text-body-secondary mt-2">Mai idő</div>
@@ -161,30 +161,30 @@ interface StudyStats {
             <div class="alert alert-info">Még nincs tanulható kártya.</div>
           } @else {
             <div class="table-responsive">
-              <table class="table align-middle">
+              <table class="table align-middle stats-table">
                 <thead>
                   <tr>
                     <th scope="col">Szó</th>
                     <th scope="col">Helyes</th>
                     <th scope="col">Hibák</th>
                     <th scope="col">Hibaarány</th>
-                    <th scope="col">Helyes sorozat</th>
+                    <th scope="col" class="d-none d-md-table-cell">Helyes sorozat</th>
                     <th scope="col">Megtanult</th>
-                    <th scope="col">Időköz (nap)</th>
-                    <th scope="col">Következő ismétlés</th>
+                    <th scope="col" class="d-none d-md-table-cell">Időköz (nap)</th>
+                    <th scope="col" class="d-none d-md-table-cell">Következő ismétlés</th>
                   </tr>
                 </thead>
                 <tbody>
                   @for (card of stats.cards; track card.term) {
                     <tr>
-                      <td>{{ card.term }}</td>
+                      <td class="text-break term-cell">{{ card.term }}</td>
                       <td>{{ card.correctCount }}</td>
                       <td>{{ card.incorrectCount }}</td>
                       <td>{{ formatErrorRate(card.errorRate) }}</td>
-                      <td>{{ card.streak }}</td>
+                      <td class="d-none d-md-table-cell">{{ card.streak }}</td>
                       <td>{{ card.isLearned ? 'Igen' : 'Nem' }}</td>
-                      <td>{{ card.interval }}</td>
-                      <td>{{ formatNextReview(card.nextReviewDate) }}</td>
+                      <td class="d-none d-md-table-cell">{{ card.interval }}</td>
+                      <td class="d-none d-md-table-cell">{{ formatNextReview(card.nextReviewDate) }}</td>
                     </tr>
                   }
                 </tbody>
@@ -197,7 +197,7 @@ interface StudyStats {
             <div class="alert alert-info">Még nincs olyan hibás válasz, ami egy másik kártyád szava lett volna.</div>
           } @else {
             <div class="table-responsive">
-              <table class="table align-middle">
+              <table class="table align-middle stats-table">
                 <thead>
                   <tr>
                     <th scope="col">Kérdezett szó</th>
@@ -208,8 +208,8 @@ interface StudyStats {
                 <tbody>
                   @for (confusion of stats.confusions; track $index) {
                     <tr>
-                      <td>{{ confusion.term }}</td>
-                      <td>{{ confusion.confusedWithTerm }}</td>
+                      <td class="text-break">{{ confusion.term }}</td>
+                      <td class="text-break">{{ confusion.confusedWithTerm }}</td>
                       <td>{{ confusion.count }}</td>
                     </tr>
                   }
@@ -223,6 +223,14 @@ interface StudyStats {
   `,
   styles: [
     `
+      .stat-tile .text-body-secondary { font-size: 0.85rem; }
+      @media (max-width: 767.98px) {
+        .stat-tile .fs-3 { font-size: 1.35rem !important; }
+        .stats-table { font-size: 0.9rem; }
+        .stats-table .term-cell { max-width: 9rem; }
+        .stats-table th, .stats-table td { padding: 0.4rem 0.35rem; }
+        .learn-plot { height: 6rem; }
+      }
       .learn-chart {
         display: flex;
         align-items: flex-end;

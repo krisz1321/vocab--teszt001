@@ -1,8 +1,11 @@
 
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using VocabApp.Api.Data;
@@ -79,6 +82,49 @@ public class Program
             });
         builder.Services.AddAuthorization();
 
+        // Kapcsoló: a RateLimiting:Enabled értéke true esetén aktív a sebességkorlátozás (alapból ki van kapcsolva).
+        var rateLimitingEnabled = builder.Configuration.GetValue<bool>("RateLimiting:Enabled");
+        if (rateLimitingEnabled)
+        {
+            builder.Services.AddRateLimiter(options =>
+            {
+                options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                options.OnRejected = async (context, cancellationToken) =>
+                {
+                    context.HttpContext.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+                    await context.HttpContext.Response.WriteAsJsonAsync(
+                        new ProblemDetails
+                        {
+                            Title = "Túl sok kérés érkezett. Kérlek, várj egy kicsit, majd próbáld újra.",
+                            Status = StatusCodes.Status429TooManyRequests
+                        },
+                        cancellationToken);
+                };
+
+                // Belépés, regisztráció és jelszócsere: IP-nként percenként legfeljebb 20 kérés.
+                options.AddPolicy("auth", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 20,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+
+                // MI-hívások: felhasználónként percenként legfeljebb 40 kérés, mert minden hívás költséggel jár.
+                options.AddPolicy("ai", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                        ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                        ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 40,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+            });
+        }
+
         builder.Services.AddSingleton<IPasswordHasher<User>, PasswordHasher<User>>();
         builder.Services.AddScoped<IAuthService, AuthService>();
         builder.Services.AddScoped<IDeckService, DeckService>();
@@ -114,6 +160,11 @@ public class Program
         app.UseCors("Frontend");
         app.UseAuthentication();
         app.UseAuthorization();
+        if (rateLimitingEnabled)
+        {
+            app.UseRateLimiter();
+        }
+
         app.MapControllers();
 
         await app.RunAsync();

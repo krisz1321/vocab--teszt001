@@ -31,6 +31,26 @@ public sealed class AuthService(
         (".webp", "image/webp")
     ];
 
+    private static string? ValidateNewPassword(string? password, string email)
+    {
+        if (string.IsNullOrEmpty(password) || password.Length < 8)
+        {
+            return "A jelszónak legalább 8 karakter hosszúnak kell lennie.";
+        }
+
+        if (!password.Any(char.IsLetter) || !password.Any(char.IsDigit))
+        {
+            return "A jelszónak tartalmaznia kell legalább egy betűt és egy számot.";
+        }
+
+        if (string.Equals(password, email, StringComparison.OrdinalIgnoreCase))
+        {
+            return "A jelszó nem lehet azonos az email címmel.";
+        }
+
+        return null;
+    }
+
     public async Task<AuthResult> RegisterAsync(RegisterDto request, CancellationToken cancellationToken = default)
     {
         var email = NormalizeEmail(request.Email);
@@ -49,9 +69,10 @@ public sealed class AuthService(
             return AuthResult.Fail(StatusCodes.Status400BadRequest, "Az email cím formátuma érvénytelen.");
         }
 
-        if (string.IsNullOrEmpty(request.Password) || request.Password.Length < 8)
+        var passwordError = ValidateNewPassword(request.Password, email);
+        if (passwordError is not null)
         {
-            return AuthResult.Fail(StatusCodes.Status400BadRequest, "A jelszónak legalább 8 karakter hosszúnak kell lennie.");
+            return AuthResult.Fail(StatusCodes.Status400BadRequest, passwordError);
         }
 
         if (await dbContext.Users.AnyAsync(user => user.Email == email, cancellationToken))
@@ -154,23 +175,23 @@ public sealed class AuthService(
         string? newPassword,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(newPassword) || newPassword.Length < 8)
-        {
-            return StatusResult.Fail(
-                StatusCodes.Status400BadRequest,
-                "Az új jelszónak legalább 8 karakter hosszúnak kell lennie.");
-        }
-
         var user = await dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
-        if (user is null || string.IsNullOrEmpty(currentPassword))
+        if (user is null)
         {
-            return StatusResult.Fail(StatusCodes.Status401Unauthorized, "Hibás jelszó.");
+            return StatusResult.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.");
         }
 
-        var verification = passwordHasher.VerifyHashedPassword(user, user.PasswordHash, currentPassword);
-        if (verification == PasswordVerificationResult.Failed)
+        var passwordError = ValidateNewPassword(newPassword, user.Email);
+        if (passwordError is not null)
         {
-            return StatusResult.Fail(StatusCodes.Status401Unauthorized, "Hibás jelszó.");
+            return StatusResult.Fail(StatusCodes.Status400BadRequest, passwordError);
+        }
+
+        // A hibás jelenlegi jelszó nem hitelesítési hiba (a felhasználó be van jelentkezve), ezért 400.
+        if (string.IsNullOrEmpty(currentPassword)
+            || passwordHasher.VerifyHashedPassword(user, user.PasswordHash, currentPassword) == PasswordVerificationResult.Failed)
+        {
+            return StatusResult.Fail(StatusCodes.Status400BadRequest, "Hibás jelszó.");
         }
 
         user.PasswordHash = passwordHasher.HashPassword(user, newPassword);

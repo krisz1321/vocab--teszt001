@@ -16,7 +16,7 @@ interface PublicDeck {
   id: number;
   name: string;
   cardCount: number;
-  ownerEmail: string;
+  ownerName: string;
   exampleLevel: string | null;
   levelIsAutomatic: boolean;
 }
@@ -57,6 +57,15 @@ interface ProblemDetails {
 
 interface ImportResult {
   importedCount: number;
+  skippedCount: number;
+  skippedRows: string[];
+}
+
+interface PendingConfirm {
+  message: string;
+  confirmLabel: string;
+  danger: boolean;
+  action: () => void;
 }
 
 @Component({
@@ -73,6 +82,30 @@ interface ImportResult {
 
         @if (errorMessage) {
           <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+        }
+
+        @if (noticeMessage) {
+          <div class="alert alert-success d-flex justify-content-between align-items-start gap-2" role="status">
+            <span>{{ noticeMessage }}</span>
+            <button type="button" class="btn-close" aria-label="Bezárás" (click)="noticeMessage = null"></button>
+          </div>
+        }
+
+        @if (pendingConfirm; as confirmation) {
+          <div class="alert alert-warning" role="alertdialog" aria-live="assertive">
+            <p class="mb-3">{{ confirmation.message }}</p>
+            <div class="d-flex flex-wrap gap-2">
+              <button
+                type="button"
+                class="btn btn-sm"
+                [class.btn-danger]="confirmation.danger"
+                [class.btn-primary]="!confirmation.danger"
+                (click)="runConfirm()">
+                {{ confirmation.confirmLabel }}
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary" (click)="pendingConfirm = null">Mégse</button>
+            </div>
+          </div>
         }
 
         <form class="row g-2 align-items-end mb-4" (ngSubmit)="createDeck()">
@@ -100,11 +133,12 @@ interface ImportResult {
             <div class="list-group-item">
               <button
                 type="button"
-                class="btn btn-link text-start text-decoration-none p-0"
+                class="btn btn-link text-start p-0 deck-link"
                 [class.fw-semibold]="viewingLearned"
                 (click)="selectLearned()">
                 Megtanult szavak
               </button>
+              <div class="text-body-secondary small">Az összes paklidból már megtanult kártyáid áttekintése.</div>
             </div>
             @for (deck of decks; track deck.id) {
               <div class="list-group-item d-flex flex-wrap justify-content-between align-items-center gap-2">
@@ -124,7 +158,7 @@ interface ImportResult {
                   <div>
                     <button
                       type="button"
-                      class="btn btn-link text-start text-decoration-none p-0"
+                      class="btn btn-link text-start p-0 deck-link"
                       [class.fw-semibold]="selectedDeckId === deck.id"
                       (click)="selectDeck(deck.id)">
                       {{ deck.name }}
@@ -250,7 +284,24 @@ interface ImportResult {
             </div>
 
             @if (importMessage && !viewingLearned) {
-              <div class="alert alert-success" role="status">{{ importMessage }}</div>
+              <div class="alert" [class.alert-success]="importSkipped.length === 0" [class.alert-warning]="importSkipped.length > 0" role="status">
+                <div>{{ importMessage }}</div>
+                @if (importSkipped.length > 0) {
+                  <ul class="mb-0 mt-2 small">
+                    @for (line of importSkipped; track $index) {
+                      <li>{{ line }}</li>
+                    }
+                  </ul>
+                }
+              </div>
+            }
+
+            @if (!viewingLearned) {
+              <p class="text-body-secondary small">
+                Import: CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code>), legfeljebb 200 sorral.
+                A hibás sorok kimaradnak, a többi bekerül.
+                <button type="button" class="btn btn-link btn-sm p-0 align-baseline" (click)="downloadCsvTemplate()">Minta CSV letöltése</button>
+              </p>
             }
 
             @if (!viewingLearned) {
@@ -306,6 +357,9 @@ interface ImportResult {
                 <label class="form-label" for="example">Példa</label>
                 <textarea id="example" name="example" class="form-control" rows="2" maxlength="500" [(ngModel)]="example" [disabled]="isSavingCard"></textarea>
               </div>
+              @if (cardError) {
+                <div class="alert alert-danger py-2" role="alert">{{ cardError }}</div>
+              }
               <div class="d-flex gap-2 mb-4">
                 <button type="submit" class="btn btn-primary" [disabled]="isSavingCard">
                   {{ editingCardId === null ? 'Kártya felvétele' : 'Mentés' }}
@@ -463,7 +517,7 @@ interface ImportResult {
                           </span>
                         }
                       </div>
-                      <div class="text-body-secondary">{{ deck.cardCount }} kártya · {{ deck.ownerEmail }}</div>
+                      <div class="text-body-secondary">{{ deck.cardCount }} kártya · készítette: {{ deck.ownerName || 'névtelen felhasználó' }}</div>
                     </div>
                     <div class="d-flex gap-2">
                       <button
@@ -513,6 +567,10 @@ interface ImportResult {
       </div>
     </main>
   `,
+  styles: [`
+    .deck-link { text-decoration: underline; text-decoration-color: transparent; text-underline-offset: .2em; }
+    .deck-link:hover, .deck-link:focus-visible { text-decoration-color: currentColor; }
+  `],
 })
 export class DecksComponent implements OnInit {
   private readonly http = inject(HttpClient);
@@ -536,6 +594,10 @@ export class DecksComponent implements OnInit {
   targetMeanings = '';
   editingCardId: number | null = null;
   errorMessage: string | null = null;
+  noticeMessage: string | null = null;
+  cardError: string | null = null;
+  pendingConfirm: PendingConfirm | null = null;
+  importSkipped: string[] = [];
   isLoadingDecks = false;
   isLoadingCards = false;
   isSavingDeck = false;
@@ -592,6 +654,7 @@ export class DecksComponent implements OnInit {
     this.learnedDetailed = true;
     this.selectedDeckId = deckId;
     this.importMessage = null;
+    this.importSkipped = [];
     this.cancelEdit();
     this.loadCards();
   }
@@ -675,6 +738,18 @@ export class DecksComponent implements OnInit {
         });
       },
     });
+  }
+
+  downloadCsvTemplate(): void {
+    const sample = 'term,definition,example,targetMeanings\n'
+      + '"serendipity","The occurrence of pleasant events by chance.","It was pure serendipity.","szerencsés véletlen"\n'
+      + '"resilient","Able to recover quickly from difficulty.","","rugalmas, ellenálló"\n';
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + sample], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'minta-pakli.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
   }
 
   importDeck(event: Event): void {
@@ -892,7 +967,23 @@ export class DecksComponent implements OnInit {
   }
 
   copyDeck(deck: PublicDeck): void {
+    const alreadyHave = this.decks.some(item => item.name.trim().toLowerCase() === deck.name.trim().toLowerCase());
+    if (alreadyHave) {
+      this.askConfirm(
+        `Már van „${deck.name}” nevű paklid. Biztosan lemásolod még egyszer?`,
+        'Másolás mégis',
+        false,
+        () => this.performCopy(deck),
+      );
+      return;
+    }
+
+    this.performCopy(deck);
+  }
+
+  private performCopy(deck: PublicDeck): void {
     this.errorMessage = null;
+    this.noticeMessage = null;
     this.copyingDeckId = deck.id;
     this.http.post<Deck>(`/api/decks/${deck.id}/copy`, {}).pipe(
       finalize(() => {
@@ -902,6 +993,8 @@ export class DecksComponent implements OnInit {
       next: (copied) => {
         this.decks = [...this.decks, copied].sort((left, right) => left.id - right.id);
         this.selectDeck(copied.id);
+        this.noticeMessage = `A(z) „${copied.name}” pakli (${copied.cardCount} kártya) bekerült a saját paklijaid közé.`;
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readError(error, 'A pakli másolása sikertelen.');
@@ -909,15 +1002,29 @@ export class DecksComponent implements OnInit {
     });
   }
 
-  deleteDeck(deck: Deck): void {
-    const confirmed = window.confirm(
-      `Biztosan törlöd a(z) „${deck.name}” paklit? A benne lévő kártyák és tanulási adatok is törlődnek.`,
-    );
-    if (!confirmed) {
-      return;
-    }
+  askConfirm(message: string, confirmLabel: string, danger: boolean, action: () => void): void {
+    this.pendingConfirm = { message, confirmLabel, danger, action };
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
 
+  runConfirm(): void {
+    const confirmation = this.pendingConfirm;
+    this.pendingConfirm = null;
+    confirmation?.action();
+  }
+
+  deleteDeck(deck: Deck): void {
+    this.askConfirm(
+      `Biztosan törlöd a(z) „${deck.name}” paklit? A benne lévő kártyák és tanulási adatok is törlődnek.`,
+      'Pakli törlése',
+      true,
+      () => this.performDeleteDeck(deck),
+    );
+  }
+
+  private performDeleteDeck(deck: Deck): void {
     this.errorMessage = null;
+    this.noticeMessage = null;
     this.deletingDeckId = deck.id;
     this.http.delete(`/api/decks/${deck.id}`).pipe(
       finalize(() => {
@@ -951,6 +1058,7 @@ export class DecksComponent implements OnInit {
   }
 
   cancelEdit(): void {
+    this.cardError = null;
     this.editingCardId = null;
     this.term = '';
     this.definition = '';
@@ -963,8 +1071,9 @@ export class DecksComponent implements OnInit {
     const definition = this.definition.trim();
     const example = this.example.trim();
     const targetMeanings = this.targetMeanings.trim();
-    if (!term || term.length > 100 || !definition || definition.length > 500 || example.length > 500 || targetMeanings.length > 200) {
-      this.errorMessage = 'A szó és az angol definíció kötelező. A szó legfeljebb 100, a definíció és a példa legfeljebb 500, a célnyelvi jelentés legfeljebb 200 karakter.';
+    const problem = this.cardFieldProblem(term, definition, example, targetMeanings);
+    if (problem) {
+      this.cardError = problem;
       return;
     }
 
@@ -972,7 +1081,58 @@ export class DecksComponent implements OnInit {
       return;
     }
 
+    this.cardError = null;
+    if (this.editingCardId === null) {
+      const key = term.toLowerCase();
+      if (this.cards.some(card => card.term.trim().toLowerCase() === key)) {
+        this.askConfirm(
+          `Már van „${term}” kártya ebben a pakliban. Biztosan felveszed még egyszer?`,
+          'Felvétel mégis',
+          false,
+          () => this.performSaveCard(term, definition, example, targetMeanings),
+        );
+        return;
+      }
+    }
+
+    this.performSaveCard(term, definition, example, targetMeanings);
+  }
+
+  private cardFieldProblem(term: string, definition: string, example: string, targetMeanings: string): string | null {
+    if (!term) {
+      return 'A szó megadása kötelező.';
+    }
+
+    if (term.length > 100) {
+      return `A szó legfeljebb 100 karakter lehet (most ${term.length}).`;
+    }
+
+    if (!definition) {
+      return 'Az angol definíció megadása kötelező. Használhatod a Generálás gombot is.';
+    }
+
+    if (definition.length > 500) {
+      return `Az angol definíció legfeljebb 500 karakter lehet (most ${definition.length}).`;
+    }
+
+    if (targetMeanings.length > 200) {
+      return `A célnyelvi jelentés legfeljebb 200 karakter lehet (most ${targetMeanings.length}).`;
+    }
+
+    if (example.length > 500) {
+      return `A példa legfeljebb 500 karakter lehet (most ${example.length}).`;
+    }
+
+    return null;
+  }
+
+  private performSaveCard(term: string, definition: string, example: string, targetMeanings: string): void {
+    if (this.selectedDeckId === null) {
+      return;
+    }
+
     this.errorMessage = null;
+    this.cardError = null;
     this.isSavingCard = true;
     const body = { term, definition, example: example || null, targetMeanings: targetMeanings || null };
     const request = this.editingCardId === null
@@ -994,7 +1154,7 @@ export class DecksComponent implements OnInit {
         this.cancelEdit();
       },
       error: (error: HttpErrorResponse) => {
-        this.errorMessage = this.readError(error, 'A kártya mentése sikertelen.');
+        this.cardError = this.readError(error, 'A kártya mentése sikertelen.');
       },
     });
   }
@@ -1082,11 +1242,15 @@ export class DecksComponent implements OnInit {
   }
 
   deleteCard(card: VocabCard): void {
-    const confirmed = window.confirm(`Biztosan törlöd a(z) „${card.term}” kártyát?`);
-    if (!confirmed) {
-      return;
-    }
+    this.askConfirm(
+      `Biztosan törlöd a(z) „${card.term}” kártyát?`,
+      'Kártya törlése',
+      true,
+      () => this.performDeleteCard(card),
+    );
+  }
 
+  private performDeleteCard(card: VocabCard): void {
     this.errorMessage = null;
     this.deletingCardId = card.id;
     this.http.delete(`/api/cards/${card.id}`).pipe(
@@ -1110,6 +1274,7 @@ export class DecksComponent implements OnInit {
   private sendImport(deckId: number, csv: string): void {
     this.errorMessage = null;
     this.importMessage = null;
+    this.importSkipped = [];
     this.isImporting = true;
     this.http.post<ImportResult>(`/api/decks/${deckId}/import`, csv, {
       headers: { 'Content-Type': 'text/csv' },
@@ -1119,7 +1284,10 @@ export class DecksComponent implements OnInit {
       }),
     ).subscribe({
       next: (result) => {
-        this.importMessage = `${result.importedCount} kártya került be.`;
+        this.importSkipped = result.skippedRows ?? [];
+        this.importMessage = result.skippedCount > 0
+          ? `${result.importedCount} kártya került be, ${result.skippedCount} sor kimaradt${result.skippedCount > this.importSkipped.length ? ' (az első ' + this.importSkipped.length + ' hiba látszik)' : ''}.`
+          : `${result.importedCount} kártya került be.`;
         this.loadDecks();
         if (this.selectedDeckId === deckId) {
           this.loadCards();
@@ -1174,6 +1342,9 @@ export class DecksComponent implements OnInit {
     ).subscribe({
       next: (decks) => {
         this.decks = decks;
+        if (this.selectedDeckId === null && !this.viewingLearned && decks.length > 0) {
+          this.selectDeck(decks[0].id);
+        }
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readError(error, 'A paklik betöltése sikertelen.');

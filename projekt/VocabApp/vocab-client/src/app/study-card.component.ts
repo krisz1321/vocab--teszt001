@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, OnDestroy, OnInit, inject } from '@angular/core';
+import { AfterViewChecked, Component, ElementRef, EventEmitter, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
@@ -107,6 +107,7 @@ interface ExplainResponse {
 interface StudyDeck {
   id: number;
   name: string;
+  cardCount?: number;
 }
 
 interface FreeStudyCard {
@@ -140,9 +141,11 @@ const hungarianPlain = 'aeiooouuu';
   template: `
     <main class="container py-5">
       <div class="mx-auto page-wrap">
-        <header class="mb-4 text-center">
+        <header class="text-center" [class.mb-4]="!studying" [class.mb-3]="studying">
           <h1 class="h3 mb-1">Tanulás</h1>
-          <p class="text-body-secondary mb-3">Válassz gyakorlási módot.</p>
+          @if (!studying) {
+            <p class="text-body-secondary mb-3">Válassz gyakorlási módot.</p>
+          }
           <div class="study-modes" role="group" aria-label="Tanulási mód">
             <button
               type="button"
@@ -181,14 +184,38 @@ const hungarianPlain = 'aeiooouuu';
               Szabad tanulás
             </button>
           </div>
-          @if (dailyNewCardGoal !== null) {
-            <p class="text-body-secondary mb-0 mt-3">Új szavak ma: {{ newCardsIntroducedToday }}/{{ dailyNewCardGoal }}</p>
+          <p class="study-mode-hint text-body-secondary small mb-0 mt-2">{{ modeHint }}</p>
+          @if (mode !== 'free' && (dailyNewCardGoal !== null || (studying && studyStatus === 'ready'))) {
+            <p class="text-body-secondary small mb-0 mt-2">
+              @if (dailyNewCardGoal !== null) {
+                <span>Új szavak ma: {{ newCardsIntroducedToday }}/{{ dailyNewCardGoal }}</span>
+              }
+              @if (dailyNewCardGoal !== null && studying && studyStatus === 'ready') {
+                <span> · </span>
+              }
+              @if (studying && studyStatus === 'ready') {
+                <span>még {{ availableCards > 0 ? availableCards - 1 : 0 }} kártya választható</span>
+              }
+            </p>
           }
-          @if (studying && mode !== 'free' && studyStatus === 'ready') {
-            <p class="text-body-secondary mb-0 mt-2">Ebben a gyakorlásban még {{ availableCards > 0 ? availableCards - 1 : 0 }} kártya választható.</p>
+          @if (studying && mode !== 'free' && dailyNewCardGoal !== null && dailyNewCardGoal > 0) {
+            <div
+              class="progress study-progress mx-auto mt-2"
+              role="progressbar"
+              aria-label="Mai új szavak haladása"
+              [attr.aria-valuenow]="newCardsIntroducedToday"
+              aria-valuemin="0"
+              [attr.aria-valuemax]="dailyNewCardGoal">
+              <div class="progress-bar" [style.width.%]="dailyGoalPercent"></div>
+            </div>
+          }
+          @if (studying && mode !== 'free' && sessionAnswered > 0) {
+            <p class="text-body-secondary small mb-0 mt-1">
+              Ebben a gyakorlásban: {{ sessionAnswered }} válasz, ebből {{ sessionCorrect }} helyes ({{ sessionPercent }}%)
+            </p>
           }
           @if (studying) {
-            <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-3">
+            <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-2">
               <span class="fw-semibold">{{ activeDeckLabel }}</span>
               <span class="text-body-secondary">· {{ studyFocusLabel }}</span>
               <button
@@ -222,6 +249,12 @@ const hungarianPlain = 'aeiooouuu';
                   <p class="mt-3 mb-0">Paklik betöltése…</p>
                 </div>
               } @else {
+                @if (hasNoCards) {
+                  <div class="alert alert-warning" role="status">
+                    <p class="mb-2">Még nincs egyetlen kártyád sem, így nincs mit gyakorolni. Vegyél fel kártyákat a saját paklidba, vagy másolj le egy kész közös paklit.</p>
+                    <button type="button" class="btn btn-sm btn-primary" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
+                  </div>
+                }
                 <label class="form-label fw-semibold" for="study-deck">Pakli</label>
                 <select
                   id="study-deck"
@@ -379,7 +412,7 @@ const hungarianPlain = 'aeiooouuu';
               <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
                 @if (mode !== 'recognition' || isRecognitionRevealed) {
                   <div class="d-flex align-items-center gap-2">
-                    <h2 class="h1 mb-0">{{ card.term }}</h2>
+                    <h2 class="h1 mb-0 text-break">{{ card.term }}</h2>
                     <button
                       type="button"
                       class="btn btn-outline-secondary btn-sm"
@@ -415,6 +448,7 @@ const hungarianPlain = 'aeiooouuu';
                     maxlength="1000"
                     [(ngModel)]="answer"
                     (keydown.control.enter)="submitShortcut($event)"
+                    (keydown.enter)="onAnswerEnter($event)"
                     [disabled]="isSubmitting || updatedProgress !== null || isMeaningRevealed"
                     placeholder="pl. kaja"></textarea>
 
@@ -476,6 +510,7 @@ const hungarianPlain = 'aeiooouuu';
                           type="button"
                           class="btn btn-success"
                           (click)="skipMeaningAiCheck()"
+                          data-next-card
                           [disabled]="isSubmitting">
                           Következő kártya
                         </button>
@@ -528,6 +563,7 @@ const hungarianPlain = 'aeiooouuu';
                   maxlength="1000"
                   [(ngModel)]="answer"
                   (keydown.control.enter)="submitShortcut($event)"
+                    (keydown.enter)="onAnswerEnter($event)"
                   [disabled]="isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null || validationResult !== null"
                   [placeholder]="acceptHungarianParaphrase ? 'Írd le angolul vagy magyarul a jelentését…' : 'Írd le angolul a jelentését…'"></textarea>
 
@@ -632,6 +668,7 @@ const hungarianPlain = 'aeiooouuu';
                     maxlength="100"
                     [(ngModel)]="answer"
                     (keydown.control.enter)="submitShortcut($event)"
+                    (keydown.enter)="onAnswerEnter($event)"
                     [disabled]="isLoadingPrompt || isCheckingRecognition || isSubmitting || updatedProgress !== null"
                     placeholder="Írd be az angol szót…"></textarea>
 
@@ -661,11 +698,11 @@ const hungarianPlain = 'aeiooouuu';
                         class="btn btn-outline-secondary btn-sm"
                         (click)="loadExtraDefinition()"
                         [disabled]="isLoadingExtraDefinition || isCheckingRecognition"
-                        aria-label="Másik definíció">
+                        aria-label="Másik definíció kérése" title="Másik definíció kérése">
                         @if (isLoadingExtraDefinition) {
                           <span class="spinner-border spinner-border-sm"></span>
                         } @else {
-                          +
+                          Másik definíció
                         }
                       </button>
                     </div>
@@ -837,6 +874,7 @@ const hungarianPlain = 'aeiooouuu';
                     type="button"
                     class="btn btn-success"
                     (click)="savePendingAndContinue()"
+                          data-next-card
                     [disabled]="isSubmitting || isAppealing">
                     @if (isSubmitting) {
                       <span class="spinner-border spinner-border-sm me-2"></span>
@@ -857,6 +895,7 @@ const hungarianPlain = 'aeiooouuu';
                     type="button"
                     class="btn btn-success"
                     (click)="continueToNext()"
+                          data-next-card
                     [disabled]="isGeneratingDefinition || isGeneratingExample || isGeneratingTargetMeaning || isSavingTargetMeaning || isLoadingPrompt || isValidating || isSubmitting">
                     Következő kártya
                   </button>
@@ -869,6 +908,10 @@ const hungarianPlain = 'aeiooouuu';
     </main>
   `,
   styles: [`
+    .free-card-word, .free-card-definition, .free-card-example { overflow-wrap: anywhere; }
+    [data-next-card] { scroll-margin-bottom: 5rem; }
+    .study-progress { height: .45rem; max-width: 22rem; }
+    .study-progress .progress-bar { background-color: var(--app-primary); }
     .free-study-shell { position: relative; max-width: 880px; margin: 0 auto; }
     .free-study-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
     .free-study-kicker { display: block; color: var(--app-muted); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
@@ -904,7 +947,10 @@ const hungarianPlain = 'aeiooouuu';
     @media (prefers-reduced-motion: reduce) { .free-study-face, .free-swipe-label { transition: none; } }
   `],
 })
-export class StudyCardComponent implements OnInit, OnDestroy {
+export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
+  @Output() readonly openDecks = new EventEmitter<void>();
+
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly http = inject(HttpClient);
   private readonly session = inject(AuthSessionService);
   private readonly apiBaseUrl = '/api';
@@ -969,6 +1015,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   errorMessage: string | null = null;
   studyStatus: StudyNextResponse['status'] | null = null;
   newCardsIntroducedToday = 0;
+  sessionAnswered = 0;
+  sessionCorrect = 0;
   dailyNewCardGoal: number | null = null;
   availableCards = 0;
   secondsUntilAnswer = 0;
@@ -999,6 +1047,9 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   private loadGeneration = 0;
   private continueAfterMeaningSubmit = false;
   private freeKeyListener: ((event: KeyboardEvent) => void) | null = null;
+  private lastNextButton: Element | null = null;
+  private lastShownCardId: number | null = null;
+  private nextFocusTimer: ReturnType<typeof setTimeout> | null = null;
   private freePointerId: number | null = null;
   private freePointerType = '';
   private freePointerStartX = 0;
@@ -1007,6 +1058,31 @@ export class StudyCardComponent implements OnInit, OnDestroy {
   private freeSwipeTimeout: ReturnType<typeof setTimeout> | null = null;
   private freeLastTapAt = 0;
   private freeIgnoreMouseUntil = 0;
+
+  get dailyGoalPercent(): number {
+    if (!this.dailyNewCardGoal || this.dailyNewCardGoal <= 0) {
+      return 0;
+    }
+
+    return Math.min(100, Math.round((this.newCardsIntroducedToday / this.dailyNewCardGoal) * 100));
+  }
+
+  get sessionPercent(): number {
+    return this.sessionAnswered === 0 ? 0 : Math.round((this.sessionCorrect / this.sessionAnswered) * 100);
+  }
+
+  get hasNoCards(): boolean {
+    return this.decks.length > 0 && this.decks.every(deck => (deck.cardCount ?? 0) === 0);
+  }
+
+  get modeHint(): string {
+    return {
+      meaning: 'Látod az angol szót, és beírod a magyar jelentését.',
+      definition: 'Látod az angol szót, és angolul körülírod a jelentését.',
+      recognition: 'Látod a körülírást, és beírod hozzá az angol szót.',
+      free: 'Szabad lapozgatás kártyákkal: fordítsd meg, majd jelöld, hogy tudod-e.',
+    }[this.mode];
+  }
 
   get hasTargetMeanings(): boolean {
     return !!this.card?.targetMeanings?.trim();
@@ -1100,7 +1176,40 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     this.loadDecks();
   }
 
+  ngAfterViewChecked(): void {
+    const nextButton = this.host.nativeElement.querySelector('[data-next-card]');
+    if (nextButton !== this.lastNextButton) {
+      this.lastNextButton = nextButton;
+      if (this.nextFocusTimer) {
+        clearTimeout(this.nextFocusTimer);
+        this.nextFocusTimer = null;
+      }
+
+      if (nextButton instanceof HTMLElement) {
+        // Rövid késleltetés, hogy a gyors dupla Enter ne ugorja át az eredmény elolvasását.
+        this.nextFocusTimer = setTimeout(() => {
+          this.nextFocusTimer = null;
+          nextButton.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          if (nextButton.isConnected && !nextButton.hasAttribute('disabled')) {
+            nextButton.focus({ preventScroll: true });
+          }
+        }, 350);
+      }
+    }
+
+    const shownCardId = this.card?.id ?? null;
+    if (shownCardId !== this.lastShownCardId) {
+      this.lastShownCardId = shownCardId;
+      if (shownCardId !== null) {
+        this.host.nativeElement.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      }
+    }
+  }
+
   ngOnDestroy(): void {
+    if (this.nextFocusTimer) {
+      clearTimeout(this.nextFocusTimer);
+    }
     this.clearAnswerTimer();
     this.clearFreeSwipeTimeout();
     this.removeFreeKeyListener();
@@ -1135,6 +1244,8 @@ export class StudyCardComponent implements OnInit, OnDestroy {
 
     this.studying = true;
     this.errorMessage = null;
+    this.sessionAnswered = 0;
+    this.sessionCorrect = 0;
     this.syncFreeKeyListener();
     if (this.mode === 'free') {
       this.loadFreeCards();
@@ -2046,6 +2157,10 @@ export class StudyCardComponent implements OnInit, OnDestroy {
           this.continueAfterSave = false;
           this.pendingIncorrect = false;
           this.updatedProgress = progress;
+          this.sessionAnswered++;
+          if (isCorrect) {
+            this.sessionCorrect++;
+          }
           if (penalty === 'reveal') {
             this.isDefinitionRevealed = true;
             this.definitionPenaltyApplied = true;
@@ -2436,6 +2551,15 @@ export class StudyCardComponent implements OnInit, OnDestroy {
     utterance.lang = 'en-US';
     utterance.rate = 0.85;
     window.speechSynthesis.speak(utterance);
+  }
+
+  onAnswerEnter(event: Event): void {
+    const keyboardEvent = event as KeyboardEvent;
+    if (keyboardEvent.shiftKey || keyboardEvent.isComposing) {
+      return;
+    }
+
+    this.submitShortcut(event);
   }
 
   submitShortcut(event: Event): void {

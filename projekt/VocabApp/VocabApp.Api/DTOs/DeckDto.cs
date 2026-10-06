@@ -8,6 +8,10 @@ public sealed class DeckDto
 
     public int CardCount { get; set; }
 
+    public int LearnedCount { get; set; }
+
+    public int DueCount { get; set; }
+
     public bool IsPublic { get; set; }
 
     public string? ExampleLevel { get; set; }

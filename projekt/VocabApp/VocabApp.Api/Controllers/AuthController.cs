@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using VocabApp.Api.DTOs;
 using VocabApp.Api.Services;
 
@@ -11,6 +12,7 @@ namespace VocabApp.Api.Controllers;
 [Route("api/auth")]
 public sealed class AuthController(IAuthService authService) : ControllerBase
 {
+    [EnableRateLimiting("auth")]
     [HttpPost("register")]
     public async Task<ActionResult<AuthResponseDto>> Register(
         RegisterDto request,
@@ -19,6 +21,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         return ToActionResult(await authService.RegisterAsync(request, cancellationToken));
     }
 
+    [EnableRateLimiting("auth")]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponseDto>> Login(
         LoginDto request,
@@ -57,6 +60,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     }
 
     [Authorize]
+    [EnableRateLimiting("auth")]
     [HttpPut("password")]
     public async Task<IActionResult> ChangePassword(ChangePasswordDto request, CancellationToken cancellationToken)
     {

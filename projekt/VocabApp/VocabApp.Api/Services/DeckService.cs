@@ -11,6 +11,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
 
     public async Task<IReadOnlyList<DeckDto>> GetAsync(int userId, CancellationToken cancellationToken = default)
     {
+        var now = DateTime.UtcNow;
         return await dbContext.Decks
             .AsNoTracking()
             .Where(deck => deck.UserId == userId)
@@ -20,6 +21,8 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Id = deck.Id,
                 Name = deck.Name,
                 CardCount = deck.Cards.Count,
+                LearnedCount = deck.Cards.Count(card => card.Progress != null && card.Progress.LearnedAt != null),
+                DueCount = deck.Cards.Count(card => card.Progress != null && card.Progress.NextReviewDate <= now),
                 IsPublic = deck.IsPublic,
                 ExampleLevel = deck.ExampleLevel
             })
@@ -167,7 +170,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Id = deck.Id,
                 Name = deck.Name,
                 CardCount = deck.Cards.Count,
-                OwnerEmail = deck.User.Email,
+                OwnerName = deck.User.DisplayName ?? string.Empty,
                 ExampleLevel = deck.ExampleLevel ?? deck.User.ExampleLevel,
                 LevelIsAutomatic = deck.ExampleLevel == null
             })
@@ -301,9 +304,16 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             return DeckCardResult<ImportDeckResultDto>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
-        if (!DeckCsv.TryRead(csv, out var rows, out var error))
+        if (!DeckCsv.TryRead(csv, out var rows, out var skipped, out var error))
         {
             return DeckCardResult<ImportDeckResultDto>.Fail(StatusCodes.Status400BadRequest, error ?? "A CSV fájl érvénytelen.");
+        }
+
+        if (rows.Count == 0 && skipped.Count > 0)
+        {
+            return DeckCardResult<ImportDeckResultDto>.Fail(
+                StatusCodes.Status400BadRequest,
+                $"Egyetlen sor sem volt importálható. {skipped[0]}");
         }
 
         var now = DateTime.UtcNow;
@@ -332,7 +342,12 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             await dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        return DeckCardResult<ImportDeckResultDto>.Success(new ImportDeckResultDto { ImportedCount = rows.Count });
+        return DeckCardResult<ImportDeckResultDto>.Success(new ImportDeckResultDto
+        {
+            ImportedCount = rows.Count,
+            SkippedCount = skipped.Count,
+            SkippedRows = skipped.Take(10).ToList()
+        });
     }
 
     private async Task<DeckDto> ToDtoAsync(Deck deck, CancellationToken cancellationToken) => new()
@@ -340,6 +355,12 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         Id = deck.Id,
         Name = deck.Name,
         CardCount = await dbContext.Cards.CountAsync(card => card.DeckId == deck.Id, cancellationToken),
+        LearnedCount = await dbContext.Cards.CountAsync(
+            card => card.DeckId == deck.Id && card.Progress != null && card.Progress.LearnedAt != null,
+            cancellationToken),
+        DueCount = await dbContext.Cards.CountAsync(
+            card => card.DeckId == deck.Id && card.Progress != null && card.Progress.NextReviewDate <= DateTime.UtcNow,
+            cancellationToken),
         IsPublic = deck.IsPublic,
         ExampleLevel = deck.ExampleLevel
     };

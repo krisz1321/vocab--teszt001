@@ -2,6 +2,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using VocabApp.Api.DTOs;
 using VocabApp.Api.Services;
 
@@ -9,6 +10,7 @@ namespace VocabApp.Api.Controllers;
 
 [Authorize]
 [ApiController]
+[EnableRateLimiting("ai")]
 [Route("api/ai")]
 public sealed class AiController(IAiService aiService) : ControllerBase
 {

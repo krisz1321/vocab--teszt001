@@ -94,7 +94,7 @@ interface AiModelOption {
                   type="password"
                   class="form-control form-control-lg"
                   [attr.autocomplete]="mode === 'register' ? 'new-password' : 'current-password'"
-                  [placeholder]="mode === 'register' ? 'Legalább 8 karakter' : ''"
+                  [placeholder]="mode === 'register' ? 'Legalább 8 karakter, betűvel és számmal' : ''"
                   [(ngModel)]="password"
                   [disabled]="isSubmitting">
               </div>
@@ -163,7 +163,7 @@ interface AiModelOption {
         </div>
       }
       @if (view === 'study') {
-        <app-study-card />
+        <app-study-card (openDecks)="goTo('decks')" />
       } @else if (view === 'stats') {
         <app-stats />
       } @else if (view === 'decks') {
@@ -273,6 +273,37 @@ interface AiModelOption {
                 [disabled]="isSavingStudySettings">
               <div class="form-text">Ennyi másodpercig kell a kártyának látszania, mielőtt a válasz menthető (0–120).</div>
             </div>
+            <div class="mb-3">
+              <label class="form-label" for="exampleLevel">Mondatszint</label>
+              <select
+                id="exampleLevel"
+                name="exampleLevel"
+                class="form-select"
+                [(ngModel)]="exampleLevel"
+                [disabled]="isSavingStudySettings">
+                @for (level of exampleLevels; track level) {
+                  <option [value]="level">{{ level }}</option>
+                }
+              </select>
+              <div class="form-text">Ez a fiók szintje, a pakli saját szintje felülírja.</div>
+            </div>
+            <details class="advanced-settings mb-4">
+              <summary class="fw-semibold">Haladó beállítások (MI és példamondatok)</summary>
+              <div class="pt-3">
+            <div class="mb-3">
+              <label class="form-label" for="aiModel">MI-modell</label>
+              <select
+                id="aiModel"
+                name="aiModel"
+                class="form-select"
+                [(ngModel)]="aiModel"
+                [disabled]="isSavingStudySettings">
+                @for (model of aiModels; track model.id) {
+                  <option [value]="model.id">{{ model.label }}</option>
+                }
+              </select>
+              <div class="form-text">Minden modell a meglévő OpenRouter-kulcsot használja.</div>
+            </div>
             <div class="form-check mb-3">
               <input
                 id="automaticAiCheck"
@@ -353,34 +384,8 @@ interface AiModelOption {
               <label class="form-check-label" for="generateAlternateDefinitions">Váltakozó definíció</label>
               <div class="form-text">Bekapcsolva új angol definíció készül a mondatszint szerint. Kikapcsolva mindig a kártyán tárolt definíció jelenik meg.</div>
             </div>
-            <div class="mb-3">
-              <label class="form-label" for="exampleLevel">Mondatszint</label>
-              <select
-                id="exampleLevel"
-                name="exampleLevel"
-                class="form-select"
-                [(ngModel)]="exampleLevel"
-                [disabled]="isSavingStudySettings">
-                @for (level of exampleLevels; track level) {
-                  <option [value]="level">{{ level }}</option>
-                }
-              </select>
-              <div class="form-text">Ez a fiók szintje, a pakli saját szintje felülírja.</div>
-            </div>
-            <div class="mb-3">
-              <label class="form-label" for="aiModel">MI-modell</label>
-              <select
-                id="aiModel"
-                name="aiModel"
-                class="form-select"
-                [(ngModel)]="aiModel"
-                [disabled]="isSavingStudySettings">
-                @for (model of aiModels; track model.id) {
-                  <option [value]="model.id">{{ model.label }}</option>
-                }
-              </select>
-              <div class="form-text">Minden modell a meglévő OpenRouter-kulcsot használja.</div>
-            </div>
+              </div>
+            </details>
             <button type="submit" class="btn btn-primary" [disabled]="isSavingStudySettings">Mentés</button>
           </form>
           <form (ngSubmit)="changePassword()">
@@ -406,6 +411,7 @@ interface AiModelOption {
                 autocomplete="new-password"
                 [(ngModel)]="newPassword"
                 [disabled]="isChangingPassword">
+              <div class="form-text">Legalább 8 karakter, legalább egy betűvel és egy számmal.</div>
             </div>
             <button type="submit" class="btn btn-primary" [disabled]="isChangingPassword">Jelszócsere</button>
           </form>
@@ -452,6 +458,11 @@ interface AiModelOption {
       </div>
     }
   `,
+  styles: [`
+    .advanced-settings { border: 1px solid var(--app-border); border-radius: .75rem; padding: .75rem 1rem; }
+    .advanced-settings > summary { cursor: pointer; }
+    .advanced-settings[open] > summary { margin-bottom: .25rem; }
+  `],
 })
 export class AppComponent implements OnInit {
   private readonly http = inject(HttpClient);

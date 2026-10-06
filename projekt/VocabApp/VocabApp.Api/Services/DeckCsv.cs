@@ -52,9 +52,10 @@ public static partial class DeckCsv
         return builder.ToString();
     }
 
-    public static bool TryRead(string? csv, out List<DeckCsvRow> rows, out string? error)
+    public static bool TryRead(string? csv, out List<DeckCsvRow> rows, out List<string> skipped, out string? error)
     {
         rows = [];
+        skipped = [];
         error = null;
 
         if (string.IsNullOrWhiteSpace(csv))
@@ -90,12 +91,13 @@ public static partial class DeckCsv
             return false;
         }
 
+        // A hibás sor nem buktatja meg az egész importot: kimarad, és a hibája a skipped listába kerül.
         for (var index = 0; index < dataRecords.Count; index++)
         {
-            if (!TryParseRow(dataRecords[index], index + 1, includeTargetMeanings, out var row, out error))
+            if (!TryParseRow(dataRecords[index], index + 1, includeTargetMeanings, out var row, out var rowError))
             {
-                rows = [];
-                return false;
+                skipped.Add(rowError ?? $"CSV {index + 1}. sor: érvénytelen sor.");
+                continue;
             }
 
             rows.Add(row);
@@ -198,8 +200,9 @@ public static partial class DeckCsv
         out string? error)
     {
         row = default;
-        if (!TryParseFields(record, out var fields, out error))
+        if (!TryParseFields(record, out var fields, out _))
         {
+            error = $"CSV {rowNumber}. sor: érvénytelen idézőjelezés.";
             return false;
         }
 
@@ -207,8 +210,8 @@ public static partial class DeckCsv
         if (fields.Count != expectedCount)
         {
             error = includeTargetMeanings
-                ? $"A CSV {rowNumber}. sorának négy oszlopa kell legyen: term, definition, example, targetMeanings."
-                : $"A CSV {rowNumber}. sorának három oszlopa kell legyen: term, definition, example.";
+                ? $"CSV {rowNumber}. sor: négy oszlop kell: term, definition, example, targetMeanings."
+                : $"CSV {rowNumber}. sor: három oszlop kell: term, definition, example.";
             return false;
         }
 
