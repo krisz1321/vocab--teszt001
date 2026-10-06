@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { AfterViewChecked, Component, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
+import { AfterViewChecked, Component, DoCheck, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
@@ -985,7 +985,7 @@ const hungarianPlain = 'aeiooouuu';
     @media (prefers-reduced-motion: reduce) { .free-study-face, .free-swipe-label { transition: none; } }
   `],
 })
-export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
+export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, DoCheck {
   @Input() initialDeckId: number | null = null;
   @Output() readonly openDecks = new EventEmitter<void>();
 
@@ -1064,6 +1064,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
   freeBack: FreeBack = 'bilingual';
   freeCards: FreeStudyCard[] = [];
   freeIndex = 0;
+  private lastAutoSpeechKey: string | null = null;
   freeFlipped = false;
   freeListLoaded = false;
   freeRestartConfirm = false;
@@ -1228,6 +1229,50 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked {
   ngOnInit(): void {
     this.loadFreeSettings();
     this.loadDecks();
+  }
+
+  ngDoCheck(): void {
+    const face = this.autoSpeechFace();
+    if (face?.key === this.lastAutoSpeechKey) {
+      return;
+    }
+
+    this.lastAutoSpeechKey = face?.key ?? null;
+    if (face) {
+      this.speech.autoSpeak(face.text, face.lang);
+    }
+  }
+
+  /** Ami a kártyán most elsőként látszik, és amit az automatikus felolvasás felolvas. */
+  private autoSpeechFace(): { key: string; text: string; lang: 'en' | 'hu' } | null {
+    if (!this.studying || this.isLoadingCard) {
+      return null;
+    }
+
+    let text: string | null | undefined;
+    let lang: 'en' | 'hu' = 'en';
+    let key: string;
+    if (this.mode === 'free') {
+      const card = this.freeCard;
+      if (!card || !this.freeShowAudio) {
+        return null;
+      }
+
+      const showTerm = this.freeShowingTerm;
+      lang = showTerm === (this.freeFront === 'term') ? 'en' : 'hu';
+      text = lang === 'en' ? card.term : card.targetMeanings;
+      key = `free:${card.id}:${showTerm}:${this.freeFront}`;
+    } else if (!this.card) {
+      return null;
+    } else if (this.mode === 'recognition' && !this.isRecognitionRevealed) {
+      text = this.isLoadingPrompt ? null : this.promptDefinition;
+      key = `prompt:${this.card.id}:${text}`;
+    } else {
+      text = this.card.term;
+      key = `term:${this.card.id}:${this.mode}`;
+    }
+
+    return text?.trim() ? { key, text, lang } : null;
   }
 
   ngAfterViewChecked(): void {

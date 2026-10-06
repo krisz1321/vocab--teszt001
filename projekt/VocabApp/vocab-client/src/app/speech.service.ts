@@ -4,6 +4,8 @@ export type SpeechLang = 'en' | 'hu';
 
 export interface SpeechSettings {
   enabled: boolean;
+  /** Új kártyánál / fordításnál a szöveg magától felolvasódik. */
+  autoRead: boolean;
   englishEnabled: boolean;
   hungarianEnabled: boolean;
   /** A kiválasztott hang neve; üres = a böngésző alapértelmezett hangja. */
@@ -15,6 +17,7 @@ export interface SpeechSettings {
 
 export const defaultSpeechSettings: SpeechSettings = {
   enabled: true,
+  autoRead: true,
   englishEnabled: true,
   hungarianEnabled: true,
   englishVoice: '',
@@ -47,6 +50,7 @@ function readStored(): SpeechSettings {
     const text = (value: unknown) => (typeof value === 'string' ? value : '');
     return {
       enabled: flag(stored.enabled, defaultSpeechSettings.enabled),
+      autoRead: flag(stored.autoRead, defaultSpeechSettings.autoRead),
       englishEnabled: flag(stored.englishEnabled, defaultSpeechSettings.englishEnabled),
       hungarianEnabled: flag(stored.hungarianEnabled, defaultSpeechSettings.hungarianEnabled),
       englishVoice: text(stored.englishVoice),
@@ -165,6 +169,13 @@ export class SpeechService {
 
     this.speaking.set(id);
     synth.speak(utterance);
+  }
+
+  /** Automatikus felolvasás: csak akkor szólal meg, ha az „Automatikus felolvasás” be van kapcsolva. */
+  autoSpeak(text: string, lang: SpeechLang): void {
+    if (this.settings().autoRead) {
+      this.speak(text, lang);
+    }
   }
 
   stop(): void {

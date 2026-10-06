@@ -37,6 +37,19 @@ interface LangBlock {
       </div>
 
       <div class="speech-options" [class.is-disabled]="!settings().enabled">
+        <div class="form-check form-switch">
+          <input
+            id="speechAutoRead"
+            type="checkbox"
+            role="switch"
+            class="form-check-input"
+            [checked]="settings().autoRead"
+            [disabled]="!settings().enabled"
+            (change)="setAutoRead($event)">
+          <label class="form-check-label fw-semibold" for="speechAutoRead">Automatikus felolvasás</label>
+          <div class="form-text">Bekapcsolva a kártya szövege magától felolvasódik, amikor új kártya jelenik meg vagy megfordítod (felismerésnél a körülírást, utána a megoldást is). Kikapcsolva csak a hangszóró gombbal szólal meg.</div>
+        </div>
+
         @for (block of blocks; track block.lang) {
           <div class="speech-lang">
             <div class="form-check form-switch mb-2">
@@ -182,6 +195,14 @@ export class SpeechSettingsComponent {
       this.speech.stop();
     }
     this.speech.update({ enabled });
+  }
+
+  setAutoRead(event: Event): void {
+    const autoRead = (event.target as HTMLInputElement).checked;
+    if (!autoRead) {
+      this.speech.stop();
+    }
+    this.speech.update({ autoRead });
   }
 
   setLangEnabled(block: LangBlock, event: Event): void {
