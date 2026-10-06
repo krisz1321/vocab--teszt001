@@ -196,13 +196,19 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
                 }
             }
         }
-        else if (progress.MarkedKnown && progress.CorrectCount == 0 && progress.IncorrectCount == 0)
+        else if (progress.LearnedAt is not null || progress.MarkedKnown)
         {
+            // A megtanult jelölés bármikor visszavonható, akkor is, ha a kártyára már válaszoltál.
+            // A korábbi válaszok számlálói megmaradnak, csak a kártya kerül vissza a tanulandók közé.
             progress.MarkedKnown = false;
             progress.LearnedAt = null;
             progress.Streak = 0;
             progress.Interval = 0;
-            progress.FirstReviewedAt = null;
+            if (progress.CorrectCount == 0 && progress.IncorrectCount == 0)
+            {
+                progress.FirstReviewedAt = null;
+            }
+
             progress.NextReviewDate = now;
         }
 

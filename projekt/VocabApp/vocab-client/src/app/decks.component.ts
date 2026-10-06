@@ -472,14 +472,14 @@ type CardFilter = 'all' | 'open' | 'learned';
                               }
                             </div>
                             <div class="card-actions">
-                              <div class="form-check form-switch mb-0" [attr.title]="isKnownLocked(card) ? 'Tanulással megtanult szó. A Megtanult szavak között állíthatod vissza.' : 'Jelöld meg, ha már ismered, és nem akarod tanulni'">
+                              <div class="form-check form-switch mb-0" [attr.title]="card.isLearned ? 'Megtanult szó. Kikapcsolva újra a tanulandó kártyák közé kerül.' : 'Jelöld meg, ha már ismered, és nem akarod tanulni'">
                                 <input
                                   class="form-check-input"
                                   type="checkbox"
                                   role="switch"
                                   [id]="'known-' + card.id"
                                   [checked]="card.isLearned"
-                                  [disabled]="isKnownLocked(card) || markingKnownCardId === card.id"
+                                  [disabled]="markingKnownCardId === card.id"
                                   (change)="setKnown(card, $event)">
                                 <label class="form-check-label small" [attr.for]="'known-' + card.id">Ismerem</label>
                               </div>
@@ -1422,17 +1422,8 @@ export class DecksComponent implements OnInit, OnDestroy {
     });
   }
 
-  isKnownLocked(card: VocabCard): boolean {
-    return card.isLearned && !card.markedKnown;
-  }
-
   setKnown(card: VocabCard, event: Event): void {
     const input = event.target as HTMLInputElement;
-    if (this.isKnownLocked(card)) {
-      input.checked = true;
-      return;
-    }
-
     const known = input.checked;
     this.errorMessage = null;
     this.markingKnownCardId = card.id;
@@ -1444,6 +1435,9 @@ export class DecksComponent implements OnInit, OnDestroy {
       next: (updated) => {
         this.cards = this.cards.map(item => item.id === updated.id ? updated : item);
         input.checked = updated.isLearned;
+        this.toast(updated.isLearned
+          ? `A(z) „${card.term}” megtanultnak jelölve.`
+          : `A(z) „${card.term}” újra a tanulandó kártyák között van.`);
         this.refreshDecks();
       },
       error: (error: HttpErrorResponse) => {
