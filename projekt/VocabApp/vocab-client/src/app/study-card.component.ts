@@ -792,7 +792,7 @@ const hungarianPlain = 'aeiooouuu';
 
               @if (generatedExample) {
                 <div class="alert alert-info mt-3 mb-0 speak-row">
-                  <div><strong>{{ generatedExampleReused ? 'Mentett példamondat' : 'MI-példamondat' }}:</strong> {{ generatedExample }}</div>
+                  <div><strong>{{ generatedExampleReused ? 'Mentett példamondat' : 'MI-példamondat' }}:</strong> @for (part of generatedExampleParts; track $index) {@if (part.hit) {<mark class="example-term">{{ part.text }}</mark>} @else {{{ part.text }}}}</div>
                   <app-speak-button [text]="generatedExample" lang="en" label="A példamondat" />
                 </div>
               }
@@ -965,6 +965,7 @@ const hungarianPlain = 'aeiooouuu';
     .free-study-face.is-dragging { transition: none; cursor: grabbing; }
     .free-study-face.is-exiting { transition: transform .18s ease-out; }
     .free-study-face > .card-body { flex: 1 1 auto; }
+    .example-term { padding: .05em .4em; border-radius: .35rem; background: color-mix(in srgb, var(--app-primary) 28%, transparent); color: var(--app-primary); font-weight: 700; }
     .free-card-hint { color: var(--app-muted); font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; }
     .free-card-word { max-width: 100%; margin: 1rem 0 .5rem; color: var(--app-text); font-size: clamp(2rem, 7vw, 4rem); line-height: 1.1; overflow-wrap: anywhere; }
     .free-card-definition { max-width: 42rem; margin: .4rem 0; color: var(--app-text); font-size: 1.12rem; }
@@ -1007,6 +1008,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   generatedDefinitionFromCard = false;
   generatedDefinitionReused = false;
   generatedExample: string | null = null;
+  generatedExampleParts: { text: string; hit: boolean }[] = [];
   generatedExampleReused = false;
   promptDefinition: string | null = null;
   extraDefinition: string | null = null;
@@ -1975,10 +1977,42 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       .subscribe({
         next: response => {
           this.generatedExample = response.example;
+          this.generatedExampleParts = this.highlightTerm(response.example, this.card?.term ?? '');
           this.generatedExampleReused = response.reused;
         },
         error: (error: HttpErrorResponse) => this.setHttpError(error, 'Az MI-példamondat generálása'),
       });
+  }
+
+  /** A példamondatot részekre bontja, a tanult szó (és ragozott alakjai) „hit” jelöléssel. */
+  private highlightTerm(sentence: string, term: string): { text: string; hit: boolean }[] {
+    const trimmed = term.trim();
+    if (!trimmed) {
+      return [{ text: sentence, hit: false }];
+    }
+
+    const escape = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const stem = trimmed.length > 4 ? trimmed.replace(/[ey]$/i, '') : trimmed;
+    for (const candidate of [trimmed, stem]) {
+      const pattern = new RegExp(`(?<![\\p{L}])${escape(candidate).replace(/\s+/g, '\\s+')}\\p{L}*`, 'giu');
+      const parts: { text: string; hit: boolean }[] = [];
+      let last = 0;
+      for (const match of sentence.matchAll(pattern)) {
+        if (match.index > last) {
+          parts.push({ text: sentence.slice(last, match.index), hit: false });
+        }
+        parts.push({ text: match[0], hit: true });
+        last = match.index + match[0].length;
+      }
+      if (parts.length) {
+        if (last < sentence.length) {
+          parts.push({ text: sentence.slice(last), hit: false });
+        }
+        return parts;
+      }
+    }
+
+    return [{ text: sentence, hit: false }];
   }
 
   validateAnswer(): void {
@@ -2404,6 +2438,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     this.generatedDefinitionFromCard = false;
     this.generatedDefinitionReused = false;
     this.generatedExample = null;
+    this.generatedExampleParts = [];
     this.generatedExampleReused = false;
     this.promptDefinition = null;
     this.extraDefinition = null;
