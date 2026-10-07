@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { AfterViewChecked, Component, DoCheck, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { finalize, switchMap, throwError } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
 import { SpeakButtonComponent } from './speak-button.component';
 import { SpeechService } from './speech.service';
@@ -362,6 +362,14 @@ const hungarianPlain = 'aeiooouuu';
                   <span class="free-card-hint">{{ freeShowingTerm ? 'Fordítsd meg a kártyát' : 'Megoldás' }}</span>
                   @if (freeShowingTerm) {
                     <p class="free-card-word">{{ freeFront === 'term' ? card.term : (card.targetMeanings?.trim() || 'Nincs megadva magyar jelentés.') }}</p>
+                    @if (freeFront === 'other' && !card.targetMeanings?.trim()) {
+                      <button type="button" class="btn btn-outline-primary btn-sm mb-2" (click)="generateFreeMeaning()" (pointerdown)="$event.stopPropagation()" (pointerup)="$event.stopPropagation()" [disabled]="isGeneratingFreeMeaning">
+                        @if (isGeneratingFreeMeaning) {
+                          <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Magyar jelentés generálása
+                      </button>
+                    }
                     @if (freeShowAudio) {
                       <app-speak-button
                         [text]="freeFront === 'term' ? card.term : card.targetMeanings"
@@ -370,6 +378,14 @@ const hungarianPlain = 'aeiooouuu';
                     }
                   } @else {
                     <p class="free-card-word">{{ freeFront === 'term' ? (card.targetMeanings?.trim() || 'Nincs megadva magyar jelentés.') : card.term }}</p>
+                    @if (freeFront === 'term' && !card.targetMeanings?.trim()) {
+                      <button type="button" class="btn btn-outline-primary btn-sm mb-2" (click)="generateFreeMeaning()" (pointerdown)="$event.stopPropagation()" (pointerup)="$event.stopPropagation()" [disabled]="isGeneratingFreeMeaning">
+                        @if (isGeneratingFreeMeaning) {
+                          <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Magyar jelentés generálása
+                      </button>
+                    }
                     @if (freeShowAudio) {
                       <app-speak-button
                         [text]="freeFront === 'term' ? card.targetMeanings : card.term"
@@ -1038,6 +1054,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   isGeneratingExample = false;
   isGeneratingTargetMeaning = false;
   isSavingTargetMeaning = false;
+  isGeneratingFreeMeaning = false;
   isValidating = false;
   isSubmitting = false;
   isAppealing = false;
@@ -1730,6 +1747,56 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           }
 
           this.setHttpError(error, 'A célnyelvi jelentés generálása');
+        },
+      });
+  }
+
+  /** Szabad tanulás: a hiányzó magyar jelentést legenerálja és el is menti a kártyához. */
+  generateFreeMeaning(): void {
+    const card = this.freeCard;
+    if (!card || this.isGeneratingFreeMeaning || card.targetMeanings?.trim()) {
+      return;
+    }
+
+    const cardId = card.id;
+    this.errorMessage = null;
+    this.isGeneratingFreeMeaning = true;
+    this.http.post<TargetMeaningResponse>(
+      `${this.apiBaseUrl}/ai/generate/target-meaning`,
+      { term: card.term, definition: card.definition },
+    )
+      .pipe(
+        switchMap(response => {
+          const meanings = (response.meanings ?? '').trim();
+          if (!meanings) {
+            return throwError(() => new Error('empty'));
+          }
+
+          if (meanings.length > 200) {
+            return throwError(() => new Error('too-long'));
+          }
+
+          return this.http.put<SavedCard>(`${this.apiBaseUrl}/cards/${cardId}`, {
+            term: card.term,
+            definition: card.definition,
+            example: card.example,
+            targetMeanings: meanings,
+          });
+        }),
+        finalize(() => this.isGeneratingFreeMeaning = false),
+      )
+      .subscribe({
+        next: saved => {
+          card.targetMeanings = saved.targetMeanings?.trim() ? saved.targetMeanings : null;
+        },
+        error: (error: unknown) => {
+          if (error instanceof HttpErrorResponse) {
+            this.setHttpError(error, 'A célnyelvi jelentés generálása');
+          } else {
+            this.errorMessage = error instanceof Error && error.message === 'too-long'
+              ? 'A generált jelentés hosszabb a megengedett 200 karakternél.'
+              : 'Az MI nem adott használható magyar jelentést.';
+          }
         },
       });
   }
