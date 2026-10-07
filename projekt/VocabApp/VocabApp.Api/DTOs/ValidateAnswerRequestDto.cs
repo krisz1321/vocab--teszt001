@@ -14,4 +14,7 @@ public sealed class ValidateAnswerRequestDto
     public string Answer { get; set; } = string.Empty;
 
     public bool Paraphrase { get; set; }
+
+    /// <summary>A tanuló magyar jelentést látott, és az angol szót írta be; a Definition ilyenkor a magyar jelentés.</summary>
+    public bool ToEnglish { get; set; }
 }

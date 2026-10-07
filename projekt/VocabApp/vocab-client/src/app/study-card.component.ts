@@ -136,6 +136,7 @@ interface StudyTagOption {
   count: number;
 }
 type StudyMode = 'meaning' | 'definition' | 'recognition' | 'free';
+type StudyDirection = 'en' | 'hu' | 'mixed';
 type FreeFront = 'term' | 'other';
 type FreeBack = 'bilingual' | 'definition';
 
@@ -163,7 +164,7 @@ const hungarianPlain = 'aeiooouuu';
               [title]="modeHints.meaning"
               (click)="setMode('meaning')"
               [disabled]="isInteractionLocked">
-              Angol → magyar
+              Fordítás
             </button>
             <button
               type="button"
@@ -196,6 +197,25 @@ const hungarianPlain = 'aeiooouuu';
               Kártyázás
             </button>
           </div>
+          @if (mode === 'meaning' || mode === 'definition') {
+            <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-2">
+              <span class="text-body-secondary small">Szót kapok:</span>
+              <div class="btn-group btn-group-sm" role="group" aria-label="A kérdés nyelve">
+                @for (option of directionOptions; track option.value) {
+                  <button
+                    type="button"
+                    class="btn"
+                    [class.btn-primary]="direction === option.value"
+                    [class.btn-outline-primary]="direction !== option.value"
+                    [attr.aria-pressed]="direction === option.value"
+                    (click)="setDirection(option.value)"
+                    [disabled]="isInteractionLocked">
+                    {{ option.label }}
+                  </button>
+                }
+              </div>
+            </div>
+          }
           <p class="study-mode-hint text-body-secondary small mb-0 mt-2">{{ modeHint }}</p>
           @if (mode !== 'free' && (dailyNewCardGoal !== null || (studying && studyStatus === 'ready'))) {
             <p class="text-body-secondary small mb-0 mt-2">
@@ -475,7 +495,12 @@ const hungarianPlain = 'aeiooouuu';
           <section class="card border-0 shadow-sm">
             <div class="card-body p-4 p-md-5">
               <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
-                @if (mode !== 'recognition' || isRecognitionRevealed) {
+                @if (!showTermInHeader) {
+                  <div class="d-flex align-items-center gap-2">
+                    <h2 class="h1 mb-0 text-break">{{ card.targetMeanings }}</h2>
+                    <app-speak-button [text]="card.targetMeanings" lang="hu" label="A magyar jelentés" />
+                  </div>
+                } @else if (mode !== 'recognition' || isRecognitionRevealed) {
                   <div class="d-flex align-items-center gap-2">
                     <h2 class="h1 mb-0 text-break">{{ card.term }}</h2>
                     <app-speak-button [text]="card.term" lang="en" label="A szó" />
@@ -518,18 +543,20 @@ const hungarianPlain = 'aeiooouuu';
 
               @if (mode === 'meaning') {
                 @if (hasTargetMeanings) {
-                  <p class="text-body-secondary">Ehhez a szóhoz már van célnyelvi jelentés.</p>
-                  <label for="meaning-answer" class="form-label fw-semibold">Írd be a magyar jelentést.</label>
+                  @if (!isReversed) {
+                    <p class="text-body-secondary">Ehhez a szóhoz már van célnyelvi jelentés.</p>
+                  }
+                  <label for="meaning-answer" class="form-label fw-semibold">{{ isReversed ? 'Írd be az angol szót.' : 'Írd be a magyar jelentést.' }}</label>
                   <textarea
                     id="meaning-answer"
                     class="form-control"
-                    rows="4"
-                    maxlength="1000"
+                    [attr.rows]="isReversed ? 2 : 4"
+                    [attr.maxlength]="isReversed ? 100 : 1000"
                     [(ngModel)]="answer"
                     (keydown.control.enter)="submitShortcut($event)"
                     (keydown.enter)="onAnswerEnter($event)"
                     [disabled]="isSubmitting || updatedProgress !== null || isMeaningRevealed"
-                    placeholder="pl. kaja"></textarea>
+                    [placeholder]="isReversed ? 'pl. food' : 'pl. kaja'"></textarea>
 
                   @if (!isMeaningRevealed) {
                     <div class="d-grid d-sm-flex gap-2 mt-3">
@@ -643,7 +670,7 @@ const hungarianPlain = 'aeiooouuu';
                   </div>
                 }
               } @else if (mode === 'definition') {
-                <label for="answer" class="form-label fw-semibold">{{ acceptHungarianParaphrase ? 'Magyarázd el saját szavaiddal, mit jelent.' : 'Magyarázd el angolul saját szavaiddal, mit jelent.' }}</label>
+                <label for="answer" class="form-label fw-semibold">{{ definitionPromptLabel }}</label>
                 <textarea
                   id="answer"
                   class="form-control"
@@ -1068,6 +1095,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
   card: StudyCard | null = null;
   mode: StudyMode = this.readStudyMode();
+  direction: StudyDirection = this.readStudyDirection();
+  cardDirection: 'en' | 'hu' = 'en';
   automaticAiCheck = false;
   acceptHungarianParaphrase = false;
   requireAppealReason = true;
@@ -1194,15 +1223,55 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     return this.decks.length > 0 && this.decks.every(deck => (deck.cardCount ?? 0) === 0);
   }
 
-  readonly modeHints: Record<StudyMode, string> = {
-    meaning: 'Látod az angol szót, és beírod a magyar jelentését.',
-    definition: 'Látod az angol szót, és angolul elmagyarázod, mit jelent.',
-    recognition: 'Látod a körülírást, és beírod hozzá az angol szót.',
-    free: 'Kártyák lapozgatása: fordítsd meg, majd jelöld, hogy tudod-e.',
-  };
+  readonly directionOptions: { value: StudyDirection; label: string }[] = [
+    { value: 'en', label: 'Angolul' },
+    { value: 'hu', label: 'Magyarul' },
+    { value: 'mixed', label: 'Vegyesen' },
+  ];
+
+  get modeHints(): Record<StudyMode, string> {
+    const direction = this.direction;
+    return {
+      meaning: direction === 'en'
+        ? 'Látod az angol szót, és beírod a magyar jelentését.'
+        : direction === 'hu'
+          ? 'Látod a magyar jelentést, és beírod az angol szót.'
+          : 'Hol az angol szót látod és magyarul válaszolsz, hol fordítva.',
+      definition: direction === 'en'
+        ? 'Látod az angol szót, és angolul elmagyarázod, mit jelent.'
+        : direction === 'hu'
+          ? 'Látod a magyar szót, és angolul elmagyarázod, mit jelent.'
+          : 'Hol az angol, hol a magyar szót látod, és angolul elmagyarázod, mit jelent.',
+      recognition: 'Látod a körülírást, és beírod hozzá az angol szót.',
+      free: 'Kártyák lapozgatása: fordítsd meg, majd jelöld, hogy tudod-e.',
+    };
+  }
 
   get modeHint(): string {
     return this.modeHints[this.mode];
+  }
+
+  get definitionPromptLabel(): string {
+    const subject = this.isReversed ? 'mit jelent ez a magyar szó' : 'mit jelent';
+    return this.acceptHungarianParaphrase
+      ? `Magyarázd el saját szavaiddal, ${subject}.`
+      : `Magyarázd el angolul saját szavaiddal, ${subject}.`;
+  }
+
+  /** Az aktuális kártyánál a magyar jelentés a kérdés, és angolul kell válaszolni. */
+  get isReversed(): boolean {
+    return this.cardDirection === 'hu' && (this.mode === 'meaning' || this.mode === 'definition');
+  }
+
+  /** Fordított irányban az angol szó csak a válasz után derülhet ki. */
+  get showTermInHeader(): boolean {
+    if (!this.isReversed) {
+      return true;
+    }
+
+    return this.mode === 'meaning'
+      ? this.isMeaningRevealed
+      : this.isDefinitionRevealed || this.updatedProgress !== null;
   }
 
   get hasTargetMeanings(): boolean {
@@ -1418,6 +1487,18 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     this.loadNextCard();
   }
 
+  setDirection(direction: StudyDirection): void {
+    if (direction === this.direction || this.isInteractionLocked) {
+      return;
+    }
+
+    this.direction = direction;
+    this.saveStudyDirection();
+    if (this.studying && (this.mode === 'meaning' || this.mode === 'definition')) {
+      this.loadNextCard();
+    }
+  }
+
   startStudy(): void {
     if (this.deckChoice === null || this.studying) {
       return;
@@ -1528,6 +1609,36 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     } catch {
       return 'meaning';
     }
+  }
+
+  private saveStudyDirection(): void {
+    try {
+      localStorage.setItem(this.preferenceKey('study-direction'), this.direction);
+    } catch {
+      // A böngésző tárolója nem elérhető, ilyenkor az irány nem jegyződik meg.
+    }
+  }
+
+  private readStudyDirection(): StudyDirection {
+    try {
+      const stored = localStorage.getItem(this.preferenceKey('study-direction'));
+      return stored === 'hu' || stored === 'mixed' ? stored : 'en';
+    } catch {
+      return 'en';
+    }
+  }
+
+  /** Vegyes irányban kártyánként dől el; magyar jelentés nélküli kártyánál mindig az angol irány marad. */
+  private pickCardDirection(card: StudyCard): 'en' | 'hu' {
+    if ((this.mode !== 'meaning' && this.mode !== 'definition') || !card.targetMeanings?.trim()) {
+      return 'en';
+    }
+
+    if (this.direction === 'mixed') {
+      return Math.random() < 0.5 ? 'en' : 'hu';
+    }
+
+    return this.direction;
   }
 
   private readStudyFocus(): StudyFocus {
@@ -1661,6 +1772,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           }
 
           this.card = response.card;
+          this.cardDirection = this.pickCardDirection(response.card);
           this.startAnswerDelay(response.minimumAnswerSeconds);
           if (this.mode === 'recognition') {
             this.loadPromptDefinition();
@@ -1755,7 +1867,9 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     }
 
     this.errorMessage = null;
-    const isCorrect = this.matchesTargetMeaning(trimmedAnswer, stored);
+    const isCorrect = this.isReversed
+      ? this.normalizeTargetMeaning(trimmedAnswer) === this.normalizeTargetMeaning(this.card?.term ?? '')
+      : this.matchesTargetMeaning(trimmedAnswer, stored);
     this.meaningCorrect = isCorrect;
     this.isMeaningRevealed = true;
     if (isCorrect) {
@@ -1780,6 +1894,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
     const generation = this.loadGeneration;
     const cardId = this.card.id;
+    const reversed = this.isReversed;
+    const heldDefinition = reversed ? this.card.definition : this.card.targetMeanings ?? '';
     this.errorMessage = null;
     this.meaningAwaitingGrade = false;
     this.isValidating = true;
@@ -1789,6 +1905,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
         term: this.card.term,
         definition: this.card.targetMeanings ?? '',
         answer: trimmedAnswer,
+        toEnglish: reversed,
       },
     )
       .pipe(finalize(() => {
@@ -1810,7 +1927,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
             return;
           }
 
-          this.holdIncorrectAnswer(this.card?.targetMeanings ?? '', null, true);
+          this.holdIncorrectAnswer(heldDefinition, null, true);
         },
         error: (error: HttpErrorResponse) => {
           if (generation !== this.loadGeneration || this.card?.id !== cardId) {
@@ -2634,6 +2751,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   }
 
   private resetCardState(): void {
+    this.cardDirection = 'en';
     this.answer = '';
     this.targetMeaningsDraft = '';
     this.generatedDefinition = null;
