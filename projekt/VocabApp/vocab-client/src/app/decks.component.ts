@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, EventEmitter, HostListener, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { finalize } from 'rxjs';
+import { Subscription, finalize } from 'rxjs';
 
 interface SharedInfo {
   version: number;
@@ -101,6 +101,31 @@ interface ImportResult {
   skippedCount: number;
   skippedRows: string[];
 }
+
+interface PasteRow {
+  term: string;
+  definition: string;
+  example: string;
+  targetMeanings: string;
+  aiError: string | null;
+}
+
+interface DeckFillResponse {
+  items: { index: number; definition: string | null; example: string | null; error: string | null }[];
+  usedToday: number;
+  dailyLimit: number;
+  remainingToday: number;
+}
+
+interface AiFillSettings {
+  exampleLevel: string;
+  aiFillBatchSize: number;
+  aiFillDailyLimit: number;
+  aiFillRemainingToday: number;
+}
+
+type TermSeparator = 'tab' | 'comma' | 'custom';
+type RowSeparator = 'newline' | 'semicolon' | 'custom';
 
 interface PendingConfirm {
   title: string;
@@ -837,9 +862,10 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     <section class="setting-block">
                       <h3 class="h6">Import és export</h3>
                       <p class="text-body-secondary small mb-2">
-                        CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code> és <code>,tags</code> oszloppal), legfeljebb 200 sorral. A hibás sorok kimaradnak, a többi bekerül.
+                        CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code> és <code>,tags</code> oszloppal), legfeljebb 200 sorral. A hibás sorok kimaradnak, a többi bekerül. Szöveget (például Quizletből) beillesztve is importálhatsz, ilyenkor az MI ki tudja tölteni a definíciót és a példamondatot.
                       </p>
                       <div class="d-flex flex-wrap gap-2">
+                        <button type="button" class="btn btn-primary" [disabled]="isImporting" (click)="openPasteImport()">Beillesztés szövegből</button>
                         <label class="btn btn-outline-primary mb-0" [class.disabled]="isImporting">
                           @if (isImporting) {
                             <span class="spinner-border spinner-border-sm me-1"></span>
@@ -1013,6 +1039,166 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
       </div>
     </main>
 
+    @if (pasteOpen) {
+      <div class="confirm-backdrop" (click)="requestClosePaste()">
+        <div class="confirm-dialog paste-dialog" role="dialog" aria-modal="true" aria-labelledby="paste-title" (click)="$event.stopPropagation()">
+          <div class="d-flex justify-content-between align-items-start gap-3 mb-2">
+            <h2 id="paste-title" class="h5 mb-0">Beillesztés szövegből</h2>
+            <button type="button" class="btn-close" aria-label="Bezárás" (click)="requestClosePaste()"></button>
+          </div>
+          <p class="text-body-secondary small mb-3">
+            Másold be a szavakat (például Quizlet exportból): soronként egy szó, az elválasztó, majd a magyar jelentés.
+            A második oszlop a <strong>magyar jelentés</strong> lesz, az angol definíciót és a példamondatot kézzel vagy MI-vel töltheted ki.
+          </p>
+
+          <label class="form-label small fw-semibold" for="paste-text">Szöveg</label>
+          <textarea
+            id="paste-text"
+            class="form-control mb-3"
+            rows="6"
+            [(ngModel)]="pasteText"
+            [disabled]="pasteAiRunning || pasteSaving"
+            placeholder="within walking distance&#9;csak pár percnyire van gyalog"></textarea>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <div class="small fw-semibold mb-1">Szó és jelentés között</div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="pasteTermSep" id="ts-tab" value="tab" [(ngModel)]="pasteTermSep">
+                <label class="form-check-label" for="ts-tab">Tabulátor</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="pasteTermSep" id="ts-comma" value="comma" [(ngModel)]="pasteTermSep">
+                <label class="form-check-label" for="ts-comma">Vessző</label>
+              </div>
+              <div class="form-check d-flex align-items-center gap-2">
+                <input class="form-check-input mt-0" type="radio" name="pasteTermSep" id="ts-custom" value="custom" [(ngModel)]="pasteTermSep">
+                <label class="form-check-label" for="ts-custom">Egyéni</label>
+                <input type="text" class="form-control form-control-sm paste-sep-input" name="pasteTermCustom" [(ngModel)]="pasteTermCustom" (focus)="pasteTermSep = 'custom'" placeholder="pl. -" aria-label="Egyéni szó és jelentés közti elválasztó">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="small fw-semibold mb-1">Sorok között</div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="pasteRowSep" id="rs-newline" value="newline" [(ngModel)]="pasteRowSep">
+                <label class="form-check-label" for="rs-newline">Új sor</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="pasteRowSep" id="rs-semicolon" value="semicolon" [(ngModel)]="pasteRowSep">
+                <label class="form-check-label" for="rs-semicolon">Pontosvessző</label>
+              </div>
+              <div class="form-check d-flex align-items-center gap-2">
+                <input class="form-check-input mt-0" type="radio" name="pasteRowSep" id="rs-custom" value="custom" [(ngModel)]="pasteRowSep">
+                <label class="form-check-label" for="rs-custom">Egyéni</label>
+                <input type="text" class="form-control form-control-sm paste-sep-input" name="pasteRowCustom" [(ngModel)]="pasteRowCustom" (focus)="pasteRowSep = 'custom'" placeholder="pl. \\n\\n" aria-label="Egyéni sorok közti elválasztó">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" id="paste-auto" name="pasteAuto" [(ngModel)]="pasteAuto">
+            <label class="form-check-label" for="paste-auto">MI automatikus kitöltés beolvasáskor</label>
+          </div>
+          <p class="small text-body-secondary mb-3">
+            Definíció és példamondat készül a pakli szintjén ({{ pasteLevel }}), {{ aiFillBatchSize }} szavanként egy MI-hívásban.
+            Mai keret: {{ aiFillRemaining ?? '…' }} / {{ aiFillLimit }} (a korlát jelenleg nincs érvényben).
+          </p>
+
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <button type="button" class="btn btn-primary" [disabled]="!pasteText.trim() || pasteAiRunning || pasteSaving" (click)="parsePaste()">
+              {{ pasteAuto ? 'Beolvasás és MI-kitöltés' : 'Sorok beolvasása' }}
+            </button>
+          </div>
+
+          @if (pasteError) {
+            <div class="alert alert-warning py-2" role="alert">{{ pasteError }}</div>
+          }
+
+          @if (pasteRows.length > 0) {
+            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+              <div class="small">
+                <strong>{{ pasteRows.length }} sor</strong>
+                @if (pasteMissingCount > 0) {
+                  · <span class="text-danger">{{ pasteMissingCount }} sorból hiányzik a definíció</span>
+                } @else {
+                  · minden sorban van definíció
+                }
+              </div>
+              <div class="d-flex gap-2">
+                @if (pasteAiRunning) {
+                  <button type="button" class="btn btn-outline-secondary btn-sm" (click)="cancelPasteAi()">Megszakítás</button>
+                } @else {
+                  <button type="button" class="btn btn-outline-primary btn-sm" [disabled]="pasteSaving || pasteAiEligibleCount === 0" (click)="startPasteAi()">
+                    Hiányzók kitöltése MI-vel
+                  </button>
+                }
+              </div>
+            </div>
+
+            @if (pasteAiRunning || pasteAiTotal > 0) {
+              <div class="mb-2">
+                <div class="progress" role="progressbar" aria-label="MI-kitöltés folyamata" [attr.aria-valuenow]="pasteAiDone" aria-valuemin="0" [attr.aria-valuemax]="pasteAiTotal">
+                  <div class="progress-bar" [class.progress-bar-striped]="pasteAiRunning" [class.progress-bar-animated]="pasteAiRunning" [style.width.%]="pasteAiTotal ? (pasteAiDone * 100 / pasteAiTotal) : 0"></div>
+                </div>
+                <div class="small text-body-secondary mt-1">MI: {{ pasteAiDone }}/{{ pasteAiTotal }} sor{{ pasteAiRunning ? '…' : ' kész' }}</div>
+              </div>
+            }
+
+            <div class="table-responsive paste-table-wrap">
+              <table class="table table-sm align-top paste-table mb-2">
+                <thead>
+                  <tr>
+                    <th scope="col">Szó</th>
+                    <th scope="col">Definíció</th>
+                    <th scope="col">Példamondat</th>
+                    <th scope="col">Magyar jelentés</th>
+                    <th scope="col"><span class="visually-hidden">Törlés</span></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of pasteRows; track row; let i = $index) {
+                    <tr>
+                      <td><input type="text" class="form-control form-control-sm" name="pt{{ i }}" [(ngModel)]="row.term" aria-label="Szó"></td>
+                      <td>
+                        <textarea class="form-control form-control-sm" rows="2" name="pd{{ i }}" [(ngModel)]="row.definition" [class.is-invalid]="!row.definition.trim()" aria-label="Definíció"></textarea>
+                        @if (row.aiError) {
+                          <div class="small text-danger">{{ row.aiError }}</div>
+                        } @else if (row.definition.trim() && rowIssue(row)) {
+                          <div class="small text-danger">{{ rowIssue(row) }}</div>
+                        }
+                      </td>
+                      <td><textarea class="form-control form-control-sm" rows="2" name="pe{{ i }}" [(ngModel)]="row.example" aria-label="Példamondat"></textarea></td>
+                      <td><input type="text" class="form-control form-control-sm" name="pm{{ i }}" [(ngModel)]="row.targetMeanings" aria-label="Magyar jelentés"></td>
+                      <td><button type="button" class="btn btn-sm btn-outline-danger" aria-label="Sor törlése" (click)="removePasteRow(i)">✕</button></td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
+            <span class="small text-body-secondary">
+              @if (pasteRows.length > 200) {
+                Legfeljebb 200 sor importálható egyszerre.
+              } @else if (pasteRows.length > 0 && !canSavePaste && !pasteAiRunning) {
+                A mentéshez minden sorban kell szó és definíció.
+              }
+            </span>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-outline-secondary" [disabled]="pasteSaving" (click)="requestClosePaste()">Mégse</button>
+              <button type="button" class="btn btn-primary" [disabled]="!canSavePaste" (click)="savePaste()">
+                @if (pasteSaving) {
+                  <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                Mentés{{ pasteRows.length > 0 ? ' (' + pasteRows.length + ' kártya)' : '' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    }
+
     @if (pendingConfirm; as confirmation) {
       <div class="confirm-backdrop" (click)="pendingConfirm = null">
         <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text" (click)="$event.stopPropagation()">
@@ -1133,6 +1319,11 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
 
     .confirm-backdrop { position: fixed; inset: 0; z-index: 1080; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(0, 0, 0, .5); }
     .confirm-dialog { width: min(28rem, 100%); padding: 1.5rem; border-radius: var(--app-radius); background: var(--app-surface); color: var(--app-text); border: 1px solid var(--app-border); box-shadow: 0 1rem 3rem rgba(0, 0, 0, .35); }
+    .paste-dialog { width: min(64rem, 100%); max-height: calc(100vh - 2rem); overflow-y: auto; }
+    .paste-sep-input { width: 7rem; }
+    .paste-table-wrap { max-height: 22rem; overflow-y: auto; }
+    .paste-table { min-width: 40rem; }
+    .paste-table th { position: sticky; top: 0; background: var(--app-surface); z-index: 1; }
     .toast-box { position: fixed; right: 1rem; bottom: 1rem; z-index: 1090; display: flex; align-items: center; gap: .75rem; max-width: min(26rem, calc(100vw - 2rem)); padding: .75rem 1rem; border-radius: var(--app-radius-sm); background: #1f2937; color: #fff; box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .3); }
 
     @media (max-width: 991.98px) {
@@ -1225,6 +1416,24 @@ export class DecksComponent implements OnInit, OnDestroy {
   publicLevelFilter = '';
   accountLevel = 'B1';
 
+  pasteOpen = false;
+  pasteText = '';
+  pasteTermSep: TermSeparator = 'tab';
+  pasteTermCustom = '';
+  pasteRowSep: RowSeparator = 'newline';
+  pasteRowCustom = '';
+  pasteAuto = false;
+  pasteRows: PasteRow[] = [];
+  pasteError: string | null = null;
+  pasteSaving = false;
+  pasteAiRunning = false;
+  pasteAiDone = 0;
+  pasteAiTotal = 0;
+  aiFillBatchSize = 5;
+  aiFillLimit = 100;
+  aiFillRemaining: number | null = null;
+
+  private pasteAiSub: Subscription | null = null;
   private previewRequest = 0;
   private cardsRequest = 0;
   private toastTimer: ReturnType<typeof setTimeout> | null = null;
@@ -1305,24 +1514,44 @@ export class DecksComponent implements OnInit, OnDestroy {
         .some(text => text.toLowerCase().includes(query)));
   }
 
+  get pasteLevel(): string {
+    return this.selectedDeck?.exampleLevel ?? this.accountLevel;
+  }
+
+  get pasteMissingCount(): number {
+    return this.pasteRows.filter(row => !row.definition.trim()).length;
+  }
+
+  get pasteAiEligibleCount(): number {
+    return this.pasteRows.filter(row => this.isAiEligible(row)).length;
+  }
+
+  get canSavePaste(): boolean {
+    return this.pasteRows.length > 0
+      && this.pasteRows.length <= 200
+      && this.pasteRows.every(row => this.rowIssue(row) === null)
+      && !this.pasteAiRunning
+      && !this.pasteSaving;
+  }
+
   @HostListener('document:keydown.escape')
   onEscape(): void {
     if (this.pendingConfirm) {
       this.pendingConfirm = null;
+    } else if (this.pasteOpen && !this.pasteSaving) {
+      this.requestClosePaste();
     }
   }
 
   ngOnInit(): void {
-    this.http.get<{ exampleLevel: string }>('/api/study/settings').subscribe({
-      next: (settings) => {
-        this.accountLevel = settings.exampleLevel;
-      },
-    });
+    this.loadAiFillSettings();
     this.loadDecks(true);
     this.searchPublicDecks();
   }
 
   ngOnDestroy(): void {
+    this.pasteAiSub?.unsubscribe();
+
     if (this.toastTimer) {
       clearTimeout(this.toastTimer);
     }
@@ -2170,18 +2399,290 @@ export class DecksComponent implements OnInit, OnDestroy {
       }),
     ).subscribe({
       next: (result) => {
-        this.importSkipped = result.skippedRows ?? [];
-        this.importMessage = result.skippedCount > 0
-          ? `${result.importedCount} kártya került be, ${result.skippedCount} sor kimaradt${result.skippedCount > this.importSkipped.length ? ' (az első ' + this.importSkipped.length + ' hiba látszik)' : ''}.`
-          : `${result.importedCount} kártya került be.`;
-        this.refreshDecks();
-        if (this.selectedDeckId === deckId) {
-          this.detailTab = 'cards';
-          this.loadCards();
-        }
+        this.showImportResult(deckId, result);
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readError(error, 'A CSV import sikertelen.');
+      },
+    });
+  }
+
+  private showImportResult(deckId: number, result: ImportResult): void {
+    this.importSkipped = result.skippedRows ?? [];
+    this.importMessage = result.skippedCount > 0
+      ? `${result.importedCount} kártya került be, ${result.skippedCount} sor kimaradt${result.skippedCount > this.importSkipped.length ? ' (az első ' + this.importSkipped.length + ' hiba látszik)' : ''}.`
+      : `${result.importedCount} kártya került be.`;
+    this.refreshDecks();
+    if (this.selectedDeckId === deckId) {
+      this.detailTab = 'cards';
+      this.loadCards();
+    }
+  }
+
+  // ---------- import szövegből (Quizlet-stílus)
+
+  openPasteImport(): void {
+    if (this.selectedDeckId === null) {
+      return;
+    }
+
+    this.pasteText = '';
+    this.pasteRows = [];
+    this.pasteError = null;
+    this.pasteAiDone = 0;
+    this.pasteAiTotal = 0;
+    this.pasteOpen = true;
+    this.loadAiFillSettings();
+  }
+
+  requestClosePaste(): void {
+    if (this.pasteSaving) {
+      return;
+    }
+
+    if (this.pasteRows.length === 0) {
+      this.closePaste();
+      return;
+    }
+
+    this.pendingConfirm = {
+      title: 'Bezárod a beillesztést?',
+      message: 'A beolvasott sorok és a kitöltött mezők elvesznek, ha nem mented őket.',
+      confirmLabel: 'Bezárás',
+      danger: true,
+      action: () => this.closePaste(),
+    };
+  }
+
+  private closePaste(): void {
+    this.cancelPasteAi();
+    this.pasteOpen = false;
+    this.pasteRows = [];
+    this.pasteError = null;
+  }
+
+  parsePaste(): void {
+    this.pasteError = null;
+    this.pasteAiDone = 0;
+    this.pasteAiTotal = 0;
+    const rows = this.splitPaste();
+    this.pasteRows = rows;
+    if (rows.length === 0) {
+      this.pasteError = 'Nem található feldolgozható sor.';
+      return;
+    }
+
+    if (rows.length > 200) {
+      this.pasteError = `${rows.length} sor található, de legfeljebb 200 importálható egyszerre.`;
+      return;
+    }
+
+    if (this.pasteAuto) {
+      this.startPasteAi();
+    }
+  }
+
+  removePasteRow(index: number): void {
+    this.pasteRows = this.pasteRows.filter((_, position) => position !== index);
+  }
+
+  rowIssue(row: PasteRow): string | null {
+    if (!row.term.trim()) {
+      return 'Hiányzik a szó.';
+    }
+
+    if (row.term.trim().length > 100) {
+      return 'A szó legfeljebb 100 karakter lehet.';
+    }
+
+    if (!row.definition.trim()) {
+      return 'Hiányzik a definíció.';
+    }
+
+    if (row.definition.trim().length > 500) {
+      return 'A definíció legfeljebb 500 karakter lehet.';
+    }
+
+    if (row.example.trim().length > 500) {
+      return 'A példamondat legfeljebb 500 karakter lehet.';
+    }
+
+    if (row.targetMeanings.trim().length > 200) {
+      return 'A magyar jelentés legfeljebb 200 karakter lehet.';
+    }
+
+    return null;
+  }
+
+  startPasteAi(): void {
+    const deckId = this.selectedDeckId;
+    if (this.pasteAiRunning || deckId === null) {
+      return;
+    }
+
+    const targets = this.pasteRows.filter(row => this.isAiEligible(row));
+    if (targets.length === 0) {
+      this.pasteError = 'Nincs mit kitölteni: minden sorban van definíció és példamondat.';
+      return;
+    }
+
+    const size = Math.min(10, Math.max(1, this.aiFillBatchSize));
+    const batches: PasteRow[][] = [];
+    for (let start = 0; start < targets.length; start += size) {
+      batches.push(targets.slice(start, start + size));
+    }
+
+    for (const row of this.pasteRows) {
+      row.aiError = null;
+    }
+
+    this.pasteError = null;
+    this.pasteAiDone = 0;
+    this.pasteAiTotal = targets.length;
+    this.pasteAiRunning = true;
+    this.runPasteBatch(deckId, batches, 0);
+  }
+
+  cancelPasteAi(): void {
+    this.pasteAiSub?.unsubscribe();
+    this.pasteAiSub = null;
+    this.pasteAiRunning = false;
+  }
+
+  savePaste(): void {
+    const deckId = this.selectedDeckId;
+    if (deckId === null || !this.canSavePaste) {
+      return;
+    }
+
+    this.pasteSaving = true;
+    this.pasteError = null;
+    const cards = this.pasteRows.map(row => ({
+      term: row.term.trim(),
+      definition: row.definition.trim(),
+      example: row.example.trim() || null,
+      targetMeanings: row.targetMeanings.trim() || null,
+    }));
+    this.http.post<ImportResult>(`/api/decks/${deckId}/import/cards`, { cards }).pipe(
+      finalize(() => {
+        this.pasteSaving = false;
+      }),
+    ).subscribe({
+      next: (result) => {
+        this.closePaste();
+        this.showImportResult(deckId, result);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.pasteError = this.readError(error, 'Az import sikertelen.');
+      },
+    });
+  }
+
+  private isAiEligible(row: PasteRow): boolean {
+    const term = row.term.trim();
+    return term.length > 0
+      && term.length <= 100
+      && row.targetMeanings.trim().length <= 200
+      && row.definition.trim().length <= 500
+      && (!row.definition.trim() || !row.example.trim());
+  }
+
+  private runPasteBatch(deckId: number, batches: PasteRow[][], position: number): void {
+    if (position >= batches.length) {
+      this.pasteAiRunning = false;
+      this.pasteAiSub = null;
+      const failed = this.pasteRows.filter(row => row.aiError).length;
+      if (failed > 0) {
+        this.pasteError = `${failed} sort nem sikerült kitölteni az MI-vel: töltsd ki kézzel, vagy próbáld újra.`;
+      }
+
+      return;
+    }
+
+    const batch = batches[position];
+    const items = batch.map(row => ({
+      term: row.term.trim(),
+      targetMeanings: row.targetMeanings.trim() || null,
+      needDefinition: !row.definition.trim(),
+      needExample: !row.example.trim(),
+      definition: row.definition.trim() || null,
+    }));
+    this.pasteAiSub = this.http.post<DeckFillResponse>('/api/ai/generate/deck-fill', { deckId, items }).subscribe({
+      next: (response) => {
+        for (const item of response.items) {
+          const row = batch[item.index];
+          if (!row) {
+            continue;
+          }
+
+          // Közben kézzel beírt tartalmat nem írunk felül.
+          if (item.definition && !row.definition.trim()) {
+            row.definition = item.definition;
+          }
+
+          if (item.example && !row.example.trim()) {
+            row.example = item.example;
+          }
+
+          row.aiError = item.error;
+        }
+
+        this.aiFillRemaining = response.remainingToday;
+        this.aiFillLimit = response.dailyLimit;
+        this.pasteAiDone += batch.length;
+        this.runPasteBatch(deckId, batches, position + 1);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.pasteAiRunning = false;
+        this.pasteAiSub = null;
+        this.pasteError = error.status === 429
+          ? 'Elérted a mai MI-kitöltési keretet.'
+          : this.readAiError(error, 'Az MI-kitöltés');
+      },
+    });
+  }
+
+  private splitPaste(): PasteRow[] {
+    const text = this.pasteText.replace(/\r\n?/g, '\n');
+    const rowSeparator = this.pasteRowSep === 'semicolon'
+      ? ';'
+      : this.pasteRowSep === 'custom' ? this.unescapeSeparator(this.pasteRowCustom) : '\n';
+    const termSeparator = this.pasteTermSep === 'comma'
+      ? ','
+      : this.pasteTermSep === 'custom' ? this.unescapeSeparator(this.pasteTermCustom) : '\t';
+
+    const rows: PasteRow[] = [];
+    for (const chunk of text.split(rowSeparator || '\n')) {
+      const line = chunk.trim();
+      if (!line) {
+        continue;
+      }
+
+      // Az első elválasztónál vágunk, így a vesszővel tagolt magyar jelentéslista egyben marad.
+      const at = termSeparator ? line.indexOf(termSeparator) : -1;
+      rows.push({
+        term: (at < 0 ? line : line.slice(0, at)).trim(),
+        definition: '',
+        example: '',
+        targetMeanings: at < 0 ? '' : line.slice(at + termSeparator.length).trim(),
+        aiError: null,
+      });
+    }
+
+    return rows;
+  }
+
+  private unescapeSeparator(value: string): string {
+    return value.replace(/\\n/g, '\n').replace(/\\t/g, '\t');
+  }
+
+  private loadAiFillSettings(): void {
+    this.http.get<AiFillSettings>('/api/study/settings').subscribe({
+      next: (settings) => {
+        this.accountLevel = settings.exampleLevel;
+        this.aiFillBatchSize = settings.aiFillBatchSize ?? 5;
+        this.aiFillLimit = settings.aiFillDailyLimit ?? 100;
+        this.aiFillRemaining = settings.aiFillRemainingToday ?? null;
       },
     });
   }

@@ -44,6 +44,9 @@ interface StudySettings {
   exampleLevel: string;
   aiModel: string;
   timeZoneId: string;
+  aiFillBatchSize: number;
+  aiFillDailyLimit: number;
+  aiFillRemainingToday: number;
 }
 
 type SavedLevelChoice = 'all' | 'noHarder' | 'noEasier';
@@ -407,6 +410,24 @@ interface AiModelOption {
                 [disabled]="isSavingStudySettings">
               <div class="form-text">Ennyi hiba után számít nehéznek egy szó, ha több a hibás válasza, mint a helyes. A nehéz szót a tanulásban és a kártyalistában jelöljük, hogy félretehesd.</div>
             </div>
+            <div class="mb-3">
+              <label class="form-label" for="aiFillBatchSize">MI-kitöltés csomagmérete (szó / hívás)</label>
+              <input
+                id="aiFillBatchSize"
+                name="aiFillBatchSize"
+                type="number"
+                class="form-control"
+                min="1"
+                max="10"
+                step="1"
+                [(ngModel)]="aiFillBatchSize"
+                [disabled]="isSavingStudySettings">
+              <div class="form-text">Szöveges importnál ennyi szót dolgoz fel egyetlen MI-hívás (1–10). Nagyobb csomag gyorsabb, de egy hibás válasz több szót érint.</div>
+              <div class="form-text">
+                Mai MI-kitöltés: {{ aiFillDailyLimit - aiFillRemainingToday }} / {{ aiFillDailyLimit }} felhasználva, hátralévő: {{ aiFillRemainingToday }}.
+                A napi keret jelenleg nincs érvényben, ezért negatív is lehet.
+              </div>
+            </div>
               </div>
             </details>
             <button type="submit" class="btn btn-primary" [disabled]="isSavingStudySettings">Mentés</button>
@@ -632,6 +653,9 @@ export class AppComponent implements OnInit {
   savedLevelPolicy: SavedLevelChoice = 'all';
   generateAlternateDefinitions = true;
   leechThreshold = 6;
+  aiFillBatchSize = 5;
+  aiFillDailyLimit = 100;
+  aiFillRemainingToday = 100;
   readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
   exampleLevel = 'B1';
   readonly aiModels: AiModelOption[] = [
@@ -946,6 +970,12 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    const aiFillBatchSize = Number(this.aiFillBatchSize);
+    if (!Number.isInteger(aiFillBatchSize) || aiFillBatchSize < 1 || aiFillBatchSize > 10) {
+      this.profileError = 'Az MI-kitöltés csomagmérete 1 és 10 között lehet.';
+      return;
+    }
+
     if (!this.exampleLevels.includes(this.exampleLevel)) {
       this.profileError = 'A mondatszint A1, A2, B1, B2, C1 vagy C2 lehet.';
       return;
@@ -973,6 +1003,7 @@ export class AppComponent implements OnInit {
       savedLevelPolicy,
       generateAlternateDefinitions: this.generateAlternateDefinitions,
       leechThreshold,
+      aiFillBatchSize,
       exampleLevel: this.exampleLevel,
       aiModel: this.aiModel,
       timeZoneId: this.timeZoneId,
@@ -991,6 +1022,7 @@ export class AppComponent implements OnInit {
         this.applySavedLevelPolicy(settings.savedLevelPolicy);
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.leechThreshold = settings.leechThreshold ?? 6;
+        this.applyAiFillSettings(settings);
         this.exampleLevel = settings.exampleLevel;
         this.aiModel = settings.aiModel;
         this.timeZoneId = settings.timeZoneId || this.timeZoneId;
@@ -1053,6 +1085,12 @@ export class AppComponent implements OnInit {
     });
   }
 
+  private applyAiFillSettings(settings: StudySettings): void {
+    this.aiFillBatchSize = settings.aiFillBatchSize ?? 5;
+    this.aiFillDailyLimit = settings.aiFillDailyLimit ?? 100;
+    this.aiFillRemainingToday = settings.aiFillRemainingToday ?? this.aiFillDailyLimit;
+  }
+
   private applySavedLevelPolicy(policy: string): void {
     if (policy === 'all' || policy === 'noHarder' || policy === 'noEasier') {
       this.allowOtherSavedLevels = true;
@@ -1076,6 +1114,7 @@ export class AppComponent implements OnInit {
         this.applySavedLevelPolicy(settings.savedLevelPolicy);
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
         this.leechThreshold = settings.leechThreshold ?? 6;
+        this.applyAiFillSettings(settings);
         this.exampleLevel = settings.exampleLevel;
         this.aiModel = settings.aiModel;
         this.timeZoneId = settings.timeZoneId || this.timeZoneId;
