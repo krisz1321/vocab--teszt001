@@ -12,6 +12,8 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
     private const int MaxTargetMeaningsLength = 200;
     private const int KnownStreak = 3;
     private const int KnownIntervalDays = 15;
+    private const int MinSearchLength = 2;
+    private const int MaxSearchResults = 50;
 
     public async Task<DeckCardResult<IReadOnlyList<CardDto>>> GetByDeckAsync(
         int userId,
@@ -39,6 +41,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
                 Definition = card.Definition,
                 Example = card.Example,
                 TargetMeanings = card.TargetMeanings,
+                Tags = card.Tags,
                 IsLearned = card.Progress != null && card.Progress.LearnedAt != null,
                 MarkedKnown = card.Progress != null && card.Progress.MarkedKnown,
                 Suspension = CardSuspensions.StateOf(card.Progress != null ? card.Progress.SuspendedUntil : null, now),
@@ -114,6 +117,11 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             return DeckCardResult<CardDto>.Fail(StatusCodes.Status400BadRequest, validationError);
         }
 
+        if (!CardTags.TryNormalize(request.Tags, out var tags, out var tagsError))
+        {
+            return DeckCardResult<CardDto>.Fail(StatusCodes.Status400BadRequest, tagsError);
+        }
+
         var ownsDeck = await dbContext.Decks
             .AnyAsync(deck => deck.Id == request.DeckId && deck.UserId == userId, cancellationToken);
         if (!ownsDeck)
@@ -128,6 +136,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             Definition = request.Definition!.Trim(),
             Example = NormalizeOptional(request.Example),
             TargetMeanings = NormalizeOptional(request.TargetMeanings),
+            Tags = tags,
             Progress = new CardProgress
             {
                 NextReviewDate = DateTime.UtcNow,
@@ -155,6 +164,11 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             return DeckCardResult<CardDto>.Fail(StatusCodes.Status400BadRequest, validationError);
         }
 
+        if (!CardTags.TryNormalize(request.Tags, out var tags, out var tagsError))
+        {
+            return DeckCardResult<CardDto>.Fail(StatusCodes.Status400BadRequest, tagsError);
+        }
+
         var card = await dbContext.Cards
             .Include(candidate => candidate.Progress)
             .FirstOrDefaultAsync(candidate => candidate.Id == cardId && candidate.Deck.UserId == userId, cancellationToken);
@@ -167,6 +181,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         card.Definition = request.Definition!.Trim();
         card.Example = NormalizeOptional(request.Example);
         card.TargetMeanings = NormalizeOptional(request.TargetMeanings);
+        card.Tags = tags;
         await dbContext.SaveChangesAsync(cancellationToken);
         return DeckCardResult<CardDto>.Success(ToDto(card, await LeechThresholdAsync(userId, cancellationToken)));
     }
@@ -266,6 +281,89 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         return DeckCardResult<CardDto>.Success(ToDto(card, await LeechThresholdAsync(userId, cancellationToken)));
     }
 
+    public async Task<IReadOnlyList<CardSearchResultDto>> SearchAsync(
+        int userId,
+        string? query,
+        CancellationToken cancellationToken = default)
+    {
+        var text = query?.Trim();
+        if (text is null || text.Length < MinSearchLength)
+        {
+            return [];
+        }
+
+        var leechThreshold = await LeechThresholdAsync(userId, cancellationToken);
+        var now = DateTime.UtcNow;
+        var rows = await dbContext.Cards
+            .AsNoTracking()
+            .Where(card => card.Deck.UserId == userId)
+            .Select(card => new
+            {
+                card.Id,
+                card.DeckId,
+                DeckName = card.Deck.Name,
+                card.Term,
+                card.Definition,
+                card.Example,
+                card.TargetMeanings,
+                card.Tags,
+                IsLearned = card.Progress != null && card.Progress.LearnedAt != null,
+                SuspendedUntil = card.Progress != null ? card.Progress.SuspendedUntil : null,
+                IncorrectCount = card.Progress != null ? card.Progress.IncorrectCount : 0,
+                CorrectCount = card.Progress != null ? card.Progress.CorrectCount : 0
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .Where(row => Contains(row.Term, text)
+                || Contains(row.Definition, text)
+                || Contains(row.Example, text)
+                || Contains(row.TargetMeanings, text)
+                || Contains(row.Tags, text))
+            .OrderBy(row => row.Term, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(row => row.Id)
+            .Take(MaxSearchResults)
+            .Select(row => new CardSearchResultDto
+            {
+                Id = row.Id,
+                DeckId = row.DeckId,
+                DeckName = row.DeckName,
+                Term = row.Term,
+                Definition = row.Definition,
+                TargetMeanings = row.TargetMeanings,
+                Tags = row.Tags,
+                IsLearned = row.IsLearned,
+                Suspension = CardSuspensions.StateOf(row.SuspendedUntil, now),
+                IsLeech = CardLeech.IsLeech(row.IncorrectCount, row.CorrectCount, leechThreshold)
+            })
+            .ToList();
+    }
+
+    public async Task<IReadOnlyList<CardTagCountDto>> GetTagsAsync(
+        int userId,
+        int? deckId,
+        CancellationToken cancellationToken = default)
+    {
+        var cards = dbContext.Cards
+            .AsNoTracking()
+            .Where(card => card.Deck.UserId == userId && card.Tags != null);
+        if (deckId is int selectedDeckId)
+        {
+            cards = cards.Where(card => card.DeckId == selectedDeckId);
+        }
+
+        var stored = await cards.Select(card => card.Tags!).ToListAsync(cancellationToken);
+        return stored
+            .SelectMany(tags => tags.Split(',', StringSplitOptions.RemoveEmptyEntries))
+            .GroupBy(tag => tag)
+            .Select(group => new CardTagCountDto { Tag = group.Key, Count = group.Count() })
+            .OrderBy(item => item.Tag, StringComparer.Create(new System.Globalization.CultureInfo("hu-HU"), ignoreCase: true))
+            .ToList();
+    }
+
+    private static bool Contains(string? value, string text) =>
+        value is not null && value.Contains(text, StringComparison.OrdinalIgnoreCase);
+
     public async Task<bool> DeleteAsync(int userId, int cardId, CancellationToken cancellationToken = default)
     {
         var card = await dbContext.Cards
@@ -362,6 +460,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         Definition = card.Definition,
         Example = card.Example,
         TargetMeanings = card.TargetMeanings,
+        Tags = card.Tags,
         IsLearned = card.Progress?.LearnedAt != null,
         MarkedKnown = card.Progress?.MarkedKnown == true,
         Suspension = CardSuspensions.StateOf(card.Progress?.SuspendedUntil, DateTime.UtcNow),

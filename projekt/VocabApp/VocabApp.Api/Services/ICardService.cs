@@ -36,6 +36,16 @@ public interface ICardService
         string? mode,
         CancellationToken cancellationToken = default);
 
+    Task<IReadOnlyList<CardSearchResultDto>> SearchAsync(
+        int userId,
+        string? query,
+        CancellationToken cancellationToken = default);
+
+    Task<IReadOnlyList<CardTagCountDto>> GetTagsAsync(
+        int userId,
+        int? deckId,
+        CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAsync(int userId, int cardId, CancellationToken cancellationToken = default);
 
     Task<bool> ResetLearnedAsync(int userId, int cardId, CancellationToken cancellationToken = default);

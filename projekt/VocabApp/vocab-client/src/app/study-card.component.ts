@@ -130,6 +130,11 @@ interface FreeUndoState {
 
 type StudyDeckChoice = number | 'all';
 type StudyFocus = 'all' | 'due' | 'mistakes' | 'new';
+
+interface StudyTagOption {
+  tag: string;
+  count: number;
+}
 type StudyMode = 'meaning' | 'definition' | 'recognition' | 'free';
 type FreeFront = 'term' | 'other';
 type FreeBack = 'bilingual' | 'definition';
@@ -221,6 +226,9 @@ const hungarianPlain = 'aeiooouuu';
             <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-2">
               <span class="fw-semibold">{{ activeDeckLabel }}</span>
               <span class="text-body-secondary">· {{ studyFocusLabel }}</span>
+              @if (studyTag) {
+                <span class="text-body-secondary">· címke: {{ studyTag }}</span>
+              }
               <button
                 type="button"
                 class="btn btn-outline-secondary btn-sm"
@@ -267,13 +275,28 @@ const hungarianPlain = 'aeiooouuu';
                   id="study-deck"
                   name="studyDeck"
                   class="form-select mb-3"
-                  [(ngModel)]="deckChoice">
+                  [(ngModel)]="deckChoice"
+                  (ngModelChange)="refreshTagOptions()">
                   <option [ngValue]="null" disabled>Válassz paklit</option>
                   <option [ngValue]="'all'">Összes pakli</option>
                   @for (deck of decks; track deck.id) {
                     <option [ngValue]="deck.id">{{ deck.name }}</option>
                   }
                 </select>
+                @if (tagOptions.length > 0) {
+                  <label class="form-label fw-semibold" for="study-tag">Címke</label>
+                  <select
+                    id="study-tag"
+                    name="studyTag"
+                    class="form-select mb-3"
+                    [(ngModel)]="studyTag"
+                    (ngModelChange)="saveStudyTag()">
+                    <option [ngValue]="''">Minden címke</option>
+                    @for (option of tagOptions; track option.tag) {
+                      <option [ngValue]="option.tag">{{ option.tag }} ({{ option.count }})</option>
+                    }
+                  </select>
+                }
                 <label class="form-label fw-semibold" for="study-focus">Gyakorlás típusa</label>
                 <select
                   id="study-focus"
@@ -1075,6 +1098,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   decks: StudyDeck[] = [];
   deckChoice: StudyDeckChoice | null = null;
   studyFocus: StudyFocus = this.readStudyFocus();
+  studyTag = this.readStudyTag();
+  tagOptions: StudyTagOption[] = [];
   showStudyGuide = this.readStudyGuideVisibility();
   isLoadingPrompt = false;
   isGeneratingDefinition = false;
@@ -1415,6 +1440,47 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     localStorage.setItem(this.preferenceKey('study-focus'), this.studyFocus);
   }
 
+  saveStudyTag(): void {
+    try {
+      localStorage.setItem(this.preferenceKey('study-tag'), this.studyTag);
+    } catch {
+      // A böngésző tárolója nem elérhető, ilyenkor a címke nem jegyződik meg.
+    }
+  }
+
+  private readStudyTag(): string {
+    try {
+      return localStorage.getItem(this.preferenceKey('study-tag')) ?? '';
+    } catch {
+      return '';
+    }
+  }
+
+  /** A választható címkék a kiválasztott paklihoz tartozó kártyákról jönnek; az eltűnt címke kiválasztása törlődik. */
+  refreshTagOptions(afterLoad?: () => void): void {
+    const params: Record<string, string | number> = {};
+    if (typeof this.deckChoice === 'number') {
+      params['deckId'] = this.deckChoice;
+    }
+
+    this.http.get<StudyTagOption[]>(`${this.apiBaseUrl}/cards/tags`, { params }).subscribe({
+      next: options => {
+        this.tagOptions = options;
+        if (this.studyTag && !options.some(option => option.tag === this.studyTag)) {
+          this.studyTag = '';
+          this.saveStudyTag();
+        }
+
+        afterLoad?.();
+      },
+      error: () => {
+        this.tagOptions = [];
+        this.studyTag = '';
+        afterLoad?.();
+      },
+    });
+  }
+
   private saveStudyDeck(): void {
     if (this.deckChoice === null) {
       return;
@@ -1521,7 +1587,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           if (this.initialDeckId !== null && decks.some(deck => deck.id === this.initialDeckId)) {
             this.deckChoice = this.initialDeckId;
             this.initialDeckId = null;
-            this.startStudy();
+            this.refreshTagOptions(() => this.startStudy());
             return;
           }
 
@@ -1530,8 +1596,11 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           const remembered = this.readStudyDeck();
           if (remembered === 'all' ? decks.some(deck => (deck.cardCount ?? 0) > 0) : decks.some(deck => deck.id === remembered && (deck.cardCount ?? 0) > 0)) {
             this.deckChoice = remembered;
-            this.startStudy();
+            this.refreshTagOptions(() => this.startStudy());
+            return;
           }
+
+          this.refreshTagOptions();
         },
         error: (error: HttpErrorResponse) => this.setHttpError(error, 'A paklik betöltése'),
       });
@@ -1556,6 +1625,9 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       params['deckId'] = this.deckChoice;
     }
     params['focus'] = this.studyFocus;
+    if (this.studyTag) {
+      params['tag'] = this.studyTag;
+    }
 
     this.http.get<StudyNextResponse>(`${this.apiBaseUrl}/study/next`, { params })
       .pipe(finalize(() => {
@@ -2912,6 +2984,9 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     };
     if (typeof this.deckChoice === 'number') {
       params['deckId'] = this.deckChoice;
+    }
+    if (this.studyTag) {
+      params['tag'] = this.studyTag;
     }
 
     this.http.get<FreeStudyCard[]>(`${this.apiBaseUrl}/free-study/cards`, { params })

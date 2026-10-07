@@ -58,6 +58,10 @@ namespace VocabApp.Api.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Tags")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("TargetMeanings")
                         .HasMaxLength(200)
                         .HasColumnType("TEXT");

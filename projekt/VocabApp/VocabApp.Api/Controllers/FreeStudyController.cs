@@ -16,6 +16,7 @@ public sealed class FreeStudyController(IFreeStudyService freeStudyService) : Co
     public async Task<ActionResult<IReadOnlyList<FreeStudyCardDto>>> GetCards(
         [FromQuery] int? deckId,
         [FromQuery] string? focus,
+        [FromQuery] string? tag,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
@@ -24,7 +25,7 @@ public sealed class FreeStudyController(IFreeStudyService freeStudyService) : Co
             return Unauthorized();
         }
 
-        return ToActionResult(await freeStudyService.GetCardsAsync(userId.Value, deckId, focus, cancellationToken));
+        return ToActionResult(await freeStudyService.GetCardsAsync(userId.Value, deckId, focus, tag, cancellationToken));
     }
 
     [HttpPut("cards/{cardId:int}/mark")]

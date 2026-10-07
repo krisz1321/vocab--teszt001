@@ -8,6 +8,7 @@ public interface IStudyService
         int userId,
         int? deckId,
         string? focus,
+        string? tag,
         CancellationToken cancellationToken = default);
     Task<StudySubmitResult> SubmitAsync(int userId, StudySubmitDto request, CancellationToken cancellationToken = default);
     Task<StudyStatsDto> GetStatsAsync(int userId, CancellationToken cancellationToken = default);

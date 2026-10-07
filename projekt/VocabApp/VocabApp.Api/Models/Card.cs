@@ -18,6 +18,9 @@ public sealed class Card
     [MaxLength(200)]
     public string? TargetMeanings { get; set; }
 
+    [MaxLength(CardTags.MaxStoredLength)]
+    public string? Tags { get; set; }
+
     public int DeckId { get; set; }
 
     public Deck Deck { get; set; } = null!;

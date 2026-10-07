@@ -16,6 +16,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         int userId,
         int? deckId,
         string? focus,
+        string? tag,
         CancellationToken cancellationToken = default)
     {
         var studyFocus = NormalizeStudyFocus(focus);
@@ -51,7 +52,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var localToday = StudyClock.LocalDate(user.TimeZoneId, now);
         var dayStartUtc = StudyClock.UtcStartOfLocalDate(user.TimeZoneId, localToday);
         var dayEndUtc = StudyClock.UtcStartOfLocalDate(user.TimeZoneId, localToday.AddDays(1));
-        var source = UserProgress(userId, deckId, now);
+        var source = UserProgress(userId, deckId, now, CardTags.NormalizeFilter(tag));
         var introducedToday = await source
             .CountAsync(
                 progress => progress.FirstReviewedAt >= dayStartUtc && progress.FirstReviewedAt < dayEndUtc,
@@ -393,7 +394,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         });
     }
 
-    private IQueryable<CardProgress> UserProgress(int userId, int? deckId, DateTime now)
+    private IQueryable<CardProgress> UserProgress(int userId, int? deckId, DateTime now, string? tag)
     {
         var query = dbContext.CardProgresses
             .AsNoTracking()
@@ -403,6 +404,13 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         if (deckId is int selectedDeckId)
         {
             query = query.Where(progress => progress.Card.DeckId == selectedDeckId);
+        }
+
+        if (tag is not null)
+        {
+            var pattern = "," + tag + ",";
+            query = query.Where(progress => progress.Card.Tags != null
+                && ("," + progress.Card.Tags + ",").Contains(pattern));
         }
 
         return query;

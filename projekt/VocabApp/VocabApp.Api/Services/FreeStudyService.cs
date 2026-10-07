@@ -11,6 +11,7 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
         int userId,
         int? deckId,
         string? focus,
+        string? tag,
         CancellationToken cancellationToken = default)
     {
         if (deckId is int selectedDeckId && !await OwnsDeckAsync(userId, selectedDeckId, cancellationToken))
@@ -20,7 +21,7 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
                 "A pakli nem található.");
         }
 
-        var cards = UserCards(userId, deckId);
+        var cards = UserCards(userId, deckId, CardTags.NormalizeFilter(tag));
         var normalizedFocus = focus?.Trim().ToLowerInvariant();
         if (normalizedFocus == "due")
         {
@@ -129,7 +130,7 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
         return DeckCardResult<bool>.Success(true);
     }
 
-    private IQueryable<Card> UserCards(int userId, int? deckId)
+    private IQueryable<Card> UserCards(int userId, int? deckId, string? tag)
     {
         var now = DateTime.UtcNow;
         var cards = dbContext.Cards.AsNoTracking()
@@ -138,6 +139,12 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
         if (deckId is int selectedDeckId)
         {
             cards = cards.Where(card => card.DeckId == selectedDeckId);
+        }
+
+        if (tag is not null)
+        {
+            var pattern = "," + tag + ",";
+            cards = cards.Where(card => card.Tags != null && ("," + card.Tags + ",").Contains(pattern));
         }
 
         return cards;

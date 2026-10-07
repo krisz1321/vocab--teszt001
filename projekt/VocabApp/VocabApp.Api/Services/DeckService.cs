@@ -215,7 +215,8 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Term = card.Term,
                 Definition = card.Definition,
                 Example = card.Example,
-                TargetMeanings = card.TargetMeanings
+                TargetMeanings = card.TargetMeanings,
+                Tags = card.Tags
             })
             .ToListAsync(cancellationToken);
 
@@ -251,6 +252,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Definition = card.Definition,
                 Example = card.Example,
                 TargetMeanings = card.TargetMeanings,
+                Tags = card.Tags,
                 Progress = new CardProgress
                 {
                     EaseFactor = 2.5f,
@@ -284,13 +286,13 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             .AsNoTracking()
             .Where(card => card.DeckId == deckId)
             .OrderBy(card => card.Id)
-            .Select(card => new { card.Term, card.Definition, card.Example, card.TargetMeanings })
+            .Select(card => new { card.Term, card.Definition, card.Example, card.TargetMeanings, card.Tags })
             .ToListAsync(cancellationToken);
 
         return DeckCardResult<DeckCsvFile>.Success(new DeckCsvFile
         {
             FileName = DeckCsv.ToFileName(deck.Name),
-            Content = DeckCsv.Write(cards.Select(card => new DeckCsvRow(card.Term, card.Definition, card.Example, card.TargetMeanings)))
+            Content = DeckCsv.Write(cards.Select(card => new DeckCsvRow(card.Term, card.Definition, card.Example, card.TargetMeanings, card.Tags)))
         });
     }
 
@@ -329,6 +331,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Definition = row.Definition,
                 Example = row.Example,
                 TargetMeanings = row.TargetMeanings,
+                Tags = row.Tags,
                 Progress = new CardProgress
                 {
                     EaseFactor = 2.5f,

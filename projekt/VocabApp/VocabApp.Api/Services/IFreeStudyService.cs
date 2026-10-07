@@ -8,6 +8,7 @@ public interface IFreeStudyService
         int userId,
         int? deckId,
         string? focus,
+        string? tag,
         CancellationToken cancellationToken = default);
 
     Task<DeckCardResult<bool>> MarkAsync(

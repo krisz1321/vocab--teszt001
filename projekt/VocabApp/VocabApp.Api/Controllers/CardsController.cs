@@ -24,6 +24,34 @@ public sealed class CardsController(ICardService cardService) : ControllerBase
         return Ok(await cardService.GetLearnedAsync(userId.Value, cancellationToken));
     }
 
+    [HttpGet("search")]
+    public async Task<ActionResult<IReadOnlyList<CardSearchResultDto>>> Search(
+        [FromQuery] string? q,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return Ok(await cardService.SearchAsync(userId.Value, q, cancellationToken));
+    }
+
+    [HttpGet("tags")]
+    public async Task<ActionResult<IReadOnlyList<CardTagCountDto>>> GetTags(
+        [FromQuery] int? deckId,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return Ok(await cardService.GetTagsAsync(userId.Value, deckId, cancellationToken));
+    }
+
     [HttpGet("by-deck/{deckId:int}")]
     public async Task<ActionResult<IReadOnlyList<CardDto>>> GetByDeck(int deckId, CancellationToken cancellationToken)
     {

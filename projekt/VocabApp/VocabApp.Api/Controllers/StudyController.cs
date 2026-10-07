@@ -69,6 +69,7 @@ public sealed class StudyController(IStudyService studyService) : ControllerBase
     public async Task<ActionResult<StudyNextDto>> GetNext(
         [FromQuery] int? deckId,
         [FromQuery] string? focus,
+        [FromQuery] string? tag,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
@@ -77,7 +78,7 @@ public sealed class StudyController(IStudyService studyService) : ControllerBase
             return Unauthorized();
         }
 
-        var result = await studyService.GetNextCardAsync(userId.Value, deckId, focus, cancellationToken);
+        var result = await studyService.GetNextCardAsync(userId.Value, deckId, focus, tag, cancellationToken);
         if (result.Value is not null)
         {
             return Ok(result.Value);

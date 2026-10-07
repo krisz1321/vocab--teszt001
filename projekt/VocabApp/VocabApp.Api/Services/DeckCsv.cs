@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.RegularExpressions;
+using VocabApp.Api.Models;
 
 namespace VocabApp.Api.Services;
 
@@ -10,18 +11,19 @@ public sealed class DeckCsvFile
     public required string Content { get; init; }
 }
 
-public readonly record struct DeckCsvRow(string Term, string Definition, string? Example, string? TargetMeanings);
+public readonly record struct DeckCsvRow(string Term, string Definition, string? Example, string? TargetMeanings, string? Tags);
 
 public static partial class DeckCsv
 {
     public const string Header = "term,definition,example";
     public const string HeaderWithTargetMeanings = "term,definition,example,targetMeanings";
+    public const string HeaderWithTags = "term,definition,example,targetMeanings,tags";
     public const int MaxDataRows = 200;
     private const int MaxTermLength = 100;
     private const int MaxTextLength = 500;
     private const int MaxTargetMeaningsLength = 200;
     private const string HeaderError =
-        "A CSV fejléce term,definition,example vagy term,definition,example,targetMeanings legyen.";
+        "A CSV fejléce term,definition,example, term,definition,example,targetMeanings vagy term,definition,example,targetMeanings,tags legyen.";
 
     public static string ToFileName(string deckName)
     {
@@ -36,7 +38,7 @@ public static partial class DeckCsv
 
     public static string Write(IEnumerable<DeckCsvRow> rows)
     {
-        var builder = new StringBuilder(HeaderWithTargetMeanings);
+        var builder = new StringBuilder(HeaderWithTags);
         foreach (var row in rows)
         {
             builder.Append('\n');
@@ -47,6 +49,8 @@ public static partial class DeckCsv
             builder.Append(Quote(row.Example));
             builder.Append(',');
             builder.Append(Quote(row.TargetMeanings));
+            builder.Append(',');
+            builder.Append(Quote(row.Tags));
         }
 
         return builder.ToString();
@@ -77,8 +81,14 @@ public static partial class DeckCsv
             return false;
         }
 
-        var includeTargetMeanings = contentRecords[0] == HeaderWithTargetMeanings;
-        if (contentRecords[0] != Header && !includeTargetMeanings)
+        var columnCount = contentRecords[0] switch
+        {
+            Header => 3,
+            HeaderWithTargetMeanings => 4,
+            HeaderWithTags => 5,
+            _ => 0
+        };
+        if (columnCount == 0)
         {
             error = HeaderError;
             return false;
@@ -94,7 +104,7 @@ public static partial class DeckCsv
         // A hibás sor nem buktatja meg az egész importot: kimarad, és a hibája a skipped listába kerül.
         for (var index = 0; index < dataRecords.Count; index++)
         {
-            if (!TryParseRow(dataRecords[index], index + 1, includeTargetMeanings, out var row, out var rowError))
+            if (!TryParseRow(dataRecords[index], index + 1, columnCount, out var row, out var rowError))
             {
                 skipped.Add(rowError ?? $"CSV {index + 1}. sor: érvénytelen sor.");
                 continue;
@@ -195,7 +205,7 @@ public static partial class DeckCsv
     private static bool TryParseRow(
         string record,
         int rowNumber,
-        bool includeTargetMeanings,
+        int columnCount,
         out DeckCsvRow row,
         out string? error)
     {
@@ -206,12 +216,14 @@ public static partial class DeckCsv
             return false;
         }
 
-        var expectedCount = includeTargetMeanings ? 4 : 3;
-        if (fields.Count != expectedCount)
+        if (fields.Count != columnCount)
         {
-            error = includeTargetMeanings
-                ? $"CSV {rowNumber}. sor: négy oszlop kell: term, definition, example, targetMeanings."
-                : $"CSV {rowNumber}. sor: három oszlop kell: term, definition, example.";
+            error = columnCount switch
+            {
+                3 => $"CSV {rowNumber}. sor: három oszlop kell: term, definition, example.",
+                4 => $"CSV {rowNumber}. sor: négy oszlop kell: term, definition, example, targetMeanings.",
+                _ => $"CSV {rowNumber}. sor: öt oszlop kell: term, definition, example, targetMeanings, tags."
+            };
             return false;
         }
 
@@ -249,7 +261,7 @@ public static partial class DeckCsv
         }
 
         string? targetMeanings = null;
-        if (includeTargetMeanings)
+        if (columnCount >= 4)
         {
             var meanings = RestoreFormula(fields[3].Trim());
             if (meanings.Length > MaxTargetMeaningsLength)
@@ -261,7 +273,15 @@ public static partial class DeckCsv
             targetMeanings = meanings.Length == 0 ? null : meanings;
         }
 
-        row = new DeckCsvRow(term, definition, example.Length == 0 ? null : example, targetMeanings);
+        string? tags = null;
+        if (columnCount == 5
+            && !CardTags.TryNormalize(RestoreFormula(fields[4].Trim()), out tags, out var tagsError))
+        {
+            error = $"CSV {rowNumber}. sor: {tagsError}";
+            return false;
+        }
+
+        row = new DeckCsvRow(term, definition, example.Length == 0 ? null : example, targetMeanings, tags);
         error = null;
         return true;
     }

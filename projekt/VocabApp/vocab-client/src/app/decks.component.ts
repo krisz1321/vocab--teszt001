@@ -30,8 +30,22 @@ interface VocabCard {
   definition: string;
   example: string | null;
   targetMeanings: string | null;
+  tags: string | null;
   isLearned: boolean;
   markedKnown: boolean;
+  suspension: CardSuspension;
+  isLeech: boolean;
+}
+
+interface CardSearchResult {
+  id: number;
+  deckId: number;
+  deckName: string;
+  term: string;
+  definition: string;
+  targetMeanings: string | null;
+  tags: string | null;
+  isLearned: boolean;
   suspension: CardSuspension;
   isLeech: boolean;
 }
@@ -117,6 +131,54 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                 </button>
               </div>
 
+              @if (decks.length > 0) {
+                <input
+                  class="form-control form-control-sm mb-2"
+                  type="search"
+                  name="globalSearch"
+                  placeholder="Keresés minden pakliban…"
+                  aria-label="Keresés minden pakliban"
+                  autocomplete="off"
+                  [(ngModel)]="globalQuery"
+                  (ngModelChange)="onGlobalSearchChange()">
+                @if (globalActive) {
+                  @if (isGlobalSearching && globalResults.length === 0) {
+                    <div class="text-center py-3" role="status"><div class="spinner-border spinner-border-sm text-primary"></div></div>
+                  } @else if (globalResults.length === 0) {
+                    <p class="text-body-secondary small mb-2">Nincs találat.</p>
+                  } @else {
+                    <ul class="deck-list global-results mb-2" aria-label="Keresési találatok">
+                      @for (result of globalResults; track result.id) {
+                        <li>
+                          <button type="button" class="deck-item" (click)="openSearchResult(result)">
+                            <span class="d-flex justify-content-between align-items-start gap-2">
+                              <span class="deck-name text-break">{{ result.term }}</span>
+                              <span class="chip" [attr.title]="'Pakli: ' + result.deckName">{{ result.deckName }}</span>
+                            </span>
+                            <span class="deck-meta text-break">{{ result.definition }}</span>
+                            @if (result.isLeech || result.suspension !== 'none' || result.tags) {
+                              <span class="d-flex flex-wrap gap-1 mt-1">
+                                @if (result.isLeech) {
+                                  <span class="chip chip-leech ms-0">Nehéz szó</span>
+                                }
+                                @if (result.suspension === 'suspended') {
+                                  <span class="chip chip-paused ms-0">Felfüggesztve</span>
+                                } @else if (result.suspension === 'buried') {
+                                  <span class="chip chip-paused ms-0">Elnapolva holnapig</span>
+                                }
+                                @for (tag of tagList(result.tags); track tag) {
+                                  <span class="chip">{{ tag }}</span>
+                                }
+                              </span>
+                            }
+                          </button>
+                        </li>
+                      }
+                    </ul>
+                  }
+                }
+              }
+
               @if (creating) {
                 <form class="create-box" (ngSubmit)="createDeck()">
                   <label class="form-label small mb-1" for="deckName">A pakli neve</label>
@@ -156,7 +218,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     </div>
                   </div>
                 }
-                <ul class="deck-list">
+                <ul class="deck-list" [hidden]="globalActive">
                   @for (deck of decks; track deck.id) {
                     <li>
                       <button
@@ -404,6 +466,19 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             (keydown.control.enter)="saveCard()"
                             [disabled]="isSavingCard"></textarea>
                         </div>
+                        <div class="col-12">
+                          <label class="form-label mb-1" for="card-tags">Címkék (nem kötelező)</label>
+                          <input
+                            id="card-tags"
+                            name="tags"
+                            class="form-control"
+                            maxlength="150"
+                            autocomplete="off"
+                            placeholder="ige, b2, utazás"
+                            [(ngModel)]="tags"
+                            [disabled]="isSavingCard">
+                          <div class="form-text">Legfeljebb {{ maxTags }} címke, vesszővel elválasztva, egyenként legfeljebb {{ maxTagLength }} karakter.</div>
+                        </div>
                       </div>
                       @if (cardError) {
                         <div class="alert alert-danger py-2 mt-3 mb-0" role="alert">{{ cardError }}</div>
@@ -451,8 +526,16 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         <button type="button" class="dseg-btn" [class.active]="cardFilter === 'suspended'" (click)="cardFilter = 'suspended'">Szüneteltetett</button>
                         <button type="button" class="dseg-btn" [class.active]="cardFilter === 'leech'" (click)="cardFilter = 'leech'">Nehéz</button>
                       </div>
+                      @if (deckTags.length > 0) {
+                        <select class="form-select tag-select" name="tagFilter" aria-label="Szűrés címkére" [(ngModel)]="tagFilter">
+                          <option value="">Minden címke</option>
+                          @for (tag of deckTags; track tag) {
+                            <option [value]="tag">{{ tag }}</option>
+                          }
+                        </select>
+                      }
                     </div>
-                    @if (cardSearch.trim() || cardFilter !== 'all') {
+                    @if (cardSearch.trim() || cardFilter !== 'all' || activeTagFilter) {
                       <div class="text-body-secondary small mb-2">{{ visibleCards.length }} / {{ cards.length }} kártya</div>
                     }
                     @if (visibleCards.length === 0) {
@@ -482,6 +565,13 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                               }
                               @if (card.example) {
                                 <div class="card-ex">„{{ card.example }}”</div>
+                              }
+                              @if (card.tags) {
+                                <div class="card-tags">
+                                  @for (tag of tagList(card.tags); track tag) {
+                                    <button type="button" class="chip chip-tag" [class.active]="tagFilter === tag" (click)="tagFilter = tagFilter === tag ? '' : tag" [attr.title]="'Szűrés erre a címkére: ' + tag">{{ tag }}</button>
+                                  }
+                                </div>
                               }
                             </div>
                             <div class="card-actions">
@@ -628,7 +718,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     <section class="setting-block">
                       <h3 class="h6">Import és export</h3>
                       <p class="text-body-secondary small mb-2">
-                        CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code> oszloppal), legfeljebb 200 sorral. A hibás sorok kimaradnak, a többi bekerül.
+                        CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code> és <code>,tags</code> oszloppal), legfeljebb 200 sorral. A hibás sorok kimaradnak, a többi bekerül.
                       </p>
                       <div class="d-flex flex-wrap gap-2">
                         <label class="btn btn-outline-primary mb-0" [class.disabled]="isImporting">
@@ -797,6 +887,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
     .deck-list-panel { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
     .panel-title { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--app-muted); font-weight: 700; }
     .create-box { padding: .75rem; margin-bottom: .75rem; border: 1px dashed var(--app-border); border-radius: var(--app-radius-sm); background: var(--app-surface-2); }
+    .deck-list[hidden] { display: none; }
     .deck-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
     .deck-item { width: 100%; display: flex; flex-direction: column; gap: .2rem; text-align: left; padding: .65rem .8rem; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); background: transparent; color: var(--app-text); cursor: pointer; transition: border-color .15s, background .15s; }
     .deck-item:hover { border-color: var(--app-primary); background: var(--app-surface-2); }
@@ -835,6 +926,10 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
     .card-term { font-weight: 700; }
     .card-def { margin-top: .1rem; }
     .card-tm { margin-top: .15rem; color: var(--app-primary); font-weight: 600; font-size: .92rem; }
+    .card-tags { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .3rem; }
+    .chip-tag { background: transparent; cursor: pointer; font-weight: 500; }
+    .chip-tag:hover, .chip-tag.active { color: var(--app-primary); border-color: var(--app-primary); }
+    .tag-select { width: auto; max-width: 11rem; }
     .card-ex { margin-top: .15rem; color: var(--app-muted); font-style: italic; font-size: .9rem; }
     .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .1rem .75rem; margin-top: .5rem; font-size: .8rem; color: var(--app-muted); }
     .card-actions { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
@@ -891,6 +986,11 @@ export class DecksComponent implements OnInit, OnDestroy {
   learnedDetailed = true;
   learnedSearch = '';
   cardSearch = '';
+  globalQuery = '';
+  globalResults: CardSearchResult[] = [];
+  isGlobalSearching = false;
+  private globalSearchTimer: ReturnType<typeof setTimeout> | null = null;
+  private globalSearchGeneration = 0;
   cardFilter: CardFilter = 'all';
   previewCards: VocabCard[] = [];
   previewDeckId: number | null = null;
@@ -902,6 +1002,10 @@ export class DecksComponent implements OnInit, OnDestroy {
   definition = '';
   example = '';
   targetMeanings = '';
+  tags = '';
+  tagFilter = '';
+  readonly maxTags = 5;
+  readonly maxTagLength = 24;
   editingCardId: number | null = null;
   cardEditorOpen = false;
   errorMessage: string | null = null;
@@ -951,9 +1055,33 @@ export class DecksComponent implements OnInit, OnDestroy {
     return this.isGeneratingDefinition || this.isGeneratingTargetMeaning || this.isAutoFilling;
   }
 
+  tagList(tags: string | null): string[] {
+    return tags ? tags.split(',').filter(tag => tag.length > 0) : [];
+  }
+
+  get deckTags(): string[] {
+    const tags = new Set<string>();
+    for (const card of this.cards) {
+      for (const tag of this.tagList(card.tags)) {
+        tags.add(tag);
+      }
+    }
+
+    return [...tags].sort((a, b) => a.localeCompare(b, 'hu'));
+  }
+
+  get activeTagFilter(): string {
+    return this.deckTags.includes(this.tagFilter) ? this.tagFilter : '';
+  }
+
   get visibleCards(): VocabCard[] {
     const query = this.cardSearch.trim().toLowerCase();
+    const tagFilter = this.activeTagFilter;
     return this.cards.filter(card => {
+      if (tagFilter && !this.tagList(card.tags).includes(tagFilter)) {
+        return false;
+      }
+
       if (this.cardFilter === 'learned' && !card.isLearned) {
         return false;
       }
@@ -974,7 +1102,7 @@ export class DecksComponent implements OnInit, OnDestroy {
         return true;
       }
 
-      return [card.term, card.definition, card.targetMeanings ?? '', card.example ?? '']
+      return [card.term, card.definition, card.targetMeanings ?? '', card.example ?? '', card.tags ?? '']
         .some(text => text.toLowerCase().includes(query));
     });
   }
@@ -1014,6 +1142,10 @@ export class DecksComponent implements OnInit, OnDestroy {
 
     if (this.publicSearchTimer) {
       clearTimeout(this.publicSearchTimer);
+    }
+
+    if (this.globalSearchTimer) {
+      clearTimeout(this.globalSearchTimer);
     }
   }
 
@@ -1107,6 +1239,54 @@ export class DecksComponent implements OnInit, OnDestroy {
     });
   }
 
+  get globalActive(): boolean {
+    return this.globalQuery.trim().length >= 2;
+  }
+
+  onGlobalSearchChange(): void {
+    if (this.globalSearchTimer) {
+      clearTimeout(this.globalSearchTimer);
+      this.globalSearchTimer = null;
+    }
+
+    const generation = ++this.globalSearchGeneration;
+    if (!this.globalActive) {
+      this.globalResults = [];
+      this.isGlobalSearching = false;
+      return;
+    }
+
+    this.isGlobalSearching = true;
+    this.globalSearchTimer = setTimeout(() => {
+      this.http.get<CardSearchResult[]>('/api/cards/search', { params: { q: this.globalQuery.trim() } }).pipe(
+        finalize(() => {
+          if (generation === this.globalSearchGeneration) {
+            this.isGlobalSearching = false;
+          }
+        }),
+      ).subscribe({
+        next: (results) => {
+          if (generation === this.globalSearchGeneration) {
+            this.globalResults = results;
+          }
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation === this.globalSearchGeneration) {
+            this.errorMessage = this.readError(error, 'A keresés sikertelen.');
+          }
+        },
+      });
+    }, 300);
+  }
+
+  openSearchResult(result: CardSearchResult): void {
+    this.selectDeck(result.deckId, true);
+    this.detailTab = 'cards';
+    this.cardFilter = 'all';
+    this.tagFilter = '';
+    this.cardSearch = result.term;
+  }
+
   selectDeck(deckId: number, openDetail = false): void {
     if (openDetail) {
       this.mobileDetailOpen = true;
@@ -1121,6 +1301,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     this.detailTab = 'cards';
     this.cardSearch = '';
     this.cardFilter = 'all';
+    this.tagFilter = '';
     this.importMessage = null;
     this.importSkipped = [];
     this.renameDraft = this.decks.find(deck => deck.id === deckId)?.name ?? '';
@@ -1301,6 +1482,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     this.definition = '';
     this.example = '';
     this.targetMeanings = '';
+    this.tags = '';
     this.cardError = null;
     this.cardEditorOpen = true;
     this.focusTerm();
@@ -1312,6 +1494,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     this.definition = card.definition;
     this.example = card.example ?? '';
     this.targetMeanings = card.targetMeanings ?? '';
+    this.tags = this.tagList(card.tags).join(', ');
     this.errorMessage = null;
     this.cardError = null;
     this.cardEditorOpen = true;
@@ -1326,6 +1509,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     this.definition = '';
     this.example = '';
     this.targetMeanings = '';
+    this.tags = '';
   }
 
   private focusTerm(): void {
@@ -1345,7 +1529,8 @@ export class DecksComponent implements OnInit, OnDestroy {
     const definition = this.definition.trim();
     const example = this.example.trim();
     const targetMeanings = this.targetMeanings.trim();
-    const problem = this.cardFieldProblem(term, definition, example, targetMeanings);
+    const tags = this.tags.trim();
+    const problem = this.cardFieldProblem(term, definition, example, targetMeanings, tags);
     if (problem) {
       this.cardError = problem;
       return;
@@ -1364,16 +1549,16 @@ export class DecksComponent implements OnInit, OnDestroy {
           `A pakliban már szerepel a(z) „${term}” szó. Biztosan felveszed még egyszer?`,
           'Felvétel mégis',
           false,
-          () => this.performSaveCard(term, definition, example, targetMeanings),
+          () => this.performSaveCard(term, definition, example, targetMeanings, tags),
         );
         return;
       }
     }
 
-    this.performSaveCard(term, definition, example, targetMeanings);
+    this.performSaveCard(term, definition, example, targetMeanings, tags);
   }
 
-  private cardFieldProblem(term: string, definition: string, example: string, targetMeanings: string): string | null {
+  private cardFieldProblem(term: string, definition: string, example: string, targetMeanings: string, tags: string): string | null {
     if (!term) {
       return 'A szó megadása kötelező.';
     }
@@ -1398,10 +1583,19 @@ export class DecksComponent implements OnInit, OnDestroy {
       return `A példamondat legfeljebb 500 karakter lehet (most ${example.length}).`;
     }
 
+    const tagParts = [...new Set(tags.split(/[,;]/).map(tag => tag.trim().toLowerCase()).filter(tag => tag.length > 0))];
+    if (tagParts.length > this.maxTags) {
+      return `Legfeljebb ${this.maxTags} címke adható meg (most ${tagParts.length}).`;
+    }
+
+    if (tagParts.some(tag => tag.length > this.maxTagLength)) {
+      return `Egy címke legfeljebb ${this.maxTagLength} karakter lehet.`;
+    }
+
     return null;
   }
 
-  private performSaveCard(term: string, definition: string, example: string, targetMeanings: string): void {
+  private performSaveCard(term: string, definition: string, example: string, targetMeanings: string, tags: string): void {
     if (this.selectedDeckId === null) {
       return;
     }
@@ -1410,7 +1604,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     this.cardError = null;
     this.isSavingCard = true;
     const wasEditing = this.editingCardId !== null;
-    const body = { term, definition, example: example || null, targetMeanings: targetMeanings || null };
+    const body = { term, definition, example: example || null, targetMeanings: targetMeanings || null, tags: tags || null };
     const request = this.editingCardId === null
       ? this.http.post<VocabCard>('/api/cards', { deckId: this.selectedDeckId, ...body })
       : this.http.put<VocabCard>(`/api/cards/${this.editingCardId}`, body);
@@ -1433,6 +1627,7 @@ export class DecksComponent implements OnInit, OnDestroy {
           this.definition = '';
           this.example = '';
           this.targetMeanings = '';
+          this.tags = '';
           this.focusTerm();
         }
 
@@ -1696,9 +1891,9 @@ export class DecksComponent implements OnInit, OnDestroy {
   }
 
   downloadCsvTemplate(): void {
-    const sample = 'term,definition,example,targetMeanings\n'
-      + '"serendipity","The occurrence of pleasant events by chance.","It was pure serendipity.","szerencsés véletlen"\n'
-      + '"resilient","Able to recover quickly from difficulty.","","rugalmas, ellenálló"\n';
+    const sample = 'term,definition,example,targetMeanings,tags\n'
+      + '"serendipity","The occurrence of pleasant events by chance.","It was pure serendipity.","szerencsés véletlen","főnév, b2"\n'
+      + '"resilient","Able to recover quickly from difficulty.","","rugalmas, ellenálló","melléknév"\n';
     const url = URL.createObjectURL(new Blob(['﻿' + sample], { type: 'text/csv;charset=utf-8' }));
     const anchor = document.createElement('a');
     anchor.href = url;
