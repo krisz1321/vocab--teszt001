@@ -76,6 +76,18 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
         return ToActionResult(await deckService.ShareAsync(userId.Value, id, request, cancellationToken));
     }
 
+    [HttpPost("{id:int}/share/update")]
+    public async Task<ActionResult<DeckDto>> PublishUpdate(int id, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await deckService.PublishUpdateAsync(userId.Value, id, cancellationToken));
+    }
+
     [HttpPut("{id:int}/example-level")]
     public async Task<ActionResult<DeckDto>> UpdateExampleLevel(
         int id,
@@ -94,6 +106,9 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
     [HttpGet("public")]
     public async Task<ActionResult<IReadOnlyList<PublicDeckDto>>> GetPublic(
         [FromQuery] string? q,
+        [FromQuery] string? owner,
+        [FromQuery] string? sort,
+        [FromQuery] bool desc,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
@@ -102,7 +117,7 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
             return Unauthorized();
         }
 
-        return Ok(await deckService.GetPublicAsync(userId.Value, q, cancellationToken));
+        return Ok(await deckService.GetPublicAsync(userId.Value, q, owner, sort, desc, cancellationToken));
     }
 
     [HttpGet("public/{id:int}/cards")]
@@ -117,7 +132,7 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
         return ToActionResult(await deckService.GetPublicCardsAsync(userId.Value, id, cancellationToken));
     }
 
-    [HttpPost("{id:int}/copy")]
+    [HttpPost("public/{id:int}/copy")]
     public async Task<ActionResult<DeckDto>> Copy(int id, CancellationToken cancellationToken)
     {
         var userId = GetUserId();

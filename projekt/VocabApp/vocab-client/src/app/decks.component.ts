@@ -4,24 +4,47 @@ import { Component, EventEmitter, HostListener, OnDestroy, OnInit, Output, injec
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 
+interface SharedInfo {
+  version: number;
+  sharedAt: string;
+  updatedAt: string;
+  saveCount: number;
+  isActive: boolean;
+  hasUnpublishedChanges: boolean;
+}
+
 interface Deck {
   id: number;
   name: string;
+  description: string | null;
   cardCount: number;
   learnedCount: number;
   dueCount: number;
   isPublic: boolean;
   exampleLevel: string | null;
+  share: SharedInfo | null;
+  sourceSharedDeckId: number | null;
+  sourceVersion: number | null;
+  latestSharedVersion: number | null;
+  updateAvailable: boolean;
 }
 
 interface PublicDeck {
   id: number;
   name: string;
+  description: string | null;
   cardCount: number;
-  ownerName: string;
+  ownerUsername: string;
   exampleLevel: string | null;
   levelIsAutomatic: boolean;
+  version: number;
+  sharedAt: string;
+  updatedAt: string;
+  saveCount: number;
+  alreadySaved: boolean;
 }
+
+type PublicSort = 'name' | 'saves' | 'sharedAt' | 'updatedAt' | 'cards' | 'version';
 
 interface VocabCard {
   id: number;
@@ -191,6 +214,16 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     autocomplete="off"
                     [(ngModel)]="newDeckName"
                     [disabled]="isSavingDeck">
+                  <label class="form-label small mb-1 mt-2" for="deckDescription">Leírás (nem kötelező)</label>
+                  <textarea
+                    id="deckDescription"
+                    name="deckDescription"
+                    class="form-control"
+                    rows="2"
+                    maxlength="500"
+                    placeholder="Miről szól a pakli? Mások ebben is kereshetnek."
+                    [(ngModel)]="newDeckDescription"
+                    [disabled]="isSavingDeck"></textarea>
                   <div class="d-flex gap-2 mt-2">
                     <button type="submit" class="btn btn-primary btn-sm" [disabled]="isSavingDeck || !newDeckName.trim()">
                       @if (isSavingDeck) {
@@ -229,9 +262,17 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         (click)="selectDeck(deck.id, true)">
                         <span class="d-flex justify-content-between align-items-start gap-2">
                           <span class="deck-name text-break">{{ deck.name }}</span>
-                          @if (deck.isPublic) {
-                            <span class="chip chip-shared" title="Ez a pakli megosztva van">Megosztva</span>
-                          }
+                          <span class="d-flex flex-wrap justify-content-end gap-1">
+                            @if (deck.isPublic && deck.share; as share) {
+                              <span class="chip chip-shared" title="Ez a pakli megosztva van">Megosztva · v{{ share.version }}</span>
+                              @if (share.hasUnpublishedChanges) {
+                                <span class="chip chip-pending" title="A pakli a legutóbbi megosztás óta módosult. Frissítsd a megosztást a Beállítások és megosztás fülön.">Frissítésre vár</span>
+                              }
+                            }
+                            @if (deck.updateAvailable) {
+                              <span class="chip chip-pending" [attr.title]="'A készítő újabb verziót tett közzé (v' + deck.latestSharedVersion + ')'">Új verzió: v{{ deck.latestSharedVersion }}</span>
+                            }
+                          </span>
                         </span>
                         <span class="deck-meta">
                           {{ deck.cardCount }} kártya
@@ -348,12 +389,21 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                   <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
                     <div class="min-w-0">
                       <h2 class="h4 text-break mb-1">{{ deck.name }}</h2>
+                      @if (deck.description) {
+                        <p class="deck-description text-break mb-1">{{ deck.description }}</p>
+                      }
                       <div class="text-body-secondary small d-flex flex-wrap align-items-center gap-2">
                         <span>{{ deck.cardCount }} kártya</span>
                         <span>· {{ deck.learnedCount }} megtanult</span>
                         <span>· {{ deck.dueCount }} esedékes</span>
-                        @if (deck.isPublic) {
-                          <span class="chip chip-shared">Megosztva · {{ deck.exampleLevel ?? accountLevel }}</span>
+                        @if (deck.isPublic && deck.share; as share) {
+                          <span class="chip chip-shared">Megosztva · v{{ share.version }} · {{ deck.exampleLevel ?? accountLevel }}</span>
+                          @if (share.hasUnpublishedChanges) {
+                            <span class="chip chip-pending">Frissítésre vár</span>
+                          }
+                        }
+                        @if (deck.updateAvailable) {
+                          <span class="chip chip-pending">Új verzió: v{{ deck.latestSharedVersion }}</span>
                         }
                       </div>
                     </div>
@@ -659,6 +709,31 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     </section>
 
                     <section class="setting-block">
+                      <h3 class="h6">Leírás</h3>
+                      <p class="text-body-secondary small mb-2">Rövid leírás a paklihoz. Megosztáskor a közös paklik között is látszik, és a keresés is figyelembe veszi.</p>
+                      <form class="d-flex flex-column gap-2" (ngSubmit)="saveDescription(deck)">
+                        <textarea
+                          id="deck-description"
+                          name="descriptionDraft"
+                          class="form-control"
+                          rows="3"
+                          maxlength="500"
+                          aria-label="Pakli leírása"
+                          [(ngModel)]="descriptionDraft"
+                          [disabled]="isSavingDescription"></textarea>
+                        <div class="d-flex align-items-center gap-2">
+                          <button type="submit" class="btn btn-primary" [disabled]="isSavingDescription || descriptionDraft.trim() === (deck.description ?? '')">
+                            @if (isSavingDescription) {
+                              <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Leírás mentése
+                          </button>
+                          <span class="text-body-secondary small">{{ descriptionDraft.length }}/500</span>
+                        </div>
+                      </form>
+                    </section>
+
+                    <section class="setting-block">
                       <h3 class="h6">Példamondatok szintje</h3>
                       <p class="text-body-secondary small mb-2">Az MI ilyen nehézségű példamondatokat és definíciókat készít ehhez a paklihoz. Ha nem választasz, a fiókod szintje ({{ accountLevel }}) érvényes.</p>
                       <div class="d-flex flex-wrap gap-2 align-items-center">
@@ -765,7 +840,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                 class="form-control"
                 type="search"
                 name="publicQuery"
-                placeholder="Keresés a közös paklik nevében…"
+                placeholder="Keresés a nevekben és leírásokban…"
                 aria-label="Keresés a közös paklik között"
                 [(ngModel)]="publicQuery"
                 (ngModelChange)="onPublicQueryChange()">
@@ -798,6 +873,9 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         </span>
                       }
                     </div>
+                    @if (deck.description) {
+                      <p class="deck-description small text-break mb-2">{{ deck.description }}</p>
+                    }
                     <div class="text-body-secondary small mb-3">
                       {{ deck.cardCount }} kártya · készítette: {{ deck.ownerName || 'névtelen felhasználó' }}
                       @if (hasDeckNamed(deck.name)) {
@@ -942,6 +1020,8 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
     .setting-block { padding: 1rem; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); }
     .danger-zone { border-color: color-mix(in srgb, var(--app-danger) 45%, var(--app-border)); }
 
+    .deck-description { color: var(--app-muted); white-space: pre-line; }
+    .public-card .deck-description { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
     .empty-box { padding: 1.25rem; border: 1px dashed var(--app-border); border-radius: var(--app-radius-sm); background: var(--app-surface-2); }
     .empty-box-lg { padding: 2.5rem 1.5rem; text-align: center; }
 
@@ -996,7 +1076,9 @@ export class DecksComponent implements OnInit, OnDestroy {
   previewDeckId: number | null = null;
   selectedDeckId: number | null = null;
   newDeckName = '';
+  newDeckDescription = '';
   renameDraft = '';
+  descriptionDraft = '';
   publicQuery = '';
   term = '';
   definition = '';
@@ -1020,6 +1102,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   isLoadingPreview = false;
   isSavingDeck = false;
   isRenaming = false;
+  isSavingDescription = false;
   isSavingCard = false;
   isGeneratingDefinition = false;
   isGeneratingTargetMeaning = false;
@@ -1201,6 +1284,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   toggleCreate(): void {
     this.creating = !this.creating;
     this.newDeckName = '';
+    this.newDeckDescription = '';
     if (this.creating) {
       setTimeout(() => document.getElementById('deckName')?.focus(), 50);
     }
@@ -1220,13 +1304,14 @@ export class DecksComponent implements OnInit, OnDestroy {
 
     this.errorMessage = null;
     this.isSavingDeck = true;
-    this.http.post<Deck>('/api/decks', { name }).pipe(
+    this.http.post<Deck>('/api/decks', { name, description: this.newDeckDescription.trim() || null }).pipe(
       finalize(() => {
         this.isSavingDeck = false;
       }),
     ).subscribe({
       next: (deck) => {
         this.newDeckName = '';
+        this.newDeckDescription = '';
         this.creating = false;
         this.decks = [...this.decks, deck].sort((left, right) => left.id - right.id);
         this.selectDeck(deck.id, true);
@@ -1304,7 +1389,9 @@ export class DecksComponent implements OnInit, OnDestroy {
     this.tagFilter = '';
     this.importMessage = null;
     this.importSkipped = [];
-    this.renameDraft = this.decks.find(deck => deck.id === deckId)?.name ?? '';
+    const selected = this.decks.find(deck => deck.id === deckId);
+    this.renameDraft = selected?.name ?? '';
+    this.descriptionDraft = selected?.description ?? '';
     this.closeEditor();
     this.loadCards();
     this.rememberSelection(deckId);
@@ -1337,9 +1424,35 @@ export class DecksComponent implements OnInit, OnDestroy {
     const deck = this.selectedDeck;
     if (deck) {
       this.renameDraft = deck.name;
+      this.descriptionDraft = deck.description ?? '';
     }
 
     this.detailTab = 'settings';
+  }
+
+  saveDescription(deck: Deck): void {
+    const description = this.descriptionDraft.trim();
+    if (description.length > 500) {
+      this.errorMessage = 'A pakli leírása legfeljebb 500 karakter lehet.';
+      return;
+    }
+
+    this.errorMessage = null;
+    this.isSavingDescription = true;
+    this.http.put<Deck>(`/api/decks/${deck.id}/description`, { description: description || null }).pipe(
+      finalize(() => {
+        this.isSavingDescription = false;
+      }),
+    ).subscribe({
+      next: (updated) => {
+        this.decks = this.decks.map(item => item.id === updated.id ? updated : item);
+        this.descriptionDraft = updated.description ?? '';
+        this.toast('A leírás mentve.');
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage = this.readError(error, 'A leírás mentése sikertelen.');
+      },
+    });
   }
 
   renameDeck(deck: Deck): void {

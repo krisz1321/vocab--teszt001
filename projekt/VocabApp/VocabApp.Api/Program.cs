@@ -143,6 +143,7 @@ public class Program
         {
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             await dbContext.Database.MigrateAsync();
+            await SharedDeckSnapshot.BackfillHashesAsync(dbContext);
             var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
             await BaseUserSeed.EnsureAsync(dbContext, passwordHasher);
         }

@@ -25,6 +25,7 @@ interface ProblemDetails {
 
 interface ProfileResponse {
   email: string;
+  username: string;
   displayName: string | null;
   hasAvatar: boolean;
   studyDayStreak: number;
@@ -89,6 +90,22 @@ interface AiModelOption {
                   [(ngModel)]="email"
                   [disabled]="isSubmitting">
               </div>
+              @if (mode === 'register') {
+                <div class="mb-3">
+                  <label class="form-label" for="registerUsername">Felhasználónév</label>
+                  <input
+                    id="registerUsername"
+                    name="registerUsername"
+                    type="text"
+                    class="form-control form-control-lg"
+                    autocomplete="nickname"
+                    maxlength="30"
+                    placeholder="3–30 karakter: betű, szám, . - _"
+                    [(ngModel)]="registerUsername"
+                    [disabled]="isSubmitting">
+                  <div class="form-text">Ez látszik a megosztott paklijaid mellett.</div>
+                </div>
+              }
               <div class="mb-3">
                 <label class="form-label" for="password">Jelszó</label>
                 <input
@@ -423,6 +440,22 @@ interface AiModelOption {
               </button>
             </div>
           </div>
+          <form class="mb-4" (ngSubmit)="saveUsername()">
+            <label class="form-label" for="username">Felhasználónév</label>
+            <div class="input-group">
+              <input
+                id="username"
+                name="username"
+                type="text"
+                class="form-control"
+                maxlength="30"
+                autocomplete="off"
+                [(ngModel)]="username"
+                [disabled]="isSavingUsername">
+              <button type="submit" class="btn btn-primary" [disabled]="isSavingUsername || !username.trim() || username.trim() === savedUsername">Mentés</button>
+            </div>
+            <div class="form-text">Egyedi név (3–30 karakter: angol betű, szám, pont, kötőjel, aláhúzás). A megosztott paklijaid mellett ez látszik.</div>
+          </form>
           <form class="mb-4" (ngSubmit)="saveDisplayName()">
             <label class="form-label" for="displayName">Megjelenített név</label>
             <div class="input-group">
@@ -527,12 +560,15 @@ export class AppComponent implements OnInit {
   readonly logoutIcon = 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9';
   mode: AuthMode = 'login';
   email = '';
+  registerUsername = '';
   password = '';
   errorMessage: string | null = null;
   isSubmitting = false;
   isDeletingAccount = false;
   deleteSlide = 0;
   profileEmail: string | null = null;
+  username = '';
+  savedUsername = '';
   displayName = '';
   savedDisplayName = '';
   hasAvatar = false;
@@ -543,6 +579,7 @@ export class AppComponent implements OnInit {
   currentPassword = '';
   newPassword = '';
   isSavingName = false;
+  isSavingUsername = false;
   isUploadingAvatar = false;
   isDeletingAvatar = false;
   isChangingPassword = false;
@@ -603,16 +640,24 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    const username = this.registerUsername.trim();
+    if (this.mode === 'register' && !/^[A-Za-z0-9_.-]{3,30}$/.test(username)) {
+      this.errorMessage = 'A felhasználónév 3–30 karakter lehet, és csak angol betűt, számot, pontot, kötőjelet és aláhúzást tartalmazhat.';
+      return;
+    }
+
     this.errorMessage = null;
     this.isSubmitting = true;
     const url = this.mode === 'login' ? '/api/auth/login' : '/api/auth/register';
-    this.http.post<AuthResponse>(url, { email, password }).pipe(
+    const body = this.mode === 'login' ? { email, password } : { email, username, password };
+    this.http.post<AuthResponse>(url, body).pipe(
       finalize(() => {
         this.isSubmitting = false;
       }),
     ).subscribe({
       next: (response) => {
         this.password = '';
+        this.registerUsername = '';
         this.session.setSession(response.token, response.email);
         this.loadProfile();
       },
@@ -674,6 +719,32 @@ export class AppComponent implements OnInit {
   initial(): string {
     const source = this.savedDisplayName.trim() || this.profileEmail || this.session.email() || '?';
     return source.charAt(0).toLocaleUpperCase('hu-HU');
+  }
+
+  saveUsername(): void {
+    const username = this.username.trim();
+    if (!/^[A-Za-z0-9_.-]{3,30}$/.test(username)) {
+      this.profileMessage = null;
+      this.profileError = 'A felhasználónév 3–30 karakter lehet, és csak angol betűt, számot, pontot, kötőjelet és aláhúzást tartalmazhat.';
+      return;
+    }
+
+    this.profileError = null;
+    this.profileMessage = null;
+    this.isSavingUsername = true;
+    this.http.put('/api/auth/profile/username', { username }).pipe(
+      finalize(() => {
+        this.isSavingUsername = false;
+      }),
+    ).subscribe({
+      next: () => {
+        this.profileMessage = 'A felhasználónév mentve.';
+        this.loadProfile();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.profileError = this.readProblem(error, 'A felhasználónév mentése sikertelen.');
+      },
+    });
   }
 
   saveDisplayName(): void {
@@ -904,6 +975,8 @@ export class AppComponent implements OnInit {
     this.http.get<ProfileResponse>('/api/auth/profile').subscribe({
       next: (profile) => {
         this.profileEmail = profile.email;
+        this.username = profile.username;
+        this.savedUsername = profile.username;
         this.displayName = profile.displayName ?? '';
         this.savedDisplayName = this.displayName;
         this.hasAvatar = profile.hasAvatar;
@@ -923,6 +996,8 @@ export class AppComponent implements OnInit {
   private clearProfile(): void {
     this.view = 'study';
     this.profileEmail = null;
+    this.username = '';
+    this.savedUsername = '';
     this.displayName = '';
     this.savedDisplayName = '';
     this.hasAvatar = false;

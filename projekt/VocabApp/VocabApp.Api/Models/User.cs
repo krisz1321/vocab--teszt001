@@ -10,6 +10,9 @@ public sealed class User
     [Required, MaxLength(256)]
     public string Email { get; set; } = string.Empty;
 
+    [Required, MaxLength(Usernames.MaxLength)]
+    public string Username { get; set; } = string.Empty;
+
     [Required]
     public string PasswordHash { get; set; } = string.Empty;
 

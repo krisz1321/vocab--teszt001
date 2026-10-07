@@ -22,6 +22,7 @@ public sealed class AuthService(
     private const int MaxDisplayNameLength = 80;
     private const int MaxAvatarBytes = 1024 * 1024;
     private const string InvalidCredentials = "Hibás email vagy jelszó.";
+    private const string UsernameTaken = "Ez a felhasználónév már foglalt.";
     private const string InvalidAvatar = "Csak JPEG, PNG vagy WebP kép tölthető fel, legfeljebb 1 MB.";
     private static readonly EmailAddressAttribute EmailValidator = new();
     private static readonly (string Extension, string ContentType)[] AvatarTypes =
@@ -75,12 +76,24 @@ public sealed class AuthService(
             return AuthResult.Fail(StatusCodes.Status400BadRequest, passwordError);
         }
 
+        var username = request.Username?.Trim();
+        var usernameError = Usernames.Validate(username);
+        if (usernameError is not null)
+        {
+            return AuthResult.Fail(StatusCodes.Status400BadRequest, usernameError);
+        }
+
         if (await dbContext.Users.AnyAsync(user => user.Email == email, cancellationToken))
         {
             return AuthResult.Fail(StatusCodes.Status409Conflict, "Ez az email cím már regisztrálva van.");
         }
 
-        var user = new User { Email = email };
+        if (await dbContext.Users.AnyAsync(user => user.Username == username, cancellationToken))
+        {
+            return AuthResult.Fail(StatusCodes.Status409Conflict, UsernameTaken);
+        }
+
+        var user = new User { Email = email, Username = username! };
         user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
         dbContext.Users.Add(user);
         dbContext.Decks.Add(new Deck { User = user, Name = "Saját pakli" });
@@ -91,7 +104,9 @@ public sealed class AuthService(
         }
         catch (DbUpdateException exception) when (IsUniqueViolation(exception))
         {
-            return AuthResult.Fail(StatusCodes.Status409Conflict, "Ez az email cím már regisztrálva van.");
+            return AuthResult.Fail(
+                StatusCodes.Status409Conflict,
+                IsUniqueViolationOn(exception, "Username") ? UsernameTaken : "Ez az email cím már regisztrálva van.");
         }
 
         return AuthResult.Success(CreateResponse(user));
@@ -166,6 +181,42 @@ public sealed class AuthService(
 
         user.DisplayName = normalized;
         await dbContext.SaveChangesAsync(cancellationToken);
+        return StatusResult.Success();
+    }
+
+    public async Task<StatusResult> UpdateUsernameAsync(
+        int userId,
+        string? username,
+        CancellationToken cancellationToken = default)
+    {
+        var normalized = username?.Trim();
+        var error = Usernames.Validate(normalized);
+        if (error is not null)
+        {
+            return StatusResult.Fail(StatusCodes.Status400BadRequest, error);
+        }
+
+        var user = await dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        if (user is null)
+        {
+            return StatusResult.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.");
+        }
+
+        if (await dbContext.Users.AnyAsync(candidate => candidate.Id != userId && candidate.Username == normalized, cancellationToken))
+        {
+            return StatusResult.Fail(StatusCodes.Status409Conflict, UsernameTaken);
+        }
+
+        user.Username = normalized!;
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (IsUniqueViolation(exception))
+        {
+            return StatusResult.Fail(StatusCodes.Status409Conflict, UsernameTaken);
+        }
+
         return StatusResult.Success();
     }
 
@@ -336,6 +387,7 @@ public sealed class AuthService(
         return new ProfileDto
         {
             Email = user.Email,
+            Username = user.Username,
             DisplayName = user.DisplayName,
             HasAvatar = FindAvatar(user.Id) is not null,
             StudyDayStreak = StudyService.CurrentStudyDayStreak(
@@ -388,6 +440,21 @@ public sealed class AuthService(
         }
 
         return null;
+    }
+
+    private static bool IsUniqueViolationOn(DbUpdateException exception, string column)
+    {
+        for (Exception? current = exception.InnerException; current is not null; current = current.InnerException)
+        {
+            if (current is SqliteException sqlite
+                && sqlite.SqliteErrorCode == 19
+                && sqlite.Message.Contains($"Users.{column}", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsUniqueViolation(DbUpdateException exception)

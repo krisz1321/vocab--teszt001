@@ -17,6 +17,7 @@ public static class BaseUserSeed
             dbContext,
             passwordHasher,
             "demo@vocab.local",
+            "demo",
             "DemoUser1",
             [
                 new SeedDeck("Alapcsomag",
@@ -57,6 +58,7 @@ public static class BaseUserSeed
             dbContext,
             passwordHasher,
             "second@vocab.local",
+            "second",
             "SecondUser1",
             [
                 new SeedDeck("Egyszerű szavak",
@@ -75,6 +77,7 @@ public static class BaseUserSeed
         AppDbContext dbContext,
         IPasswordHasher<User> passwordHasher,
         string email,
+        string username,
         string password,
         IReadOnlyList<SeedDeck> decks,
         CancellationToken cancellationToken)
@@ -86,7 +89,7 @@ public static class BaseUserSeed
 
         if (user is null)
         {
-            user = new User { Email = email };
+            user = new User { Email = email, Username = username };
             user.PasswordHash = passwordHasher.HashPassword(user, password);
             dbContext.Users.Add(user);
         }
@@ -96,7 +99,7 @@ public static class BaseUserSeed
             var deck = user.Decks.FirstOrDefault(candidate => candidate.Name == seedDeck.Name);
             if (deck is null)
             {
-                deck = new Deck { Name = seedDeck.Name, IsPublic = false, User = user };
+                deck = new Deck { Name = seedDeck.Name, User = user };
                 user.Decks.Add(deck);
             }
 

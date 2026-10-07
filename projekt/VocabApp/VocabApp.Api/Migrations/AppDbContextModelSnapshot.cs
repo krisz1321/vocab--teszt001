@@ -504,20 +504,23 @@ namespace VocabApp.Api.Migrations
                         .HasMaxLength(2)
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("IsPublic")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(false);
-
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("SourceSharedDeckId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("SourceVersion")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("UserId")
                         .HasColumnType("INTEGER");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("SourceSharedDeckId");
 
                     b.HasIndex("UserId");
 
@@ -612,6 +615,124 @@ namespace VocabApp.Api.Migrations
                         .IsUnique();
 
                     b.ToTable("SavedExamples");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.SharedDeck", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ContentHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExampleLevel")
+                        .HasMaxLength(2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OwnerId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("SharedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SourceDeckId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OwnerId");
+
+                    b.HasIndex("SourceDeckId")
+                        .IsUnique();
+
+                    b.ToTable("SharedDecks");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.SharedDeckCard", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Definition")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Example")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SharedDeckId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Tags")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetMeanings")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Term")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SharedDeckId");
+
+                    b.ToTable("SharedDeckCards");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.SharedDeckSave", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("FirstSavedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastSavedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SharedDeckId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("SharedDeckId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("SharedDeckSaves");
                 });
 
             modelBuilder.Entity("VocabApp.Api.Models.User", b =>
@@ -719,9 +840,18 @@ namespace VocabApp.Api.Migrations
                         .HasColumnType("TEXT")
                         .HasDefaultValue("Europe/Budapest");
 
+                    b.Property<string>("Username")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("TEXT")
+                        .UseCollation("NOCASE");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Email")
+                        .IsUnique();
+
+                    b.HasIndex("Username")
                         .IsUnique();
 
                     b.ToTable("Users", t =>
@@ -823,11 +953,18 @@ namespace VocabApp.Api.Migrations
 
             modelBuilder.Entity("VocabApp.Api.Models.Deck", b =>
                 {
+                    b.HasOne("VocabApp.Api.Models.SharedDeck", "SourceSharedDeck")
+                        .WithMany()
+                        .HasForeignKey("SourceSharedDeckId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("VocabApp.Api.Models.User", "User")
                         .WithMany("Decks")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("SourceSharedDeck");
 
                     b.Navigation("User");
                 });
@@ -851,6 +988,55 @@ namespace VocabApp.Api.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("VocabApp.Api.Models.SharedDeck", b =>
+                {
+                    b.HasOne("VocabApp.Api.Models.User", "Owner")
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("VocabApp.Api.Models.Deck", "SourceDeck")
+                        .WithOne("SharedDeck")
+                        .HasForeignKey("VocabApp.Api.Models.SharedDeck", "SourceDeckId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Owner");
+
+                    b.Navigation("SourceDeck");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.SharedDeckCard", b =>
+                {
+                    b.HasOne("VocabApp.Api.Models.SharedDeck", "SharedDeck")
+                        .WithMany("Cards")
+                        .HasForeignKey("SharedDeckId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SharedDeck");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.SharedDeckSave", b =>
+                {
+                    b.HasOne("VocabApp.Api.Models.SharedDeck", "SharedDeck")
+                        .WithMany("Saves")
+                        .HasForeignKey("SharedDeckId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("VocabApp.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SharedDeck");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("VocabApp.Api.Models.UserStudyDay", b =>
                 {
                     b.HasOne("VocabApp.Api.Models.User", "User")
@@ -870,6 +1056,15 @@ namespace VocabApp.Api.Migrations
             modelBuilder.Entity("VocabApp.Api.Models.Deck", b =>
                 {
                     b.Navigation("Cards");
+
+                    b.Navigation("SharedDeck");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.SharedDeck", b =>
+                {
+                    b.Navigation("Cards");
+
+                    b.Navigation("Saves");
                 });
 
             modelBuilder.Entity("VocabApp.Api.Models.User", b =>

@@ -60,6 +60,19 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     }
 
     [Authorize]
+    [HttpPut("profile/username")]
+    public async Task<IActionResult> UpdateUsername(UpdateUsernameDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return ToStatus(await authService.UpdateUsernameAsync(userId.Value, request.Username, cancellationToken));
+    }
+
+    [Authorize]
     [EnableRateLimiting("auth")]
     [HttpPut("password")]
     public async Task<IActionResult> ChangePassword(ChangePasswordDto request, CancellationToken cancellationToken)

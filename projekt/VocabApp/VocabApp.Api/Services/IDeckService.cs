@@ -18,11 +18,13 @@ public interface IDeckService
 
     Task<DeckCardResult<DeckDto>> UpdateExampleLevelAsync(int userId, int deckId, UpdateDeckExampleLevelDto request, CancellationToken cancellationToken = default);
 
-    Task<IReadOnlyList<PublicDeckDto>> GetPublicAsync(int userId, string? query, CancellationToken cancellationToken = default);
+    Task<DeckCardResult<DeckDto>> PublishUpdateAsync(int userId, int deckId, CancellationToken cancellationToken = default);
 
-    Task<DeckCardResult<IReadOnlyList<CardDto>>> GetPublicCardsAsync(int userId, int deckId, CancellationToken cancellationToken = default);
+    Task<IReadOnlyList<PublicDeckDto>> GetPublicAsync(int userId, string? query, string? owner, string? sort, bool descending, CancellationToken cancellationToken = default);
 
-    Task<DeckCardResult<DeckDto>> CopyAsync(int userId, int deckId, CancellationToken cancellationToken = default);
+    Task<DeckCardResult<IReadOnlyList<CardDto>>> GetPublicCardsAsync(int userId, int sharedDeckId, CancellationToken cancellationToken = default);
+
+    Task<DeckCardResult<DeckDto>> CopyAsync(int userId, int sharedDeckId, CancellationToken cancellationToken = default);
 
     Task<DeckCardResult<DeckCsvFile>> ExportAsync(int userId, int deckId, CancellationToken cancellationToken = default);
 

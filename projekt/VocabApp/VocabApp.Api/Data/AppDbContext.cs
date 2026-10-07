@@ -15,6 +15,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<User> Users => Set<User>();
     public DbSet<UserStudyDay> UserStudyDays => Set<UserStudyDay>();
     public DbSet<Deck> Decks => Set<Deck>();
+    public DbSet<SharedDeck> SharedDecks => Set<SharedDeck>();
+    public DbSet<SharedDeckCard> SharedDeckCards => Set<SharedDeckCard>();
+    public DbSet<SharedDeckSave> SharedDeckSaves => Set<SharedDeckSave>();
     public DbSet<FreeStudyMark> FreeStudyMarks => Set<FreeStudyMark>();
     public DbSet<SavedExample> SavedExamples => Set<SavedExample>();
     public DbSet<SavedDefinition> SavedDefinitions => Set<SavedDefinition>();
@@ -30,6 +33,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         var user = modelBuilder.Entity<User>();
         user.Property(u => u.Email).IsRequired().HasMaxLength(256);
+        user.Property(u => u.Username).IsRequired().HasMaxLength(Usernames.MaxLength).UseCollation("NOCASE");
         user.Property(u => u.PasswordHash).IsRequired();
         user.Property(u => u.DisplayName).HasMaxLength(80);
         user.Property(u => u.DailyNewCardGoal).HasDefaultValue(20);
@@ -48,6 +52,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.LongestStudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.AiCallCount).HasDefaultValue(0);
         user.HasIndex(u => u.Email).IsUnique();
+        user.HasIndex(u => u.Username).IsUnique();
         user.ToTable(table =>
         {
             table.HasCheckConstraint(
@@ -91,8 +96,56 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         var deck = modelBuilder.Entity<Deck>();
         deck.Property(d => d.Name).IsRequired().HasMaxLength(100);
         deck.Property(d => d.Description).HasMaxLength(DeckLimits.MaxDescriptionLength);
-        deck.Property(d => d.IsPublic).HasDefaultValue(false);
         deck.Property(d => d.ExampleLevel).HasMaxLength(2);
+        deck.HasOne(d => d.SourceSharedDeck)
+            .WithMany()
+            .HasForeignKey(d => d.SourceSharedDeckId)
+            .OnDelete(DeleteBehavior.SetNull);
+        deck.HasIndex(d => d.SourceSharedDeckId);
+
+        var sharedDeck = modelBuilder.Entity<SharedDeck>();
+        sharedDeck.Property(s => s.Name).IsRequired().HasMaxLength(DeckLimits.MaxNameLength);
+        sharedDeck.Property(s => s.Description).HasMaxLength(DeckLimits.MaxDescriptionLength);
+        sharedDeck.Property(s => s.ExampleLevel).HasMaxLength(2);
+        sharedDeck.Property(s => s.ContentHash).IsRequired().HasMaxLength(64);
+        sharedDeck.HasIndex(s => s.SourceDeckId).IsUnique();
+        sharedDeck.HasIndex(s => s.OwnerId);
+        sharedDeck.HasOne(s => s.Owner)
+            .WithMany()
+            .HasForeignKey(s => s.OwnerId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        sharedDeck.HasOne(s => s.SourceDeck)
+            .WithOne(d => d.SharedDeck)
+            .HasForeignKey<SharedDeck>(s => s.SourceDeckId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var sharedCard = modelBuilder.Entity<SharedDeckCard>();
+        sharedCard.Property(c => c.Term).IsRequired().HasMaxLength(100);
+        sharedCard.Property(c => c.Definition).IsRequired().HasMaxLength(500);
+        sharedCard.Property(c => c.Example).HasMaxLength(500);
+        sharedCard.Property(c => c.TargetMeanings).HasMaxLength(200);
+        sharedCard.Property(c => c.Tags).HasMaxLength(CardTags.MaxStoredLength);
+        sharedCard.HasOne(c => c.SharedDeck)
+            .WithMany(s => s.Cards)
+            .HasForeignKey(c => c.SharedDeckId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var sharedSave = modelBuilder.Entity<SharedDeckSave>();
+        sharedSave.HasIndex(s => new { s.SharedDeckId, s.UserId }).IsUnique();
+        sharedSave.HasIndex(s => s.UserId);
+        sharedSave.HasOne(s => s.SharedDeck)
+            .WithMany(d => d.Saves)
+            .HasForeignKey(s => s.SharedDeckId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        sharedSave.HasOne(s => s.User)
+            .WithMany()
+            .HasForeignKey(s => s.UserId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
 
         var card = modelBuilder.Entity<Card>();
         card.Property(c => c.Term).IsRequired().HasMaxLength(100);
