@@ -160,36 +160,40 @@ const hungarianPlain = 'aeiooouuu';
               class="btn"
               [class.btn-primary]="mode === 'meaning'"
               [class.btn-outline-primary]="mode !== 'meaning'"
+              [title]="modeHints.meaning"
               (click)="setMode('meaning')"
               [disabled]="isInteractionLocked">
-              Jelentés beírása
+              Angol → magyar
             </button>
             <button
               type="button"
               class="btn"
               [class.btn-primary]="mode === 'definition'"
               [class.btn-outline-primary]="mode !== 'definition'"
+              [title]="modeHints.definition"
               (click)="setMode('definition')"
               [disabled]="isInteractionLocked">
-              Jelentés körülírása
+              Magyarázd el angolul
             </button>
             <button
               type="button"
               class="btn"
               [class.btn-primary]="mode === 'recognition'"
               [class.btn-outline-primary]="mode !== 'recognition'"
+              [title]="modeHints.recognition"
               (click)="setMode('recognition')"
               [disabled]="isInteractionLocked">
-              Szó felismerése
+              Találd ki a szót
             </button>
             <button
               type="button"
               class="btn"
               [class.btn-primary]="mode === 'free'"
               [class.btn-outline-primary]="mode !== 'free'"
+              [title]="modeHints.free"
               (click)="setMode('free')"
               [disabled]="isInteractionLocked">
-              Szabad tanulás
+              Kártyázás
             </button>
           </div>
           <p class="study-mode-hint text-body-secondary small mb-0 mt-2">{{ modeHint }}</p>
@@ -338,7 +342,7 @@ const hungarianPlain = 'aeiooouuu';
 
         @if (studying && mode === 'free' && !isLoadingCard) {
           @if (freeCard; as card) {
-          <section class="free-study-shell" aria-label="Szabad tanulás">
+          <section class="free-study-shell" aria-label="Kártyázás">
             <div class="free-study-toolbar">
               <div>
                 <span class="free-study-kicker">{{ activeDeckLabel }}</span>
@@ -348,14 +352,14 @@ const hungarianPlain = 'aeiooouuu';
                 @if (freeShowStats) {
                   <span class="free-study-progress">{{ freeKnowCount }} tudom · {{ freeDontKnowCount }} nem tudom</span>
                 }
-                <button type="button" class="btn btn-light btn-sm free-settings-button" (click)="freeSettingsOpen = !freeSettingsOpen" aria-label="Szabad tanulás beállításai" title="Beállítások">
+                <button type="button" class="btn btn-light btn-sm free-settings-button" (click)="freeSettingsOpen = !freeSettingsOpen" aria-label="Kártyázás beállításai" title="Beállítások">
                   Beállítások
                 </button>
               </div>
             </div>
 
             @if (freeSettingsOpen) {
-              <div class="free-settings-panel" role="dialog" aria-label="Szabad tanulás beállításai">
+              <div class="free-settings-panel" role="dialog" aria-label="Kártyázás beállításai">
                 <div class="free-settings-heading">
                   <strong>Tanulási nézet</strong>
                   <button type="button" class="btn-close" aria-label="Bezárás" (click)="freeSettingsOpen = false"></button>
@@ -639,7 +643,7 @@ const hungarianPlain = 'aeiooouuu';
                   </div>
                 }
               } @else if (mode === 'definition') {
-                <label for="answer" class="form-label fw-semibold">Mit jelent a szó?</label>
+                <label for="answer" class="form-label fw-semibold">{{ acceptHungarianParaphrase ? 'Magyarázd el saját szavaiddal, mit jelent.' : 'Magyarázd el angolul saját szavaiddal, mit jelent.' }}</label>
                 <textarea
                   id="answer"
                   class="form-control"
@@ -1190,13 +1194,15 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     return this.decks.length > 0 && this.decks.every(deck => (deck.cardCount ?? 0) === 0);
   }
 
+  readonly modeHints: Record<StudyMode, string> = {
+    meaning: 'Látod az angol szót, és beírod a magyar jelentését.',
+    definition: 'Látod az angol szót, és angolul elmagyarázod, mit jelent.',
+    recognition: 'Látod a körülírást, és beírod hozzá az angol szót.',
+    free: 'Kártyák lapozgatása: fordítsd meg, majd jelöld, hogy tudod-e.',
+  };
+
   get modeHint(): string {
-    return {
-      meaning: 'Látod az angol szót, és beírod a magyar jelentését.',
-      definition: 'Látod az angol szót, és angolul körülírod a jelentését.',
-      recognition: 'Látod a körülírást, és beírod hozzá az angol szót.',
-      free: 'Szabad lapozgatás kártyákkal: fordítsd meg, majd jelöld, hogy tudod-e.',
-    }[this.mode];
+    return this.modeHints[this.mode];
   }
 
   get hasTargetMeanings(): boolean {
@@ -1880,7 +1886,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       });
   }
 
-  /** Szabad tanulás: a hiányzó magyar jelentést legenerálja és el is menti a kártyához. */
+  /** Kártyázás: a hiányzó magyar jelentést legenerálja és el is menti a kártyához. */
   generateFreeMeaning(): void {
     const card = this.freeCard;
     if (!card || this.isGeneratingFreeMeaning || card.targetMeanings?.trim()) {
