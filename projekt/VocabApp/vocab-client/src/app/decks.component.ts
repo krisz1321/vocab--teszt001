@@ -758,12 +758,35 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
 
                     <section class="setting-block">
                       <h3 class="h6">Megosztás</h3>
-                      @if (deck.isPublic) {
+                      @if (deck.isPublic && deck.share; as share) {
                         <p class="small mb-2">
-                          <span class="chip chip-shared">Megosztva</span>
+                          <span class="chip chip-shared">Megosztva · v{{ share.version }}</span>
                           A pakli látható a <strong>Közös paklik</strong> között ({{ deck.exampleLevel ?? accountLevel }} szinttel). Mások megnézhetik és lemásolhatják, de a te paklidat nem módosíthatják.
                         </p>
-                        <button type="button" class="btn btn-outline-secondary" [disabled]="sharingDeckId === deck.id" (click)="toggleShare(deck)">
+                        <dl class="share-stats small">
+                          <div><dt>Verzió</dt><dd>v{{ share.version }}</dd></div>
+                          <div><dt>Megosztva</dt><dd>{{ formatLocalTime(share.sharedAt) }}</dd></div>
+                          <div><dt>Utoljára frissítve</dt><dd>{{ formatLocalTime(share.updatedAt) }}</dd></div>
+                          <div><dt>Lementették</dt><dd>{{ share.saveCount }} felhasználó</dd></div>
+                        </dl>
+                        @if (share.hasUnpublishedChanges) {
+                          <div class="alert alert-warning small py-2" role="status">
+                            A legutóbbi megosztás óta módosítottad a paklit (a nevét, leírását, szintjét vagy a kártyáit). A Közös paklik között még a v{{ share.version }} látszik.
+                          </div>
+                          <button
+                            type="button"
+                            class="btn btn-primary me-2 mb-2"
+                            [disabled]="publishingDeckId === deck.id || deck.cardCount === 0"
+                            (click)="publishUpdate(deck)">
+                            @if (publishingDeckId === deck.id) {
+                              <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Megosztás frissítése (v{{ share.version + 1 }})
+                          </button>
+                        } @else {
+                          <p class="text-body-secondary small mb-2">A megosztott verzió megegyezik a paklival. Ha módosítod, itt frissítheted a megosztást.</p>
+                        }
+                        <button type="button" class="btn btn-outline-secondary mb-2" [disabled]="sharingDeckId === deck.id" (click)="toggleShare(deck)">
                           @if (sharingDeckId === deck.id) {
                             <span class="spinner-border spinner-border-sm me-1"></span>
                           }
@@ -771,8 +794,13 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         </button>
                       } @else {
                         <p class="text-body-secondary small mb-2">
-                          Megosztva a pakli bekerül a <strong>Közös paklik</strong> közé: mások megnézhetik és lemásolhatják, de nem módosíthatják az eredetit. A neved, ha megadtad, a pakli mellett látszik. A megosztást bármikor visszavonhatod.
+                          Megosztva a pakli bekerül a <strong>Közös paklik</strong> közé: mások megnézhetik és lemásolhatják, de nem módosíthatják az eredetit. A felhasználóneved a pakli mellett látszik. A megosztás a pakli akkori állapotát teszi közzé: a későbbi módosításokat a „Megosztás frissítése" gombbal teheted közzé új verzióként. A megosztást bármikor visszavonhatod.
                         </p>
+                        @if (deck.share; as past) {
+                          <p class="text-body-secondary small mb-2">
+                            Ez a pakli korábban meg volt osztva (v{{ past.version }}, {{ past.saveCount }} mentés). Újra megosztva ezek az adatok megmaradnak.
+                          </p>
+                        }
                         <button
                           type="button"
                           class="btn btn-primary"
@@ -789,6 +817,22 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         }
                       }
                     </section>
+
+                    @if (deck.sourceVersion !== null) {
+                      <section class="setting-block">
+                        <h3 class="h6">Forrás</h3>
+                        <p class="small mb-2">Ezt a paklit a Közös paklik közül mentetted le (v{{ deck.sourceVersion }}). A tartalma nem változik, ha a készítő frissíti a megosztását.</p>
+                        @if (deck.updateAvailable && deck.sourceSharedDeckId !== null) {
+                          <p class="small mb-2"><span class="chip chip-pending">Új verzió: v{{ deck.latestSharedVersion }}</span> A készítő újabb verziót tett közzé.</p>
+                          <button type="button" class="btn btn-outline-primary" [disabled]="copyingDeckId === deck.sourceSharedDeckId" (click)="saveNewVersion(deck)">
+                            @if (copyingDeckId === deck.sourceSharedDeckId) {
+                              <span class="spinner-border spinner-border-sm me-1"></span>
+                            }
+                            Új verzió mentése új paklinak
+                          </button>
+                        }
+                      </section>
+                    }
 
                     <section class="setting-block">
                       <h3 class="h6">Import és export</h3>
@@ -844,6 +888,38 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                 aria-label="Keresés a közös paklik között"
                 [(ngModel)]="publicQuery"
                 (ngModelChange)="onPublicQueryChange()">
+              <input
+                class="form-control"
+                style="flex: 0 1 12rem;"
+                type="search"
+                name="publicOwner"
+                maxlength="30"
+                placeholder="Felhasználónév…"
+                aria-label="Szűrés a megosztó felhasználónevére"
+                [(ngModel)]="publicOwner"
+                (ngModelChange)="onPublicQueryChange()">
+              <select
+                class="form-select"
+                style="width: auto;"
+                name="publicSort"
+                aria-label="Rendezés"
+                [(ngModel)]="publicSort"
+                (ngModelChange)="onPublicSortChange()">
+                <option value="name">Rendezés: név</option>
+                <option value="saves">Rendezés: mentések</option>
+                <option value="sharedAt">Rendezés: megosztás ideje</option>
+                <option value="updatedAt">Rendezés: utolsó frissítés</option>
+                <option value="cards">Rendezés: kártyák száma</option>
+                <option value="version">Rendezés: verzió</option>
+              </select>
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                [attr.aria-label]="publicDesc ? 'Csökkenő sorrend' : 'Növekvő sorrend'"
+                [attr.title]="publicDesc ? 'Csökkenő sorrend (váltás növekvőre)' : 'Növekvő sorrend (váltás csökkenőre)'"
+                (click)="togglePublicSortDirection()">
+                {{ publicDesc ? '↓ Csökkenő' : '↑ Növekvő' }}
+              </button>
               <div class="dseg dseg-sm dseg-wrap" role="group" aria-label="Szint">
                 <button type="button" class="dseg-btn" [class.active]="publicLevelFilter === ''" (click)="publicLevelFilter = ''">Mind</button>
                 @for (level of exampleLevels; track level) {
@@ -856,9 +932,9 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
               <div class="text-center py-4" role="status"><div class="spinner-border text-primary"></div></div>
             } @else if (filteredPublicDecks().length === 0) {
               <div class="empty-box">
-                <p class="fw-semibold mb-1">{{ publicQuery.trim() || publicLevelFilter ? 'Nincs találat' : 'Még nincs közös pakli' }}</p>
+                <p class="fw-semibold mb-1">{{ hasPublicFilter() ? 'Nincs találat' : 'Még nincs közös pakli' }}</p>
                 <p class="text-body-secondary small mb-0">
-                  {{ publicQuery.trim() || publicLevelFilter ? 'Próbálj másik keresőszót vagy szintet.' : 'Oszd meg az első paklidat a saját paklid Beállítások és megosztás fülén.' }}
+                  {{ hasPublicFilter() ? 'Próbálj másik keresőszót, felhasználónevet vagy szintet.' : 'Oszd meg az első paklidat a saját paklid Beállítások és megosztás fülén.' }}
                 </p>
               </div>
             } @else {
@@ -876,10 +952,26 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     @if (deck.description) {
                       <p class="deck-description small text-break mb-2">{{ deck.description }}</p>
                     }
-                    <div class="text-body-secondary small mb-3">
-                      {{ deck.cardCount }} kártya · készítette: {{ deck.ownerName || 'névtelen felhasználó' }}
+                    <div class="text-body-secondary small mb-1">
+                      {{ deck.cardCount }} kártya · készítette:
+                      <button
+                        type="button"
+                        class="owner-link"
+                        [attr.title]="'Csak ' + deck.ownerUsername + ' paklijainak mutatása'"
+                        (click)="filterByOwner(deck.ownerUsername)">{{ deck.ownerUsername }}</button>
                       @if (hasDeckNamed(deck.name)) {
                         <span class="chip ms-1" title="Már van ilyen nevű paklid">Már van ilyen paklid</span>
+                      }
+                    </div>
+                    <div class="deck-facts text-body-secondary small mb-3">
+                      <span class="chip" title="A megosztott pakli verziója">v{{ deck.version }}</span>
+                      <span>Megosztva: {{ formatLocalTime(deck.sharedAt) }}</span>
+                      @if (deck.version > 1) {
+                        <span>Frissítve: {{ formatLocalTime(deck.updatedAt) }}</span>
+                      }
+                      <span>{{ deck.saveCount }} mentés</span>
+                      @if (deck.alreadySaved) {
+                        <span class="chip chip-saved" title="Ezt a paklit már lementetted magadhoz">Már mentetted</span>
                       }
                     </div>
                     <div class="d-flex flex-wrap gap-2">
@@ -983,6 +1075,14 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
     .chip-leech { color: var(--app-danger); border-color: color-mix(in srgb, var(--app-danger) 45%, transparent); background: color-mix(in srgb, var(--app-danger) 10%, transparent); margin-left: .35rem; }
     .chip-paused { color: var(--app-muted); margin-left: .35rem; }
     .chip-level { color: var(--app-primary); border-color: color-mix(in srgb, var(--app-primary) 45%, transparent); }
+    .chip-pending { color: var(--app-text); border: 1px dashed var(--app-primary); background: transparent; }
+    .chip-saved { color: var(--app-success); border-color: color-mix(in srgb, var(--app-success) 45%, transparent); background: color-mix(in srgb, var(--app-success) 10%, transparent); }
+    .owner-link { padding: 0; border: 0; background: none; color: var(--app-primary); font-weight: 600; cursor: pointer; }
+    .owner-link:hover { text-decoration: underline; }
+    .deck-facts { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .75rem; }
+    .share-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .5rem .75rem; margin: 0 0 1rem; }
+    .share-stats dt { font-weight: 600; color: var(--app-muted); }
+    .share-stats dd { margin: 0; }
 
     .back-link { display: inline-block; margin-bottom: .75rem; padding: 0; border: 0; background: none; color: var(--app-primary); font-weight: 600; }
     .detail-head { margin-bottom: 1rem; }
@@ -1080,6 +1180,9 @@ export class DecksComponent implements OnInit, OnDestroy {
   renameDraft = '';
   descriptionDraft = '';
   publicQuery = '';
+  publicOwner = '';
+  publicSort: PublicSort = 'name';
+  publicDesc = false;
   term = '';
   definition = '';
   example = '';
@@ -1115,6 +1218,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   suspendingCardId: number | null = null;
   resettingLearnedCardId: number | null = null;
   sharingDeckId: number | null = null;
+  publishingDeckId: number | null = null;
   copyingDeckId: number | null = null;
   savingLevelDeckId: number | null = null;
   readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
@@ -1247,6 +1351,10 @@ export class DecksComponent implements OnInit, OnDestroy {
   hasDeckNamed(name: string): boolean {
     const key = name.trim().toLowerCase();
     return this.decks.some(deck => deck.name.trim().toLowerCase() === key);
+  }
+
+  hasPublicFilter(): boolean {
+    return !!(this.publicQuery.trim() || this.publicOwner.trim() || this.publicLevelFilter);
   }
 
   filteredPublicDecks(): PublicDeck[] {
@@ -1473,9 +1581,6 @@ export class DecksComponent implements OnInit, OnDestroy {
         this.decks = this.decks.map(item => item.id === updated.id ? updated : item);
         this.renameDraft = updated.name;
         this.toast(`A pakli új neve: „${updated.name}”.`);
-        if (updated.isPublic) {
-          this.searchPublicDecks();
-        }
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readError(error, 'A pakli átnevezése sikertelen.');
@@ -1508,9 +1613,6 @@ export class DecksComponent implements OnInit, OnDestroy {
       next: (updated) => {
         this.decks = this.decks.map(item => item.id === updated.id ? updated : item);
         this.toast('A mondatszint mentve.');
-        if (updated.isPublic) {
-          this.searchPublicDecks();
-        }
       },
       error: (error: HttpErrorResponse) => {
         this.decks = this.decks.map(item => item.id === deck.id ? { ...item, exampleLevel: previous } : item);
@@ -1541,6 +1643,26 @@ export class DecksComponent implements OnInit, OnDestroy {
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readError(error, 'A megosztás módosítása sikertelen.');
+      },
+    });
+  }
+
+  publishUpdate(deck: Deck): void {
+    this.errorMessage = null;
+    this.publishingDeckId = deck.id;
+    this.http.post<Deck>(`/api/decks/${deck.id}/share/update`, {}).pipe(
+      finalize(() => {
+        this.publishingDeckId = null;
+      }),
+    ).subscribe({
+      next: (updated) => {
+        this.decks = this.decks.map(item => item.id === updated.id ? updated : item);
+        this.toast(`A(z) „${updated.name}” megosztása frissítve: új verzió v${updated.share?.version ?? ''}.`);
+        this.searchPublicDecks();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage = this.readError(error, 'A megosztás frissítése sikertelen.');
+        this.loadDecks();
       },
     });
   }
@@ -2077,9 +2199,33 @@ export class DecksComponent implements OnInit, OnDestroy {
     }, 300);
   }
 
+  onPublicSortChange(): void {
+    // Számszerű és időrendi szempontnál a legnagyobb/legfrissebb az érdekes elöl, névnél az ábécé.
+    this.publicDesc = this.publicSort !== 'name';
+    this.searchPublicDecks();
+  }
+
+  togglePublicSortDirection(): void {
+    this.publicDesc = !this.publicDesc;
+    this.searchPublicDecks();
+  }
+
+  filterByOwner(username: string): void {
+    this.publicOwner = username;
+    this.searchPublicDecks();
+  }
+
   searchPublicDecks(): void {
     this.isLoadingPublic = true;
-    const params = this.publicQuery.trim() ? { q: this.publicQuery.trim() } : undefined;
+    const params: Record<string, string> = { sort: this.publicSort, desc: String(this.publicDesc) };
+    if (this.publicQuery.trim()) {
+      params['q'] = this.publicQuery.trim();
+    }
+
+    if (this.publicOwner.trim()) {
+      params['owner'] = this.publicOwner.trim();
+    }
+
     this.http.get<PublicDeck[]>('/api/decks/public', { params }).pipe(
       finalize(() => {
         this.isLoadingPublic = false;
@@ -2138,7 +2284,13 @@ export class DecksComponent implements OnInit, OnDestroy {
     });
   }
 
-  copyDeck(deck: PublicDeck): void {
+  saveNewVersion(deck: Deck): void {
+    if (deck.sourceSharedDeckId !== null) {
+      this.copyDeck({ id: deck.sourceSharedDeckId, name: deck.name });
+    }
+  }
+
+  copyDeck(deck: { id: number; name: string }): void {
     if (this.hasDeckNamed(deck.name)) {
       this.askConfirm(
         'Már van ilyen nevű paklid',
@@ -2153,10 +2305,10 @@ export class DecksComponent implements OnInit, OnDestroy {
     this.performCopy(deck);
   }
 
-  private performCopy(deck: PublicDeck): void {
+  private performCopy(deck: { id: number; name: string }): void {
     this.errorMessage = null;
     this.copyingDeckId = deck.id;
-    this.http.post<Deck>(`/api/decks/${deck.id}/copy`, {}).pipe(
+    this.http.post<Deck>(`/api/decks/public/${deck.id}/copy`, {}).pipe(
       finalize(() => {
         this.copyingDeckId = null;
       }),
@@ -2166,6 +2318,7 @@ export class DecksComponent implements OnInit, OnDestroy {
         this.section = 'mine';
         this.selectDeck(copied.id, true);
         this.toast(`A(z) „${copied.name}” pakli (${copied.cardCount} kártya) bekerült a saját paklijaid közé.`);
+        this.searchPublicDecks();
         window.scrollTo({ top: 0, behavior: 'smooth' });
       },
       error: (error: HttpErrorResponse) => {
