@@ -875,7 +875,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     <section class="setting-block">
                       <h3 class="h6">Import és export</h3>
                       <p class="text-body-secondary small mb-2">
-                        CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code> és <code>,tags</code> oszloppal), legfeljebb 200 sorral. A hibás sorok kimaradnak, a többi bekerül. Szöveget (például Quizletből) beillesztve is importálhatsz, ilyenkor az MI ki tudja tölteni a definíciót és a példamondatot.
+                        CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code> és <code>,tags</code> oszloppal), legfeljebb {{ maxImportRows }} sorral. A hibás sorok kimaradnak, a többi bekerül. Szöveget (például Quizletből) beillesztve is importálhatsz, ilyenkor az MI ki tudja tölteni a definíciót és a példamondatot.
                       </p>
                       <div class="d-flex flex-wrap gap-2">
                         <button type="button" class="btn btn-primary" [disabled]="isImporting" (click)="openPasteImport()">Beillesztés szövegből</button>
@@ -1131,6 +1131,11 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
           @if (pasteError) {
             <div class="alert alert-warning py-2" role="alert">{{ pasteError }}</div>
           }
+          @if (pasteRows.length > slowImportRows) {
+            <div class="alert alert-warning py-2" role="status">
+              {{ pasteRows.length }} sort készülsz importálni. {{ slowImportRows }} sor fölött a beolvasás, az MI-kitöltés és a mentés is lassú lehet, és a napi MI-keret is hamar elfogyhat. Nagyobb listát érdemes több részletben importálni.
+            </div>
+          }
           @if (pasteTrimmedCount > 0) {
             <div class="alert alert-info py-2" role="status">{{ pasteTrimmedCount }} sor szövege hosszabb volt a megengedettnél, ezért levágtam (a szó 100, a magyar jelentés 300 karakterig).</div>
           }
@@ -1205,8 +1210,8 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
 
           <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-2">
             <span class="small text-body-secondary">
-              @if (pasteRows.length > 200) {
-                Legfeljebb 200 sor importálható egyszerre.
+              @if (pasteRows.length > maxImportRows) {
+                Legfeljebb {{ maxImportRows }} sor importálható egyszerre.
               } @else if (pasteRows.length > 0 && !canSavePaste && !pasteAiRunning) {
                 A mentéshez minden sorban kell szó és definíció.
               }
@@ -1453,6 +1458,8 @@ export class DecksComponent implements OnInit, OnDestroy {
   pasteSimplify = false;
   pasteRows: PasteRow[] = [];
   pasteError: string | null = null;
+  readonly maxImportRows = 10000;
+  readonly slowImportRows = 200;
   pasteSaving = false;
   pasteTrimmedCount = 0;
   pasteAiRunning = false;
@@ -1561,7 +1568,7 @@ export class DecksComponent implements OnInit, OnDestroy {
 
   get canSavePaste(): boolean {
     return this.pasteRows.length > 0
-      && this.pasteRows.length <= 200
+      && this.pasteRows.length <= this.maxImportRows
       && this.pasteRows.every(row => this.rowIssue(row) === null)
       && !this.pasteAiRunning
       && !this.pasteSaving;
@@ -2542,14 +2549,15 @@ export class DecksComponent implements OnInit, OnDestroy {
     this.pasteAiDone = 0;
     this.pasteAiTotal = 0;
     const rows = this.splitPaste();
-    this.pasteRows = rows;
-    if (rows.length === 0) {
-      this.pasteError = 'Nem található feldolgozható sor.';
+    if (rows.length > this.maxImportRows) {
+      this.pasteRows = [];
+      this.pasteError = `${rows.length} sor található, de legfeljebb ${this.maxImportRows} importálható egyszerre.`;
       return;
     }
 
-    if (rows.length > 200) {
-      this.pasteError = `${rows.length} sor található, de legfeljebb 200 importálható egyszerre.`;
+    this.pasteRows = rows;
+    if (rows.length === 0) {
+      this.pasteError = 'Nem található feldolgozható sor.';
       return;
     }
 

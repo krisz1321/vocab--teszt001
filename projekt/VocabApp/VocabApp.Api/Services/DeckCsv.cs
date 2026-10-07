@@ -18,7 +18,7 @@ public static partial class DeckCsv
     public const string Header = "term,definition,example";
     public const string HeaderWithTargetMeanings = "term,definition,example,targetMeanings";
     public const string HeaderWithTags = "term,definition,example,targetMeanings,tags";
-    public const int MaxDataRows = 200;
+    public const int MaxDataRows = 10000;
     private const int MaxTermLength = 100;
     private const int MaxTextLength = 500;
     private const int MaxTargetMeaningsLength = 300;
@@ -97,7 +97,7 @@ public static partial class DeckCsv
         var dataRecords = contentRecords.Skip(1).ToList();
         if (dataRecords.Count > MaxDataRows)
         {
-            error = "A CSV legfeljebb 200 adatsort tartalmazhat.";
+            error = $"A CSV legfeljebb {MaxDataRows} adatsort tartalmazhat.";
             return false;
         }
 
