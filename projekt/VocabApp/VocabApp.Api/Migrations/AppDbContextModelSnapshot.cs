@@ -496,6 +496,10 @@ namespace VocabApp.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("ExampleLevel")
                         .HasMaxLength(2)
                         .HasColumnType("TEXT");

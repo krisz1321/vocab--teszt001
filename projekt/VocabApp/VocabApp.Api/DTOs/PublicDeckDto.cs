@@ -6,6 +6,8 @@ public sealed class PublicDeckDto
 
     public string Name { get; set; } = string.Empty;
 
+    public string? Description { get; set; }
+
     public int CardCount { get; set; }
 
     public string OwnerName { get; set; } = string.Empty;

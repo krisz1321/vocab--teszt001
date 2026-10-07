@@ -7,7 +7,8 @@ namespace VocabApp.Api.Services;
 
 public sealed class DeckService(AppDbContext dbContext) : IDeckService
 {
-    private const int MaxNameLength = 100;
+    private const int MaxNameLength = DeckLimits.MaxNameLength;
+    private const string DescriptionTooLong = "A pakli leírása legfeljebb 500 karakter lehet.";
 
     public async Task<IReadOnlyList<DeckDto>> GetAsync(int userId, CancellationToken cancellationToken = default)
     {
@@ -20,6 +21,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             {
                 Id = deck.Id,
                 Name = deck.Name,
+                Description = deck.Description,
                 CardCount = deck.Cards.Count,
                 LearnedCount = deck.Cards.Count(card => card.Progress != null && card.Progress.LearnedAt != null),
                 DueCount = deck.Cards.Count(card => card.Progress != null
@@ -48,7 +50,13 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "A pakli neve legfeljebb 100 karakter lehet.");
         }
 
-        var deck = new Deck { UserId = userId, Name = name, IsPublic = false };
+        var description = DeckLimits.NormalizeDescription(request.Description);
+        if (description is { Length: > DeckLimits.MaxDescriptionLength })
+        {
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, DescriptionTooLong);
+        }
+
+        var deck = new Deck { UserId = userId, Name = name, Description = description, IsPublic = false };
         dbContext.Decks.Add(deck);
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -80,6 +88,30 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         }
 
         deck.Name = name;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return DeckCardResult<DeckDto>.Success(await ToDtoAsync(deck, cancellationToken));
+    }
+
+    public async Task<DeckCardResult<DeckDto>> UpdateDescriptionAsync(
+        int userId,
+        int deckId,
+        UpdateDeckDescriptionDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var description = DeckLimits.NormalizeDescription(request.Description);
+        if (description is { Length: > DeckLimits.MaxDescriptionLength })
+        {
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, DescriptionTooLong);
+        }
+
+        var deck = await dbContext.Decks
+            .FirstOrDefaultAsync(candidate => candidate.Id == deckId && candidate.UserId == userId, cancellationToken);
+        if (deck is null)
+        {
+            return DeckCardResult<DeckDto>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
+        }
+
+        deck.Description = description;
         await dbContext.SaveChangesAsync(cancellationToken);
         return DeckCardResult<DeckDto>.Success(await ToDtoAsync(deck, cancellationToken));
     }
@@ -172,6 +204,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             {
                 Id = deck.Id,
                 Name = deck.Name,
+                Description = deck.Description,
                 CardCount = deck.Cards.Count,
                 OwnerName = deck.User.DisplayName ?? string.Empty,
                 ExampleLevel = deck.ExampleLevel ?? deck.User.ExampleLevel,
@@ -187,7 +220,8 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         // A szűrés a memóriában fut: az SQLite ToLower()/LIKE csak az ASCII betűket kezeli kis- és
         // nagybetű-függetlenül, így a nagy ékezetes betűvel kezdődő nevek (pl. "Ősz") nem találódnának meg.
         return result
-            .Where(deck => deck.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
+            .Where(deck => deck.Name.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || (deck.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false))
             .ToList();
     }
 
@@ -244,6 +278,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         {
             UserId = userId,
             Name = source.Name,
+            Description = source.Description,
             IsPublic = false,
             ExampleLevel = source.ExampleLevel,
             Cards = source.Cards.Select(card => new Card
@@ -360,6 +395,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
     {
         Id = deck.Id,
         Name = deck.Name,
+        Description = deck.Description,
         CardCount = await dbContext.Cards.CountAsync(card => card.DeckId == deck.Id, cancellationToken),
         LearnedCount = await dbContext.Cards.CountAsync(
             card => card.DeckId == deck.Id && card.Progress != null && card.Progress.LearnedAt != null,

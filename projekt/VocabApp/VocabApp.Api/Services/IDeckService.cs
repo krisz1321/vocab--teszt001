@@ -12,6 +12,8 @@ public interface IDeckService
 
     Task<bool> DeleteAsync(int userId, int deckId, CancellationToken cancellationToken = default);
 
+    Task<DeckCardResult<DeckDto>> UpdateDescriptionAsync(int userId, int deckId, UpdateDeckDescriptionDto request, CancellationToken cancellationToken = default);
+
     Task<DeckCardResult<DeckDto>> ShareAsync(int userId, int deckId, ShareDeckDto request, CancellationToken cancellationToken = default);
 
     Task<DeckCardResult<DeckDto>> UpdateExampleLevelAsync(int userId, int deckId, UpdateDeckExampleLevelDto request, CancellationToken cancellationToken = default);

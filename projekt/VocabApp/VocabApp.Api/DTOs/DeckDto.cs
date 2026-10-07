@@ -12,6 +12,8 @@ public sealed class DeckDto
 
     public int DueCount { get; set; }
 
+    public string? Description { get; set; }
+
     public bool IsPublic { get; set; }
 
     public string? ExampleLevel { get; set; }

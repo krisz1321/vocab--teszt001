@@ -11,6 +11,9 @@ public sealed class Deck
     [Required, MaxLength(100)]
     public string Name { get; set; } = string.Empty;
 
+    [MaxLength(DeckLimits.MaxDescriptionLength)]
+    public string? Description { get; set; }
+
     public bool IsPublic { get; set; }
 
     [MaxLength(2)]

@@ -1,8 +1,6 @@
 namespace VocabApp.Api.DTOs;
 
-public sealed class CreateDeckDto
+public sealed class UpdateDeckDescriptionDto
 {
-    public string? Name { get; set; }
-
     public string? Description { get; set; }
 }

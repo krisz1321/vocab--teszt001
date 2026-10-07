@@ -90,6 +90,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         var deck = modelBuilder.Entity<Deck>();
         deck.Property(d => d.Name).IsRequired().HasMaxLength(100);
+        deck.Property(d => d.Description).HasMaxLength(DeckLimits.MaxDescriptionLength);
         deck.Property(d => d.IsPublic).HasDefaultValue(false);
         deck.Property(d => d.ExampleLevel).HasMaxLength(2);
 
