@@ -25,6 +25,9 @@ public sealed class DeckFillItemDto
 
     public bool NeedExample { get; set; }
 
+    // Ha igaz, az MI a magyar jelentést is újraírja rövid, jól tanulható formára (az eredeti csak támpont).
+    public bool SimplifyMeaning { get; set; }
+
     // Ha csak a példa hiányzik, a már meglévő definíció, hogy a mondat ahhoz az értelemhez illeszkedjen.
     [MaxLength(500)]
     public string? Definition { get; set; }
@@ -49,6 +52,9 @@ public sealed class DeckFillResultDto
     public string? Definition { get; set; }
 
     public string? Example { get; set; }
+
+    // Az egyszerűsített magyar jelentés (csak akkor van kitöltve, ha kérték és sikerült).
+    public string? TargetMeanings { get; set; }
 
     // Ha egy kért mező nem készült el, a hiba oka. A többi elem ettől még érvényes.
     public string? Error { get; set; }

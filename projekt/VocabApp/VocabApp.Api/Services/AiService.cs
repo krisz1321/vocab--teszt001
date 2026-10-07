@@ -454,12 +454,14 @@ public sealed class AiService(
         var needExample = items.Select(item => item.NeedExample).ToArray();
         var definitions = items.Select(item => item.Definition?.Trim() ?? string.Empty).ToArray();
         var problems = new string?[items.Count];
+        var needMeaning = items.Select(item => item.SimplifyMeaning).ToArray();
+        var meaningProblems = new string?[items.Count];
 
         // Csak a még hiányzó elemeket kérjük újra, és megmondjuk az MI-nek, mi volt a baj az előző válasszal.
         for (var attempt = 0; attempt < 3; attempt++)
         {
             var pending = Enumerable.Range(0, items.Count)
-                .Where(index => needDefinition[index] || needExample[index])
+                .Where(index => needDefinition[index] || needExample[index] || needMeaning[index])
                 .ToList();
             if (pending.Count == 0)
             {
@@ -472,7 +474,11 @@ public sealed class AiService(
                 "For every item write only the fields it asks for. " +
                 "definition: one short English sentence that defines the term. Do not use the term, its root, or an " +
                 "obvious inflected form; for a multi-word term do not repeat the whole phrase. " +
-                "example: one natural English sentence that contains the term unchanged. ";
+                "example: one natural English sentence that contains the term unchanged. " +
+                "meaning: a simplified Hungarian translation of the term, for a learner who must memorise it. Give two to four " +
+                "short Hungarian equivalents separated by commas, the most common and useful senses first, at most 120 characters in total. " +
+                "Use plain words: no explanations, no parentheses, no abbreviations, no English. HungarianMeaning, when given, is a long " +
+                "or messy list; keep only its clearest, most important senses and you may reword them. ";
             var systemPrompt =
                 systemPromptStart +
                 $"The requested CEFR level is {level}; treat it as a recommendation and prefer that level's vocabulary and grammar. " +
@@ -480,7 +486,7 @@ public sealed class AiService(
                 "The Hungarian meaning, when given, only tells which sense of the term is meant; never put Hungarian in the output. " +
                 "When a definition is supplied for an item, the example must fit that sense. " +
                 "Return only a JSON object with exactly one property: items, an array with one object per requested item. " +
-                "Each object has an integer property index (copied from the input) and string properties definition and example; " +
+                "Each object has an integer property index (copied from the input) and string properties definition, example and meaning; " +
                 "use an empty string for a field that was not requested. " +
                 "When an item has PreviousProblem, your earlier answer for it was rejected for that reason: fix it.";
             var userPrompt = JsonSerializer.Serialize(new
@@ -493,8 +499,10 @@ public sealed class AiService(
                     HungarianMeaning = items[index].TargetMeanings,
                     NeedDefinition = needDefinition[index],
                     NeedExample = needExample[index],
+                    NeedMeaning = needMeaning[index],
                     Definition = definitions[index].Length == 0 ? null : definitions[index],
-                    PreviousProblem = problems[index]
+                    PreviousProblem = string.Join(' ', new[] { problems[index], meaningProblems[index] }.Where(text => text is not null))
+                        is { Length: > 0 } joined ? joined : null
                 })
             });
 
@@ -569,6 +577,29 @@ public sealed class AiService(
                         problems[index] = "The example sentence must contain the term exactly as given, and be at most 500 characters.";
                     }
                 }
+
+                if (needMeaning[index])
+                {
+                    var meaning = generatedItem.Meaning?.Trim() ?? string.Empty;
+                    if (meaning.Length == 0)
+                    {
+                        meaningProblems[index] = "The meaning was empty.";
+                    }
+                    else if (meaning.Length > 150)
+                    {
+                        meaningProblems[index] = "The meaning was too long; keep it under 120 characters.";
+                    }
+                    else if (ContainsTokenSequence(meaning, term))
+                    {
+                        meaningProblems[index] = "The meaning must be Hungarian and must not contain the English term.";
+                    }
+                    else
+                    {
+                        results[index].TargetMeanings = meaning;
+                        needMeaning[index] = false;
+                        meaningProblems[index] = null;
+                    }
+                }
             }
 
             foreach (var index in pending.Where(index => !answered.Contains(index)))
@@ -581,7 +612,7 @@ public sealed class AiService(
         for (var index = 0; index < items.Count; index++)
         {
             var result = results[index];
-            if (result.Definition is not null || result.Example is not null)
+            if (result.Definition is not null || result.Example is not null || result.TargetMeanings is not null)
             {
                 generatedCount++;
             }
@@ -591,6 +622,10 @@ public sealed class AiService(
                 result.Error = needDefinition[index]
                     ? "Az AI nem adott érvényes definíciót."
                     : "Az AI nem adott érvényes példamondatot.";
+            }
+            else if (needMeaning[index])
+            {
+                result.Error = "A magyar jelentést nem sikerült egyszerűsíteni, az eredeti maradt.";
             }
 
             var termKey = items[index].Term.Trim().ToLowerInvariant();
@@ -1051,6 +1086,8 @@ public sealed class AiService(
         public string? Definition { get; set; }
 
         public string? Example { get; set; }
+
+        public string? Meaning { get; set; }
     }
 
     private sealed class FitsGuessContent

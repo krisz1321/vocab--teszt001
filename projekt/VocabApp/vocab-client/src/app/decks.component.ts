@@ -108,10 +108,11 @@ interface PasteRow {
   example: string;
   targetMeanings: string;
   aiError: string | null;
+  meaningSimplified: boolean;
 }
 
 interface DeckFillResponse {
-  items: { index: number; definition: string | null; example: string | null; error: string | null }[];
+  items: { index: number; definition: string | null; example: string | null; targetMeanings: string | null; error: string | null }[];
   usedToday: number;
   dailyLimit: number;
   remainingToday: number;
@@ -1111,6 +1112,11 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
             <input class="form-check-input" type="checkbox" id="paste-auto" name="pasteAuto" [(ngModel)]="pasteAuto">
             <label class="form-check-label" for="paste-auto">MI automatikus kitöltés beolvasáskor</label>
           </div>
+          <div class="form-check mb-1">
+            <input class="form-check-input" type="checkbox" id="paste-simplify" name="pasteSimplify" [(ngModel)]="pasteSimplify">
+            <label class="form-check-label" for="paste-simplify">Magyar jelentés egyszerűsítése MI-vel</label>
+          </div>
+          <p class="small text-body-secondary mb-2">Bekapcsolva az MI a hosszú jelentéslistából 2–4 rövid, jól tanulható jelentést készít (az eredeti csak támpont). A kitöltés után a táblában átírhatod.</p>
           <p class="small text-body-secondary mb-3">
             Definíció és példamondat készül a pakli szintjén ({{ pasteLevel }}), {{ aiFillBatchSize }} szavanként egy MI-hívásban.
             Mai keret: {{ aiFillRemaining ?? '…' }} / {{ aiFillLimit }} (a korlát jelenleg nincs érvényben).
@@ -1444,6 +1450,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   pasteRowSep: RowSeparator = 'newline';
   pasteRowCustom = '';
   pasteAuto = false;
+  pasteSimplify = false;
   pasteRows: PasteRow[] = [];
   pasteError: string | null = null;
   pasteSaving = false;
@@ -2588,12 +2595,16 @@ export class DecksComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (!this.pasteRows.some(row => this.needsAiFill(row))) {
+    if (!this.pasteRows.some(row => this.needsAiFill(row) || this.needsMeaningSimplify(row))) {
       this.pasteError = 'Nincs mit kitölteni: minden sorban van definíció és példamondat.';
       return;
     }
 
-    this.confirmAiLevel('a definíciókat és a példamondatokat', () => this.runPasteAi());
+    this.confirmAiLevel(
+      this.pasteSimplify
+        ? 'a definíciókat és a példamondatokat, és egyszerűsíti a magyar jelentéseket'
+        : 'a definíciókat és a példamondatokat',
+      () => this.runPasteAi());
   }
 
   private runPasteAi(): void {
@@ -2604,7 +2615,7 @@ export class DecksComponent implements OnInit, OnDestroy {
 
     // A nem küldhető sorok mellé kiírjuk az okot, hogy ne maradjanak magyarázat nélkül üresen.
     for (const row of this.pasteRows) {
-      row.aiError = this.needsAiFill(row) ? this.aiSkipReason(row) : null;
+      row.aiError = this.needsAiFill(row) || this.needsMeaningSimplify(row) ? this.aiSkipReason(row) : null;
     }
 
     const targets = this.pasteRows.filter(row => this.isAiEligible(row));
@@ -2684,8 +2695,12 @@ export class DecksComponent implements OnInit, OnDestroy {
     return null;
   }
 
+  private needsMeaningSimplify(row: PasteRow): boolean {
+    return this.pasteSimplify && !row.meaningSimplified;
+  }
+
   private isAiEligible(row: PasteRow): boolean {
-    return this.needsAiFill(row) && this.aiSkipReason(row) === null;
+    return (this.needsAiFill(row) || this.needsMeaningSimplify(row)) && this.aiSkipReason(row) === null;
   }
 
   // A 300 karakternél hosszabb jelentést az utolsó vesszőig vágjuk le (ha nincs vessző, keményen), hogy ne maradjon félbevágott szó.
@@ -2720,6 +2735,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     const items = batch.map(row => ({
       term: row.term.trim(),
       targetMeanings: this.meaningHint(row.targetMeanings),
+      simplifyMeaning: this.needsMeaningSimplify(row),
       needDefinition: !row.definition.trim(),
       needExample: !row.example.trim(),
       definition: row.definition.trim() || null,
@@ -2739,6 +2755,11 @@ export class DecksComponent implements OnInit, OnDestroy {
 
           if (item.example && !row.example.trim()) {
             row.example = item.example;
+          }
+
+          if (item.targetMeanings) {
+            row.targetMeanings = item.targetMeanings;
+            row.meaningSimplified = true;
           }
 
           row.aiError = item.error;
@@ -2792,6 +2813,7 @@ export class DecksComponent implements OnInit, OnDestroy {
         example: '',
         targetMeanings: clampedMeanings,
         aiError: null,
+        meaningSimplified: false,
       });
     }
 
