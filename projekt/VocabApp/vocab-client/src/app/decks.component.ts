@@ -33,6 +33,7 @@ interface VocabCard {
   isLearned: boolean;
   markedKnown: boolean;
   suspension: CardSuspension;
+  isLeech: boolean;
 }
 
 interface LearnedCard {
@@ -74,7 +75,7 @@ interface PendingConfirm {
 
 type Section = 'mine' | 'public';
 type DetailTab = 'cards' | 'settings';
-type CardFilter = 'all' | 'open' | 'learned' | 'suspended';
+type CardFilter = 'all' | 'open' | 'learned' | 'suspended' | 'leech';
 type CardSuspension = 'none' | 'suspended' | 'buried';
 
 @Component({
@@ -448,6 +449,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         <button type="button" class="dseg-btn" [class.active]="cardFilter === 'open'" (click)="cardFilter = 'open'">Tanulandó</button>
                         <button type="button" class="dseg-btn" [class.active]="cardFilter === 'learned'" (click)="cardFilter = 'learned'">Megtanult</button>
                         <button type="button" class="dseg-btn" [class.active]="cardFilter === 'suspended'" (click)="cardFilter = 'suspended'">Szüneteltetett</button>
+                        <button type="button" class="dseg-btn" [class.active]="cardFilter === 'leech'" (click)="cardFilter = 'leech'">Nehéz</button>
                       </div>
                     </div>
                     @if (cardSearch.trim() || cardFilter !== 'all') {
@@ -464,6 +466,9 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                                 {{ card.term }}
                                 @if (card.isLearned) {
                                   <span class="chip chip-ok">Megtanult</span>
+                                }
+                                @if (card.isLeech) {
+                                  <span class="chip chip-leech" title="Sokszor elrontott szó. A küszöböt a Profil haladó beállításaiban állíthatod.">Nehéz szó</span>
                                 }
                                 @if (card.suspension === 'suspended') {
                                   <span class="chip chip-paused">Felfüggesztve</span>
@@ -806,6 +811,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
     .chip { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 600; border: 1px solid var(--app-border); color: var(--app-muted); white-space: nowrap; }
     .chip-shared { color: var(--app-primary); border-color: color-mix(in srgb, var(--app-primary) 45%, transparent); background: color-mix(in srgb, var(--app-primary) 10%, transparent); }
     .chip-ok { color: var(--app-success); border-color: color-mix(in srgb, var(--app-success) 45%, transparent); background: color-mix(in srgb, var(--app-success) 10%, transparent); margin-left: .35rem; }
+    .chip-leech { color: var(--app-danger); border-color: color-mix(in srgb, var(--app-danger) 45%, transparent); background: color-mix(in srgb, var(--app-danger) 10%, transparent); margin-left: .35rem; }
     .chip-paused { color: var(--app-muted); margin-left: .35rem; }
     .chip-level { color: var(--app-primary); border-color: color-mix(in srgb, var(--app-primary) 45%, transparent); }
 
@@ -957,6 +963,10 @@ export class DecksComponent implements OnInit, OnDestroy {
       }
 
       if (this.cardFilter === 'suspended' && card.suspension === 'none') {
+        return false;
+      }
+
+      if (this.cardFilter === 'leech' && !card.isLeech) {
         return false;
       }
 

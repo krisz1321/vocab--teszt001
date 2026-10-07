@@ -33,6 +33,8 @@ public sealed class User
 
     public bool GenerateAlternateDefinitions { get; set; } = true;
 
+    public int LeechThreshold { get; set; } = CardLeech.DefaultThreshold;
+
     [Required, MaxLength(2)]
     public string ExampleLevel { get; set; } = ExampleLevels.Default;
 

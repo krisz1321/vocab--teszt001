@@ -663,6 +663,11 @@ namespace VocabApp.Api.Migrations
                     b.Property<DateTime?>("LastStudyDate")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("LeechThreshold")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(6);
+
                     b.Property<int>("LongestStudyDayStreak")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")

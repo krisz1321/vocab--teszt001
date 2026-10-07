@@ -18,6 +18,7 @@ interface StudyCard {
   interval: number;
   streak: number;
   incorrectCount: number;
+  isLeech: boolean;
 }
 
 interface StudySubmitRequest {
@@ -457,6 +458,9 @@ const hungarianPlain = 'aeiooouuu';
                 }
                 <div class="d-flex flex-wrap gap-2 align-items-center">
                   <span class="badge text-bg-success">Sorozat: {{ card.streak }}</span>
+                  @if (card.isLeech) {
+                    <span class="badge text-bg-warning" title="Sokszor elrontott szó. Ha zavar, tedd félre az óra vagy a szünet gombbal.">Nehéz szó</span>
+                  }
                   <span class="badge text-bg-danger">Hibák: {{ card.incorrectCount }}</span>
                   <span class="badge text-bg-secondary">Időköz: {{ card.interval }} nap</span>
                   <span class="badge text-bg-info">Könnyűség: {{ card.easeFactor | number:'1.1-1' }}</span>

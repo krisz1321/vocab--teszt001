@@ -39,6 +39,7 @@ interface StudySettings {
   reuseSavedExamples: boolean;
   savedLevelPolicy: string;
   generateAlternateDefinitions: boolean;
+  leechThreshold: number;
   exampleLevel: string;
   aiModel: string;
   timeZoneId: string;
@@ -250,7 +251,7 @@ interface AiModelOption {
               <div class="form-text">Ez a fiók szintje, a pakli saját szintje felülírja.</div>
             </div>
             <details class="advanced-settings mb-4">
-              <summary class="fw-semibold">Haladó beállítások (MI és példamondatok)</summary>
+              <summary class="fw-semibold">Haladó beállítások (MI, példamondatok és nehéz szavak)</summary>
               <div class="pt-3">
             <div class="mb-3">
               <label class="form-label" for="aiModel">MI-modell</label>
@@ -345,6 +346,20 @@ interface AiModelOption {
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="generateAlternateDefinitions">Váltakozó definíció</label>
               <div class="form-text">Bekapcsolva új angol definíció készül a mondatszint szerint. Kikapcsolva mindig a kártyán tárolt definíció jelenik meg.</div>
+            </div>
+            <div class="mb-3">
+              <label class="form-label" for="leechThreshold">Nehéz szó küszöbe (hibák száma)</label>
+              <input
+                id="leechThreshold"
+                name="leechThreshold"
+                type="number"
+                class="form-control"
+                min="2"
+                max="50"
+                step="1"
+                [(ngModel)]="leechThreshold"
+                [disabled]="isSavingStudySettings">
+              <div class="form-text">Ennyi hiba után számít nehéznek egy szó, ha több a hibás válasza, mint a helyes. A nehéz szót a tanulásban és a kártyalistában jelöljük, hogy félretehesd.</div>
             </div>
               </div>
             </details>
@@ -545,6 +560,7 @@ export class AppComponent implements OnInit {
   ];
   savedLevelPolicy: SavedLevelChoice = 'all';
   generateAlternateDefinitions = true;
+  leechThreshold = 6;
   readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
   exampleLevel = 'B1';
   readonly aiModels: AiModelOption[] = [
@@ -737,6 +753,12 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    const leechThreshold = Number(this.leechThreshold);
+    if (!Number.isInteger(leechThreshold) || leechThreshold < 2 || leechThreshold > 50) {
+      this.profileError = 'A nehéz szó küszöbe 2 és 50 hiba között lehet.';
+      return;
+    }
+
     if (!this.exampleLevels.includes(this.exampleLevel)) {
       this.profileError = 'A mondatszint A1, A2, B1, B2, C1 vagy C2 lehet.';
       return;
@@ -763,6 +785,7 @@ export class AppComponent implements OnInit {
       reuseSavedExamples: this.reuseSavedExamples,
       savedLevelPolicy,
       generateAlternateDefinitions: this.generateAlternateDefinitions,
+      leechThreshold,
       exampleLevel: this.exampleLevel,
       aiModel: this.aiModel,
       timeZoneId: this.timeZoneId,
@@ -780,6 +803,7 @@ export class AppComponent implements OnInit {
         this.reuseSavedExamples = settings.reuseSavedExamples;
         this.applySavedLevelPolicy(settings.savedLevelPolicy);
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
+        this.leechThreshold = settings.leechThreshold ?? 6;
         this.exampleLevel = settings.exampleLevel;
         this.aiModel = settings.aiModel;
         this.timeZoneId = settings.timeZoneId || this.timeZoneId;
@@ -864,6 +888,7 @@ export class AppComponent implements OnInit {
         this.reuseSavedExamples = settings.reuseSavedExamples;
         this.applySavedLevelPolicy(settings.savedLevelPolicy);
         this.generateAlternateDefinitions = settings.generateAlternateDefinitions;
+        this.leechThreshold = settings.leechThreshold ?? 6;
         this.exampleLevel = settings.exampleLevel;
         this.aiModel = settings.aiModel;
         this.timeZoneId = settings.timeZoneId || this.timeZoneId;

@@ -12,4 +12,5 @@ public sealed class StudyCardDto
     public int Interval { get; set; }
     public int Streak { get; set; }
     public int IncorrectCount { get; set; }
+    public bool IsLeech { get; set; }
 }

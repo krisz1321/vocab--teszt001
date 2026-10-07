@@ -19,4 +19,6 @@ public sealed class CardDto
     public bool MarkedKnown { get; set; }
 
     public string Suspension { get; set; } = "none";
+
+    public bool IsLeech { get; set; }
 }

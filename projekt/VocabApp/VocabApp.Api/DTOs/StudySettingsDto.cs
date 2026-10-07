@@ -25,6 +25,9 @@ public sealed class StudySettingsDto
 
     public bool GenerateAlternateDefinitions { get; set; }
 
+    [Range(CardLeech.MinThreshold, CardLeech.MaxThreshold)]
+    public int LeechThreshold { get; set; } = CardLeech.DefaultThreshold;
+
     [Required, MaxLength(2)]
     public string ExampleLevel { get; set; } = string.Empty;
 

@@ -26,6 +26,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         }
 
         var now = DateTime.UtcNow;
+        var leechThreshold = await LeechThresholdAsync(userId, cancellationToken);
         var cards = await dbContext.Cards
             .AsNoTracking()
             .Where(card => card.DeckId == deckId)
@@ -40,7 +41,10 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
                 TargetMeanings = card.TargetMeanings,
                 IsLearned = card.Progress != null && card.Progress.LearnedAt != null,
                 MarkedKnown = card.Progress != null && card.Progress.MarkedKnown,
-                Suspension = CardSuspensions.StateOf(card.Progress != null ? card.Progress.SuspendedUntil : null, now)
+                Suspension = CardSuspensions.StateOf(card.Progress != null ? card.Progress.SuspendedUntil : null, now),
+                IsLeech = card.Progress != null
+                    && card.Progress.IncorrectCount >= leechThreshold
+                    && card.Progress.IncorrectCount > card.Progress.CorrectCount
             })
             .ToListAsync(cancellationToken);
 
@@ -136,7 +140,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
 
         dbContext.Cards.Add(card);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return DeckCardResult<CardDto>.Success(ToDto(card));
+        return DeckCardResult<CardDto>.Success(ToDto(card, CardLeech.DefaultThreshold));
     }
 
     public async Task<DeckCardResult<CardDto>> UpdateAsync(
@@ -164,7 +168,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         card.Example = NormalizeOptional(request.Example);
         card.TargetMeanings = NormalizeOptional(request.TargetMeanings);
         await dbContext.SaveChangesAsync(cancellationToken);
-        return DeckCardResult<CardDto>.Success(ToDto(card));
+        return DeckCardResult<CardDto>.Success(ToDto(card, await LeechThresholdAsync(userId, cancellationToken)));
     }
 
     public async Task<DeckCardResult<CardDto>> SetKnownAsync(
@@ -215,7 +219,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return DeckCardResult<CardDto>.Success(ToDto(card));
+        return DeckCardResult<CardDto>.Success(ToDto(card, await LeechThresholdAsync(userId, cancellationToken)));
     }
 
     public async Task<DeckCardResult<CardDto>> SetSuspensionAsync(
@@ -259,7 +263,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         }
 
         await dbContext.SaveChangesAsync(cancellationToken);
-        return DeckCardResult<CardDto>.Success(ToDto(card));
+        return DeckCardResult<CardDto>.Success(ToDto(card, await LeechThresholdAsync(userId, cancellationToken)));
     }
 
     public async Task<bool> DeleteAsync(int userId, int cardId, CancellationToken cancellationToken = default)
@@ -343,7 +347,14 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         return string.IsNullOrEmpty(normalized) ? null : normalized;
     }
 
-    private static CardDto ToDto(Card card) => new()
+    private Task<int> LeechThresholdAsync(int userId, CancellationToken cancellationToken) =>
+        dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => user.LeechThreshold)
+            .SingleAsync(cancellationToken);
+
+    private static CardDto ToDto(Card card, int leechThreshold) => new()
     {
         Id = card.Id,
         DeckId = card.DeckId,
@@ -353,6 +364,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         TargetMeanings = card.TargetMeanings,
         IsLearned = card.Progress?.LearnedAt != null,
         MarkedKnown = card.Progress?.MarkedKnown == true,
-        Suspension = CardSuspensions.StateOf(card.Progress?.SuspendedUntil, DateTime.UtcNow)
+        Suspension = CardSuspensions.StateOf(card.Progress?.SuspendedUntil, DateTime.UtcNow),
+        IsLeech = card.Progress is { } progress && CardLeech.IsLeech(progress.IncorrectCount, progress.CorrectCount, leechThreshold)
     };
 }

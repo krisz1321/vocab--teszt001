@@ -38,7 +38,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 candidate.AutomaticAiCheck,
                 candidate.AcceptHungarianParaphrase,
                 candidate.RequireAppealReason,
-                candidate.TimeZoneId
+                candidate.TimeZoneId,
+                candidate.LeechThreshold
             })
             .SingleOrDefaultAsync(cancellationToken);
 
@@ -68,12 +69,12 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
 
         var reviews = studyFocus == "new"
             ? []
-            : await SelectCards(reviewsQuery).ToListAsync(cancellationToken);
+            : await SelectCards(reviewsQuery, user.LeechThreshold).ToListAsync(cancellationToken);
 
         var newCards = new List<StudyCardDto>();
         if (studyFocus is "all" or "new" && introducedToday < user.DailyNewCardGoal)
         {
-            newCards = await SelectCards(source.Where(progress => progress.FirstReviewedAt == null))
+            newCards = await SelectCards(source.Where(progress => progress.FirstReviewedAt == null), user.LeechThreshold)
                 .ToListAsync(cancellationToken);
         }
 
@@ -226,6 +227,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 ReuseSavedExamples = user.ReuseSavedExamples,
                 SavedLevelPolicy = user.SavedLevelPolicy,
                 GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
+                LeechThreshold = user.LeechThreshold,
                 ExampleLevel = user.ExampleLevel,
                 AiModel = user.AiModel,
                 TimeZoneId = user.TimeZoneId
@@ -272,6 +274,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.ReuseSavedExamples = request.ReuseSavedExamples;
         user.SavedLevelPolicy = savedLevelPolicy;
         user.GenerateAlternateDefinitions = request.GenerateAlternateDefinitions;
+        user.LeechThreshold = request.LeechThreshold;
         user.ExampleLevel = exampleLevel;
         user.AiModel = aiModel;
         user.TimeZoneId = timeZoneId;
@@ -286,6 +289,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             ReuseSavedExamples = user.ReuseSavedExamples,
             SavedLevelPolicy = user.SavedLevelPolicy,
             GenerateAlternateDefinitions = user.GenerateAlternateDefinitions,
+            LeechThreshold = user.LeechThreshold,
             ExampleLevel = user.ExampleLevel,
             AiModel = user.AiModel,
             TimeZoneId = user.TimeZoneId
@@ -412,7 +416,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         _ => "all"
     };
 
-    private static IQueryable<StudyCardDto> SelectCards(IQueryable<CardProgress> progresses) =>
+    private static IQueryable<StudyCardDto> SelectCards(IQueryable<CardProgress> progresses, int leechThreshold) =>
         progresses.Select(progress => new StudyCardDto
         {
             Id = progress.CardId,
@@ -424,7 +428,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             EaseFactor = progress.EaseFactor,
             Interval = progress.Interval,
             Streak = progress.Streak,
-            IncorrectCount = progress.IncorrectCount
+            IncorrectCount = progress.IncorrectCount,
+            IsLeech = progress.IncorrectCount >= leechThreshold && progress.IncorrectCount > progress.CorrectCount
         });
 
     private static StudyNextDto Envelope(
