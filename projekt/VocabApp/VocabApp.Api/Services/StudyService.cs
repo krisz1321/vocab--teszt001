@@ -8,6 +8,8 @@ namespace VocabApp.Api.Services;
 public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answerToken) : IStudyService
 {
     private const int LearnedStreakThreshold = 3;
+    private const int ForecastDays = 30;
+    private const int RetentionWindowDays = 30;
     private const int MaxAnswerDurationSeconds = 600;
     private const int MaxConfusionBonus = 10;
     public async Task<StudyNextResult> GetNextCardAsync(
@@ -48,7 +50,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var localToday = StudyClock.LocalDate(user.TimeZoneId, now);
         var dayStartUtc = StudyClock.UtcStartOfLocalDate(user.TimeZoneId, localToday);
         var dayEndUtc = StudyClock.UtcStartOfLocalDate(user.TimeZoneId, localToday.AddDays(1));
-        var source = UserProgress(userId, deckId);
+        var source = UserProgress(userId, deckId, now);
         var introducedToday = await source
             .CountAsync(
                 progress => progress.FirstReviewedAt >= dayStartUtc && progress.FirstReviewedAt < dayEndUtc,
@@ -123,6 +125,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 progress.Streak,
                 progress.Interval,
                 progress.NextReviewDate,
+                progress.FirstReviewedAt,
+                progress.SuspendedUntil,
                 progress.LearnedAt
             })
             .ToListAsync(cancellationToken);
@@ -145,7 +149,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var studyDays = await dbContext.UserStudyDays
             .AsNoTracking()
             .Where(day => day.UserId == userId)
-            .Select(day => new { day.DayUtc, day.SecondsStudied })
+            .Select(day => new { day.DayUtc, day.SecondsStudied, day.AnswerCount, day.CorrectCount })
             .ToListAsync(cancellationToken);
 
         var learnedAt = rows.Select(row => row.LearnedAt).ToList();
@@ -153,7 +157,9 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         return new StudyStatsDto
         {
             TotalCards = rows.Count,
-            DueCards = rows.Count(row => row.NextReviewDate <= now),
+            DueCards = rows.Count(row => row.FirstReviewedAt != null
+                && (row.SuspendedUntil == null || row.SuspendedUntil <= now)
+                && row.NextReviewDate <= now),
             TotalIncorrect = rows.Sum(row => row.IncorrectCount),
             LearnedCards = rows.Count(row => row.LearnedAt != null),
             StudyDayStreak = user is null
@@ -167,6 +173,19 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             AiCallCount = user?.AiCallCount ?? 0,
             Days = BuildLearnedDays(learnedAt, today, user?.TimeZoneId),
             Weeks = BuildLearnedWeeks(learnedAt, today, user?.TimeZoneId),
+            Forecast = BuildForecast(
+                rows.Where(row => row.FirstReviewedAt != null)
+                    .Select(row => row.SuspendedUntil is DateTime until && until > now && until > row.NextReviewDate
+                        ? until
+                        : row.NextReviewDate)
+                    .ToList(),
+                now,
+                today,
+                user?.TimeZoneId),
+            Retention = BuildRetention(
+                studyDays.Where(day => day.DayUtc.Date > today.AddDays(-RetentionWindowDays))
+                    .Select(day => (day.AnswerCount, day.CorrectCount))
+                    .ToList()),
             Cards = rows
                 .Select(row =>
                 {
@@ -370,11 +389,12 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         });
     }
 
-    private IQueryable<CardProgress> UserProgress(int userId, int? deckId)
+    private IQueryable<CardProgress> UserProgress(int userId, int? deckId, DateTime now)
     {
         var query = dbContext.CardProgresses
             .AsNoTracking()
-            .Where(progress => progress.Card.Deck.UserId == userId);
+            .Where(progress => progress.Card.Deck.UserId == userId
+                && (progress.SuspendedUntil == null || progress.SuspendedUntil <= now));
 
         if (deckId is int selectedDeckId)
         {
@@ -694,6 +714,46 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         }
 
         return weeks;
+    }
+
+    private static List<StudyStatsForecastDto> BuildForecast(
+        IReadOnlyList<DateTime> nextReviews,
+        DateTime now,
+        DateTime today,
+        string? timeZoneId)
+    {
+        var windowEndUtc = StudyClock.UtcStartOfLocalDate(timeZoneId, today.AddDays(ForecastDays));
+        var counts = new int[ForecastDays];
+        foreach (var nextReview in nextReviews)
+        {
+            if (nextReview >= windowEndUtc)
+            {
+                continue;
+            }
+
+            // A lejárt kártyák a mai napra számítanak, mert azonnal ismételhetők.
+            var localDate = nextReview <= now
+                ? today
+                : StudyClock.LocalDateFromStoredUtc(timeZoneId, nextReview);
+            var index = (int)(localDate - today).TotalDays;
+            counts[Math.Clamp(index, 0, ForecastDays - 1)]++;
+        }
+
+        return Enumerable.Range(0, ForecastDays)
+            .Select(index => new StudyStatsForecastDto { Date = today.AddDays(index), DueCount = counts[index] })
+            .ToList();
+    }
+
+    private static StudyStatsRetentionDto BuildRetention(IReadOnlyList<(int AnswerCount, int CorrectCount)> days)
+    {
+        var answers = days.Sum(day => (long)day.AnswerCount);
+        var correct = days.Sum(day => (long)day.CorrectCount);
+        return new StudyStatsRetentionDto
+        {
+            AnswerCount = (int)Math.Min(answers, int.MaxValue),
+            CorrectCount = (int)Math.Min(correct, int.MaxValue),
+            Rate = answers == 0 ? null : (double)correct / answers
+        };
     }
 
     private static DateTime StartOfWeek(DateTime day)

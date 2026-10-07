@@ -235,6 +235,10 @@ const hungarianPlain = 'aeiooouuu';
           <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
         }
 
+        @if (cardNotice && studying && mode !== 'free') {
+          <div class="alert alert-info py-2" role="status">{{ cardNotice }}</div>
+        }
+
         @if (!studying) {
           <form class="card border-0 shadow-sm" (ngSubmit)="startStudy()">
             <div class="card-body p-4">
@@ -456,6 +460,24 @@ const hungarianPlain = 'aeiooouuu';
                   <span class="badge text-bg-danger">Hibák: {{ card.incorrectCount }}</span>
                   <span class="badge text-bg-secondary">Időköz: {{ card.interval }} nap</span>
                   <span class="badge text-bg-info">Könnyűség: {{ card.easeFactor | number:'1.1-1' }}</span>
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm suspend-btn"
+                    [disabled]="isSuspendBusy"
+                    (click)="suspendCurrentCard('buried')"
+                    aria-label="Elnapolás holnapig"
+                    title="Elnapolás holnapig: a kártya holnapig nem jelenik meg">
+                    <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="btn btn-outline-secondary btn-sm suspend-btn"
+                    [disabled]="isSuspendBusy"
+                    (click)="suspendCurrentCard('suspended')"
+                    aria-label="Felfüggesztés"
+                    title="Felfüggesztés: a kártya addig nem jelenik meg, amíg a pakli kártyalistájában vissza nem kapcsolod">
+                    <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+                  </button>
                 </div>
               </div>
 
@@ -976,6 +998,7 @@ const hungarianPlain = 'aeiooouuu';
     .free-settings-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; }
     .free-setting-row { display: flex; align-items: center; gap: .6rem; padding: .42rem 0; font-size: .9rem; cursor: pointer; }
     .free-setting-row input { width: 1rem; height: 1rem; accent-color: var(--app-primary); }
+    .suspend-btn { display: inline-flex; align-items: center; justify-content: center; padding: .3rem .45rem; line-height: 1; }
     .free-study-stage { position: relative; min-height: 25rem; }
     .free-study-face { min-height: 25rem; touch-action: pan-y; user-select: none; display: flex; position: relative; z-index: 2; border: 1px solid var(--app-border) !important; border-radius: var(--app-radius-lg); background: linear-gradient(145deg, var(--app-surface), color-mix(in srgb, var(--app-primary) 6%, var(--app-surface))); box-shadow: var(--app-shadow) !important; transition: transform .22s ease, box-shadow .22s ease; cursor: grab; }
     .free-study-face.is-dragging { transition: none; cursor: grabbing; }
@@ -1072,6 +1095,9 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   followUpQuestion = '';
   explanationMessages: ExplanationMessage[] = [];
   errorMessage: string | null = null;
+  cardNotice: string | null = null;
+  private pendingCardNotice: string | null = null;
+  isSuspending = false;
   studyStatus: StudyNextResponse['status'] | null = null;
   newCardsIntroducedToday = 0;
   sessionAnswered = 0;
@@ -1518,6 +1544,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     this.studyStatus = null;
     this.card = null;
     this.resetCardState();
+    this.cardNotice = this.pendingCardNotice;
+    this.pendingCardNotice = null;
 
     const params: Record<string, string | number> = {};
     if (typeof this.deckChoice === 'number') {
@@ -1563,6 +1591,31 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
           this.setHttpError(error, 'A kártya betöltése');
         },
+      });
+  }
+
+  get isSuspendBusy(): boolean {
+    return this.isSuspending || this.isSubmitting || this.isValidating || this.isAppealing;
+  }
+
+  suspendCurrentCard(mode: 'suspended' | 'buried'): void {
+    const card = this.card;
+    if (!card || this.isSuspendBusy) {
+      return;
+    }
+
+    this.errorMessage = null;
+    this.isSuspending = true;
+    this.http.put(`${this.apiBaseUrl}/cards/${card.id}/suspension`, { mode })
+      .pipe(finalize(() => this.isSuspending = false))
+      .subscribe({
+        next: () => {
+          this.pendingCardNotice = mode === 'suspended'
+            ? `A(z) „${card.term}” felfüggesztve. A pakli kártyalistájában kapcsolhatod vissza.`
+            : `A(z) „${card.term}” holnapig elnapolva.`;
+          this.loadNextCard();
+        },
+        error: (error: HttpErrorResponse) => this.setHttpError(error, 'A kártya felfüggesztése'),
       });
   }
 

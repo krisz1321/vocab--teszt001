@@ -22,7 +22,10 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Name = deck.Name,
                 CardCount = deck.Cards.Count,
                 LearnedCount = deck.Cards.Count(card => card.Progress != null && card.Progress.LearnedAt != null),
-                DueCount = deck.Cards.Count(card => card.Progress != null && card.Progress.NextReviewDate <= now),
+                DueCount = deck.Cards.Count(card => card.Progress != null
+                    && card.Progress.FirstReviewedAt != null
+                    && card.Progress.NextReviewDate <= now
+                    && (card.Progress.SuspendedUntil == null || card.Progress.SuspendedUntil <= now)),
                 IsPublic = deck.IsPublic,
                 ExampleLevel = deck.ExampleLevel
             })
@@ -359,7 +362,11 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             card => card.DeckId == deck.Id && card.Progress != null && card.Progress.LearnedAt != null,
             cancellationToken),
         DueCount = await dbContext.Cards.CountAsync(
-            card => card.DeckId == deck.Id && card.Progress != null && card.Progress.NextReviewDate <= DateTime.UtcNow,
+            card => card.DeckId == deck.Id
+                && card.Progress != null
+                && card.Progress.FirstReviewedAt != null
+                && card.Progress.NextReviewDate <= DateTime.UtcNow
+                && (card.Progress.SuspendedUntil == null || card.Progress.SuspendedUntil <= DateTime.UtcNow),
             cancellationToken),
         IsPublic = deck.IsPublic,
         ExampleLevel = deck.ExampleLevel

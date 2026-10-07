@@ -131,7 +131,10 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
 
     private IQueryable<Card> UserCards(int userId, int? deckId)
     {
-        var cards = dbContext.Cards.AsNoTracking().Where(card => card.Deck.UserId == userId);
+        var now = DateTime.UtcNow;
+        var cards = dbContext.Cards.AsNoTracking()
+            .Where(card => card.Deck.UserId == userId
+                && (card.Progress == null || card.Progress.SuspendedUntil == null || card.Progress.SuspendedUntil <= now));
         if (deckId is int selectedDeckId)
         {
             cards = cards.Where(card => card.DeckId == selectedDeckId);

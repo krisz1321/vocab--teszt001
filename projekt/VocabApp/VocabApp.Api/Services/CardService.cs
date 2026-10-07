@@ -25,6 +25,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             return DeckCardResult<IReadOnlyList<CardDto>>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
+        var now = DateTime.UtcNow;
         var cards = await dbContext.Cards
             .AsNoTracking()
             .Where(card => card.DeckId == deckId)
@@ -38,7 +39,8 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
                 Example = card.Example,
                 TargetMeanings = card.TargetMeanings,
                 IsLearned = card.Progress != null && card.Progress.LearnedAt != null,
-                MarkedKnown = card.Progress != null && card.Progress.MarkedKnown
+                MarkedKnown = card.Progress != null && card.Progress.MarkedKnown,
+                Suspension = CardSuspensions.StateOf(card.Progress != null ? card.Progress.SuspendedUntil : null, now)
             })
             .ToListAsync(cancellationToken);
 
@@ -216,6 +218,50 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         return DeckCardResult<CardDto>.Success(ToDto(card));
     }
 
+    public async Task<DeckCardResult<CardDto>> SetSuspensionAsync(
+        int userId,
+        int cardId,
+        string? mode,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedMode = mode?.Trim().ToLowerInvariant();
+        if (!CardSuspensions.IsAllowed(normalizedMode))
+        {
+            return DeckCardResult<CardDto>.Fail(StatusCodes.Status400BadRequest, "Érvénytelen felfüggesztési mód.");
+        }
+
+        var card = await dbContext.Cards
+            .Include(candidate => candidate.Progress)
+            .FirstOrDefaultAsync(candidate => candidate.Id == cardId && candidate.Deck.UserId == userId, cancellationToken);
+        if (card?.Progress is null)
+        {
+            return DeckCardResult<CardDto>.Fail(StatusCodes.Status404NotFound, "A kártya nem található.");
+        }
+
+        var now = DateTime.UtcNow;
+        if (normalizedMode == CardSuspensions.Suspended)
+        {
+            card.Progress.SuspendedUntil = DateTime.MaxValue;
+        }
+        else if (normalizedMode == CardSuspensions.Buried)
+        {
+            // Elnapolás: a kártya a felhasználó időzónájában vett következő naptól jön vissza.
+            var timeZoneId = await dbContext.Users
+                .Where(candidate => candidate.Id == userId)
+                .Select(candidate => candidate.TimeZoneId)
+                .SingleAsync(cancellationToken);
+            var tomorrow = StudyClock.LocalDate(timeZoneId, now).AddDays(1);
+            card.Progress.SuspendedUntil = StudyClock.UtcStartOfLocalDate(timeZoneId, tomorrow);
+        }
+        else
+        {
+            card.Progress.SuspendedUntil = null;
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return DeckCardResult<CardDto>.Success(ToDto(card));
+    }
+
     public async Task<bool> DeleteAsync(int userId, int cardId, CancellationToken cancellationToken = default)
     {
         var card = await dbContext.Cards
@@ -306,6 +352,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         Example = card.Example,
         TargetMeanings = card.TargetMeanings,
         IsLearned = card.Progress?.LearnedAt != null,
-        MarkedKnown = card.Progress?.MarkedKnown == true
+        MarkedKnown = card.Progress?.MarkedKnown == true,
+        Suspension = CardSuspensions.StateOf(card.Progress?.SuspendedUntil, DateTime.UtcNow)
     };
 }

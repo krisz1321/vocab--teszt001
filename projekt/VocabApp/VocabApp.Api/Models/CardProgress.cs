@@ -14,5 +14,6 @@ public sealed class CardProgress
     public DateTime? LastReviewedAt { get; set; }
     public DateTime? LearnedAt { get; set; }
     public bool MarkedKnown { get; set; }
+    public DateTime? SuspendedUntil { get; set; }
     public Card Card { get; set; } = null!;
 }

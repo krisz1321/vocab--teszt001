@@ -13,6 +13,8 @@ public sealed class StudyStatsDto
     public int AiCallCount { get; set; }
     public List<StudyStatsDayDto> Days { get; set; } = [];
     public List<StudyStatsWeekDto> Weeks { get; set; } = [];
+    public List<StudyStatsForecastDto> Forecast { get; set; } = [];
+    public StudyStatsRetentionDto Retention { get; set; } = new();
     public List<StudyStatsCardDto> Cards { get; set; } = [];
     public List<StudyStatsConfusionDto> Confusions { get; set; } = [];
 }
@@ -35,6 +37,19 @@ public sealed class StudyStatsWeekDto
 {
     public DateTime WeekStart { get; set; }
     public int NewLearned { get; set; }
+}
+
+public sealed class StudyStatsForecastDto
+{
+    public DateTime Date { get; set; }
+    public int DueCount { get; set; }
+}
+
+public sealed class StudyStatsRetentionDto
+{
+    public int AnswerCount { get; set; }
+    public int CorrectCount { get; set; }
+    public double? Rate { get; set; }
 }
 
 public sealed class StudyStatsCardDto

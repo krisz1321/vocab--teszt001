@@ -72,6 +72,18 @@ public sealed class CardsController(ICardService cardService) : ControllerBase
         return ToActionResult(await cardService.SetKnownAsync(userId.Value, id, request.Known, cancellationToken));
     }
 
+    [HttpPut("{id:int}/suspension")]
+    public async Task<ActionResult<CardDto>> SetSuspension(int id, SetCardSuspensionDto request, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await cardService.SetSuspensionAsync(userId.Value, id, request.Mode, cancellationToken));
+    }
+
     [HttpDelete("{id:int}")]
     public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
     {

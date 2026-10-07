@@ -32,6 +32,7 @@ interface VocabCard {
   targetMeanings: string | null;
   isLearned: boolean;
   markedKnown: boolean;
+  suspension: CardSuspension;
 }
 
 interface LearnedCard {
@@ -73,7 +74,8 @@ interface PendingConfirm {
 
 type Section = 'mine' | 'public';
 type DetailTab = 'cards' | 'settings';
-type CardFilter = 'all' | 'open' | 'learned';
+type CardFilter = 'all' | 'open' | 'learned' | 'suspended';
+type CardSuspension = 'none' | 'suspended' | 'buried';
 
 @Component({
   selector: 'app-decks',
@@ -445,6 +447,7 @@ type CardFilter = 'all' | 'open' | 'learned';
                         <button type="button" class="dseg-btn" [class.active]="cardFilter === 'all'" (click)="cardFilter = 'all'">Mind</button>
                         <button type="button" class="dseg-btn" [class.active]="cardFilter === 'open'" (click)="cardFilter = 'open'">Tanulandó</button>
                         <button type="button" class="dseg-btn" [class.active]="cardFilter === 'learned'" (click)="cardFilter = 'learned'">Megtanult</button>
+                        <button type="button" class="dseg-btn" [class.active]="cardFilter === 'suspended'" (click)="cardFilter = 'suspended'">Szüneteltetett</button>
                       </div>
                     </div>
                     @if (cardSearch.trim() || cardFilter !== 'all') {
@@ -461,6 +464,11 @@ type CardFilter = 'all' | 'open' | 'learned';
                                 {{ card.term }}
                                 @if (card.isLearned) {
                                   <span class="chip chip-ok">Megtanult</span>
+                                }
+                                @if (card.suspension === 'suspended') {
+                                  <span class="chip chip-paused">Felfüggesztve</span>
+                                } @else if (card.suspension === 'buried') {
+                                  <span class="chip chip-paused">Elnapolva holnapig</span>
                                 }
                               </div>
                               <div class="card-def">{{ card.definition }}</div>
@@ -483,6 +491,36 @@ type CardFilter = 'all' | 'open' | 'learned';
                                   (change)="setKnown(card, $event)">
                                 <label class="form-check-label small" [attr.for]="'known-' + card.id">Ismerem</label>
                               </div>
+                              @if (card.suspension === 'none') {
+                                <button
+                                  type="button"
+                                  class="icon-btn"
+                                  [disabled]="suspendingCardId === card.id"
+                                  (click)="setSuspension(card, 'buried')"
+                                  [attr.aria-label]="'Elnapolás holnapig: ' + card.term"
+                                  title="Elnapolás holnapig">
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                                </button>
+                                <button
+                                  type="button"
+                                  class="icon-btn"
+                                  [disabled]="suspendingCardId === card.id"
+                                  (click)="setSuspension(card, 'suspended')"
+                                  [attr.aria-label]="'Felfüggesztés: ' + card.term"
+                                  title="Felfüggesztés, amíg vissza nem kapcsolod">
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+                                </button>
+                              } @else {
+                                <button
+                                  type="button"
+                                  class="icon-btn"
+                                  [disabled]="suspendingCardId === card.id"
+                                  (click)="setSuspension(card, 'none')"
+                                  [attr.aria-label]="'Visszakapcsolás a tanulásba: ' + card.term"
+                                  title="Visszakapcsolás a tanulásba">
+                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4l13 8-13 8Z"/></svg>
+                                </button>
+                              }
                               <button type="button" class="icon-btn" (click)="editCard(card)" [attr.aria-label]="'Szerkesztés: ' + card.term" title="Szerkesztés">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
                               </button>
@@ -768,6 +806,7 @@ type CardFilter = 'all' | 'open' | 'learned';
     .chip { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 600; border: 1px solid var(--app-border); color: var(--app-muted); white-space: nowrap; }
     .chip-shared { color: var(--app-primary); border-color: color-mix(in srgb, var(--app-primary) 45%, transparent); background: color-mix(in srgb, var(--app-primary) 10%, transparent); }
     .chip-ok { color: var(--app-success); border-color: color-mix(in srgb, var(--app-success) 45%, transparent); background: color-mix(in srgb, var(--app-success) 10%, transparent); margin-left: .35rem; }
+    .chip-paused { color: var(--app-muted); margin-left: .35rem; }
     .chip-level { color: var(--app-primary); border-color: color-mix(in srgb, var(--app-primary) 45%, transparent); }
 
     .back-link { display: inline-block; margin-bottom: .75rem; padding: 0; border: 0; background: none; color: var(--app-primary); font-weight: 600; }
@@ -880,6 +919,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   deletingDeckId: number | null = null;
   deletingCardId: number | null = null;
   markingKnownCardId: number | null = null;
+  suspendingCardId: number | null = null;
   resettingLearnedCardId: number | null = null;
   sharingDeckId: number | null = null;
   copyingDeckId: number | null = null;
@@ -913,6 +953,10 @@ export class DecksComponent implements OnInit, OnDestroy {
       }
 
       if (this.cardFilter === 'open' && card.isLearned) {
+        return false;
+      }
+
+      if (this.cardFilter === 'suspended' && card.suspension === 'none') {
         return false;
       }
 
@@ -1443,6 +1487,29 @@ export class DecksComponent implements OnInit, OnDestroy {
       error: (error: HttpErrorResponse) => {
         input.checked = card.isLearned;
         this.errorMessage = this.readError(error, 'Az ismert szó jelölése sikertelen.');
+      },
+    });
+  }
+
+  setSuspension(card: VocabCard, mode: CardSuspension): void {
+    this.errorMessage = null;
+    this.suspendingCardId = card.id;
+    this.http.put<VocabCard>(`/api/cards/${card.id}/suspension`, { mode }).pipe(
+      finalize(() => {
+        this.suspendingCardId = null;
+      }),
+    ).subscribe({
+      next: (updated) => {
+        this.cards = this.cards.map(item => item.id === updated.id ? updated : item);
+        this.toast(mode === 'suspended'
+          ? `A(z) „${card.term}” felfüggesztve, nem jelenik meg a tanulásban.`
+          : mode === 'buried'
+            ? `A(z) „${card.term}” holnapig elnapolva.`
+            : `A(z) „${card.term}” újra a tanulásban van.`);
+        this.refreshDecks();
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage = this.readError(error, 'A kártya felfüggesztése sikertelen.');
       },
     });
   }

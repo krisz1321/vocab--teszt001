@@ -25,6 +25,17 @@ interface StudyStatsWeek {
   newLearned: number;
 }
 
+interface StudyStatsForecastDay {
+  date: string;
+  dueCount: number;
+}
+
+interface StudyStatsRetention {
+  answerCount: number;
+  correctCount: number;
+  rate: number | null;
+}
+
 interface StudyStatsConfusion {
   term: string;
   confusedWithTerm: string;
@@ -43,6 +54,8 @@ interface StudyStats {
   aiCallCount: number;
   days: StudyStatsDay[];
   weeks: StudyStatsWeek[];
+  forecast: StudyStatsForecastDay[];
+  retention: StudyStatsRetention;
   cards: StudyStatsCard[];
   confusions: StudyStatsConfusion[];
 }
@@ -92,6 +105,13 @@ interface StudyStats {
             </div>
             <div class="col-6 col-md-4">
               <div class="border rounded p-2 p-md-3 h-100 stat-tile">
+                <div class="text-body-secondary">Retenció (30 nap)</div>
+                <div class="fs-3 fw-semibold">{{ formatRetention(stats.retention) }}</div>
+                <div class="text-body-secondary mt-2">{{ stats.retention.correctCount }} / {{ stats.retention.answerCount }} helyes válasz</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-4">
+              <div class="border rounded p-2 p-md-3 h-100 stat-tile">
                 <div class="text-body-secondary">Hibák összesen</div>
                 <div class="fs-3 fw-semibold">{{ stats.totalIncorrect }}</div>
               </div>
@@ -122,6 +142,29 @@ interface StudyStats {
                 <div class="fw-semibold">{{ formatStudyTime(stats.todayStudySeconds) }}</div>
               </div>
             </div>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+            <h2 class="h5 mb-0">Esedékes kártyák, következő {{ forecastDays }} nap</h2>
+            <div class="btn-group btn-group-sm" role="group" aria-label="Előrejelzés időtartama">
+              <button type="button" class="btn btn-outline-secondary" [class.active]="forecastDays === 7" (click)="forecastDays = 7">7 nap</button>
+              <button type="button" class="btn btn-outline-secondary" [class.active]="forecastDays === 30" (click)="forecastDays = 30">30 nap</button>
+            </div>
+          </div>
+          <div class="learn-chart mb-4" [class.learn-chart-dense]="forecastDays > 7">
+            @for (day of visibleForecast(stats.forecast); track day.date) {
+              <div class="learn-col">
+                <div class="learn-plot">
+                  <div
+                    class="learn-bar"
+                    [class.learn-bar-empty]="maxForecast(stats.forecast) === 0"
+                    [style.height.%]="barHeight(day.dueCount, maxForecast(stats.forecast))"
+                    [attr.title]="formatNextReview(day.date) + ': ' + day.dueCount + ' kártya'">
+                  </div>
+                </div>
+                <div class="learn-label">{{ forecastDays > 7 && !$first && !$last && $index % 5 !== 0 ? '' : dayOfMonth(day.date) }}</div>
+              </div>
+            }
           </div>
 
           <h2 class="h5 mb-3">Megtanult szavak, elmúlt 14 nap</h2>
@@ -259,6 +302,7 @@ interface StudyStats {
       .learn-bar-empty {
         background-color: var(--app-border);
       }
+      .learn-chart-dense { gap: 0.15rem; }
       .learn-label {
         margin-top: 0.35rem;
         font-size: 0.75rem;
@@ -274,6 +318,7 @@ export class StatsComponent implements OnInit {
   stats: StudyStats | null = null;
   isLoading = false;
   errorMessage: string | null = null;
+  forecastDays: 7 | 30 = 7;
 
   ngOnInit(): void {
     this.isLoading = true;
@@ -322,6 +367,18 @@ export class StatsComponent implements OnInit {
       month: '2-digit',
       day: '2-digit',
     }).format(new Date(value));
+  }
+
+  formatRetention(retention: StudyStatsRetention): string {
+    return retention.rate === null ? '—' : `${Math.round(retention.rate * 100)}%`;
+  }
+
+  visibleForecast(forecast: StudyStatsForecastDay[]): StudyStatsForecastDay[] {
+    return forecast.slice(0, this.forecastDays);
+  }
+
+  maxForecast(forecast: StudyStatsForecastDay[]): number {
+    return this.visibleForecast(forecast).reduce((max, day) => Math.max(max, day.dueCount), 0);
   }
 
   barHeight(value: number, max: number): number {

@@ -30,6 +30,12 @@ public interface ICardService
         bool known,
         CancellationToken cancellationToken = default);
 
+    Task<DeckCardResult<CardDto>> SetSuspensionAsync(
+        int userId,
+        int cardId,
+        string? mode,
+        CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAsync(int userId, int cardId, CancellationToken cancellationToken = default);
 
     Task<bool> ResetLearnedAsync(int userId, int cardId, CancellationToken cancellationToken = default);

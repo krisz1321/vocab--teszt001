@@ -17,4 +17,6 @@ public sealed class CardDto
     public bool IsLearned { get; set; }
 
     public bool MarkedKnown { get; set; }
+
+    public string Suspension { get; set; } = "none";
 }
