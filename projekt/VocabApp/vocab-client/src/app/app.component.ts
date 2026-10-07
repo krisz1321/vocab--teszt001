@@ -87,8 +87,13 @@ interface AiModelOption {
                   class="form-control form-control-lg"
                   autocomplete="username"
                   placeholder="nev@példa.hu"
+                  [class.is-invalid]="mode === 'register' && emailTaken"
                   [(ngModel)]="email"
+                  (ngModelChange)="onRegisterFieldChange()"
                   [disabled]="isSubmitting">
+                @if (mode === 'register' && emailTaken) {
+                  <div class="invalid-feedback d-block">Ez az email cím már regisztrálva van.</div>
+                }
               </div>
               @if (mode === 'register') {
                 <div class="mb-3">
@@ -101,9 +106,15 @@ interface AiModelOption {
                     autocomplete="nickname"
                     maxlength="30"
                     placeholder="3–30 karakter: betű, szám, . - _"
+                    [class.is-invalid]="usernameTaken"
                     [(ngModel)]="registerUsername"
+                    (ngModelChange)="onRegisterFieldChange()"
                     [disabled]="isSubmitting">
-                  <div class="form-text">Ez látszik a megosztott paklijaid mellett.</div>
+                  @if (usernameTaken) {
+                    <div class="invalid-feedback d-block">Ez a felhasználónév már foglalt.</div>
+                  } @else {
+                    <div class="form-text">Ez látszik a megosztott paklijaid mellett.</div>
+                  }
                 </div>
               }
               <div class="mb-3">
@@ -118,6 +129,24 @@ interface AiModelOption {
                   [(ngModel)]="password"
                   [disabled]="isSubmitting">
               </div>
+              @if (mode === 'register') {
+                <div class="mb-3">
+                  <label class="form-label" for="passwordConfirm">Jelszó újra</label>
+                  <input
+                    id="passwordConfirm"
+                    name="passwordConfirm"
+                    type="password"
+                    class="form-control form-control-lg"
+                    autocomplete="new-password"
+                    placeholder="Írd be még egyszer a jelszót"
+                    [class.is-invalid]="passwordConfirm.length > 0 && password !== passwordConfirm"
+                    [(ngModel)]="passwordConfirm"
+                    [disabled]="isSubmitting">
+                  @if (passwordConfirm.length > 0 && password !== passwordConfirm) {
+                    <div class="invalid-feedback d-block">A két jelszó nem egyezik.</div>
+                  }
+                </div>
+              }
               @if (errorMessage) {
                 <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
               }
@@ -562,6 +591,11 @@ export class AppComponent implements OnInit {
   email = '';
   registerUsername = '';
   password = '';
+  passwordConfirm = '';
+  emailTaken = false;
+  usernameTaken = false;
+  private availabilityTimer: ReturnType<typeof setTimeout> | null = null;
+  private availabilityRequest = 0;
   errorMessage: string | null = null;
   isSubmitting = false;
   isDeletingAccount = false;
@@ -620,6 +654,67 @@ export class AppComponent implements OnInit {
   setMode(mode: AuthMode): void {
     this.mode = mode;
     this.errorMessage = null;
+    this.passwordConfirm = '';
+    this.resetAvailability();
+    if (mode === 'register') {
+      this.onRegisterFieldChange();
+    }
+  }
+
+  /** Regisztráció közben gépelés után röviddel megnézi, hogy az email vagy a felhasználónév foglalt-e. */
+  onRegisterFieldChange(): void {
+    if (this.mode !== 'register') {
+      return;
+    }
+
+    this.emailTaken = false;
+    this.usernameTaken = false;
+    if (this.availabilityTimer) {
+      clearTimeout(this.availabilityTimer);
+    }
+
+    const email = this.email.trim();
+    const username = this.registerUsername.trim();
+    const checkEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    const checkUsername = /^[A-Za-z0-9_.-]{3,30}$/.test(username);
+    if (!checkEmail && !checkUsername) {
+      return;
+    }
+
+    const request = ++this.availabilityRequest;
+    this.availabilityTimer = setTimeout(() => {
+      this.availabilityTimer = null;
+      const params: Record<string, string> = {};
+      if (checkEmail) {
+        params['email'] = email;
+      }
+
+      if (checkUsername) {
+        params['username'] = username;
+      }
+
+      this.http.get<{ emailTaken: boolean | null; usernameTaken: boolean | null }>('/api/auth/availability', { params }).subscribe({
+        next: (result) => {
+          if (request === this.availabilityRequest && this.mode === 'register') {
+            this.emailTaken = result.emailTaken === true;
+            this.usernameTaken = result.usernameTaken === true;
+          }
+        },
+        // Ha az ellenőrzés nem sikerül, a beküldéskor a szerver úgyis elutasítja a foglalt adatot.
+        error: () => undefined,
+      });
+    }, 400);
+  }
+
+  private resetAvailability(): void {
+    this.availabilityRequest++;
+    if (this.availabilityTimer) {
+      clearTimeout(this.availabilityTimer);
+      this.availabilityTimer = null;
+    }
+
+    this.emailTaken = false;
+    this.usernameTaken = false;
   }
 
   submit(): void {
@@ -646,6 +741,21 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    if (this.mode === 'register' && password !== this.passwordConfirm) {
+      this.errorMessage = 'A két jelszó nem egyezik.';
+      return;
+    }
+
+    if (this.mode === 'register' && this.emailTaken) {
+      this.errorMessage = 'Ez az email cím már regisztrálva van.';
+      return;
+    }
+
+    if (this.mode === 'register' && this.usernameTaken) {
+      this.errorMessage = 'Ez a felhasználónév már foglalt.';
+      return;
+    }
+
     this.errorMessage = null;
     this.isSubmitting = true;
     const url = this.mode === 'login' ? '/api/auth/login' : '/api/auth/register';
@@ -657,18 +767,24 @@ export class AppComponent implements OnInit {
     ).subscribe({
       next: (response) => {
         this.password = '';
+        this.passwordConfirm = '';
         this.registerUsername = '';
+        this.resetAvailability();
         this.session.setSession(response.token, response.email);
         this.loadProfile();
       },
       error: (error: HttpErrorResponse) => {
         this.errorMessage = this.readError(error);
+        if (this.mode === 'register' && error.status === 409) {
+          this.onRegisterFieldChange();
+        }
       },
     });
   }
 
   logout(): void {
     this.password = '';
+    this.passwordConfirm = '';
     this.errorMessage = null;
     this.clearProfile();
     this.session.clear();

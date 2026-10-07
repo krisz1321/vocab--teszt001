@@ -21,6 +21,16 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
         return ToActionResult(await authService.RegisterAsync(request, cancellationToken));
     }
 
+    [EnableRateLimiting("availability")]
+    [HttpGet("availability")]
+    public async Task<ActionResult<AvailabilityDto>> Availability(
+        [FromQuery] string? email,
+        [FromQuery] string? username,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await authService.CheckAvailabilityAsync(email, username, cancellationToken));
+    }
+
     [EnableRateLimiting("auth")]
     [HttpPost("login")]
     public async Task<ActionResult<AuthResponseDto>> Login(

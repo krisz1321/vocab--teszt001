@@ -111,6 +111,16 @@ public class Program
                         QueueLimit = 0
                     }));
 
+                // Regisztráció közbeni foglaltság-ellenőrzés (gépelés közben, késleltetve): IP-nként percenként legfeljebb 60 kérés.
+                options.AddPolicy("availability", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+                    httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                    _ => new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 60,
+                        Window = TimeSpan.FromMinutes(1),
+                        QueueLimit = 0
+                    }));
+
                 // MI-hívások: felhasználónként percenként legfeljebb 40 kérés, mert minden hívás költséggel jár.
                 options.AddPolicy("ai", httpContext => RateLimitPartition.GetFixedWindowLimiter(
                     httpContext.User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value

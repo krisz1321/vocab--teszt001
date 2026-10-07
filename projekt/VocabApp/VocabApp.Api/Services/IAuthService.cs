@@ -8,6 +8,8 @@ public interface IAuthService
 
     Task<AuthResult> LoginAsync(LoginDto request, CancellationToken cancellationToken = default);
 
+    Task<AvailabilityDto> CheckAvailabilityAsync(string? email, string? username, CancellationToken cancellationToken = default);
+
     Task<bool> DeleteAccountAsync(int userId, CancellationToken cancellationToken = default);
 
     Task<ProfileDto?> GetProfileAsync(int userId, CancellationToken cancellationToken = default);

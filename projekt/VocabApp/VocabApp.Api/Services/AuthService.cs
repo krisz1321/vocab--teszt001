@@ -135,6 +135,28 @@ public sealed class AuthService(
         return AuthResult.Success(CreateResponse(user));
     }
 
+    public async Task<AvailabilityDto> CheckAvailabilityAsync(
+        string? email,
+        string? username,
+        CancellationToken cancellationToken = default)
+    {
+        var result = new AvailabilityDto();
+
+        var normalizedEmail = NormalizeEmail(email);
+        if (normalizedEmail is not null)
+        {
+            result.EmailTaken = await dbContext.Users.AnyAsync(user => user.Email == normalizedEmail, cancellationToken);
+        }
+
+        var normalizedUsername = username?.Trim();
+        if (!string.IsNullOrEmpty(normalizedUsername))
+        {
+            result.UsernameTaken = await dbContext.Users.AnyAsync(user => user.Username == normalizedUsername, cancellationToken);
+        }
+
+        return result;
+    }
+
     public async Task<bool> DeleteAccountAsync(int userId, CancellationToken cancellationToken = default)
     {
         var user = await dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
