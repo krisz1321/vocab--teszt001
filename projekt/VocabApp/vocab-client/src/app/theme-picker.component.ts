@@ -5,6 +5,7 @@ import { ThemeMode, ThemeName, ThemeOption, ThemeService, themeOptions } from '.
 @Component({
   selector: 'app-theme-picker',
   standalone: true,
+  host: { '[class.is-inline]': 'inline' },
   template: `
     @if (!inline) {
       <button
@@ -99,6 +100,22 @@ import { ThemeMode, ThemeName, ThemeOption, ThemeService, themeOptions } from '.
     .theme-swatch-line.short { width: 55%; }
     .theme-option-text { display: grid; line-height: 1.25; min-width: 0; }
     .theme-option-text small { color: var(--app-muted); font-size: .8rem; }
+    :host(.is-inline) { display: block; width: 100%; }
+    :host(.is-inline) .theme-options { grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .75rem; }
+    :host(.is-inline) .theme-option { flex-direction: column; align-items: flex-start; padding: .85rem; }
+    :host(.is-inline) .theme-swatch { width: 100%; height: 4.5rem; }
+    :host(.is-inline) .theme-swatch-card { width: 55%; height: 2.6rem; padding: .5rem; gap: .35rem; }
+    :host(.is-inline) .seg {
+      display: grid; grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+      gap: .75rem; padding: 0; background: transparent; margin-top: .75rem !important;
+    }
+    :host(.is-inline) .seg button {
+      padding: .65rem 1rem; border: 2px solid var(--app-border); border-radius: var(--app-radius);
+      background: var(--app-surface); color: var(--app-text); box-shadow: none;
+      transition: border-color .15s ease;
+    }
+    :host(.is-inline) .seg button:hover { border-color: color-mix(in srgb, var(--app-primary) 50%, var(--app-border)); }
+    :host(.is-inline) .seg button.is-active { border-color: var(--app-primary); background: rgba(var(--app-primary-rgb), .07); color: var(--app-primary); box-shadow: none; }
   `],
 })
 export class ThemePickerComponent {
