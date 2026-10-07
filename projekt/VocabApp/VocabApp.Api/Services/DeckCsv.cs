@@ -227,61 +227,81 @@ public static partial class DeckCsv
             return false;
         }
 
-        var term = RestoreFormula(fields[0].Trim());
+        return TryValidateRow(
+            RestoreFormula(fields[0].Trim()),
+            RestoreFormula(fields[1].Trim()),
+            RestoreFormula(fields[2].Trim()),
+            columnCount >= 4 ? RestoreFormula(fields[3].Trim()) : null,
+            columnCount == 5 ? RestoreFormula(fields[4].Trim()) : null,
+            $"CSV {rowNumber}. sor",
+            out row,
+            out error);
+    }
+
+    // A CSV és a JSON import közös sorszabályai: a mezők már le vannak vágva (Trim), a képletjelölés visszaállítva.
+    public static bool TryValidateRow(
+        string term,
+        string definition,
+        string? example,
+        string? targetMeanings,
+        string? tags,
+        string rowLabel,
+        out DeckCsvRow row,
+        out string? error)
+    {
+        row = default;
         if (string.IsNullOrEmpty(term))
         {
-            error = $"CSV {rowNumber}. sor: a szó megadása kötelező.";
+            error = $"{rowLabel}: a szó megadása kötelező.";
             return false;
         }
 
         if (term.Length > MaxTermLength)
         {
-            error = $"CSV {rowNumber}. sor: a szó legfeljebb 100 karakter lehet.";
+            error = $"{rowLabel}: a szó legfeljebb 100 karakter lehet.";
             return false;
         }
 
-        var definition = RestoreFormula(fields[1].Trim());
         if (string.IsNullOrEmpty(definition))
         {
-            error = $"CSV {rowNumber}. sor: a definíció megadása kötelező.";
+            error = $"{rowLabel}: a definíció megadása kötelező.";
             return false;
         }
 
         if (definition.Length > MaxTextLength)
         {
-            error = $"CSV {rowNumber}. sor: a definíció legfeljebb 500 karakter lehet.";
+            error = $"{rowLabel}: a definíció legfeljebb 500 karakter lehet.";
             return false;
         }
 
-        var example = RestoreFormula(fields[2].Trim());
+        example = example?.Trim() ?? string.Empty;
         if (example.Length > MaxTextLength)
         {
-            error = $"CSV {rowNumber}. sor: a példa legfeljebb 500 karakter lehet.";
+            error = $"{rowLabel}: a példa legfeljebb 500 karakter lehet.";
             return false;
         }
 
-        string? targetMeanings = null;
-        if (columnCount >= 4)
+        var meanings = targetMeanings?.Trim() ?? string.Empty;
+        if (meanings.Length > MaxTargetMeaningsLength)
         {
-            var meanings = RestoreFormula(fields[3].Trim());
-            if (meanings.Length > MaxTargetMeaningsLength)
-            {
-                error = $"CSV {rowNumber}. sor: a célnyelvi jelentés legfeljebb 200 karakter lehet.";
-                return false;
-            }
-
-            targetMeanings = meanings.Length == 0 ? null : meanings;
-        }
-
-        string? tags = null;
-        if (columnCount == 5
-            && !CardTags.TryNormalize(RestoreFormula(fields[4].Trim()), out tags, out var tagsError))
-        {
-            error = $"CSV {rowNumber}. sor: {tagsError}";
+            error = $"{rowLabel}: a célnyelvi jelentés legfeljebb 200 karakter lehet.";
             return false;
         }
 
-        row = new DeckCsvRow(term, definition, example.Length == 0 ? null : example, targetMeanings, tags);
+        string? normalizedTags = null;
+        if (tags is not null
+            && !CardTags.TryNormalize(tags.Trim(), out normalizedTags, out var tagsError))
+        {
+            error = $"{rowLabel}: {tagsError}";
+            return false;
+        }
+
+        row = new DeckCsvRow(
+            term,
+            definition,
+            example.Length == 0 ? null : example,
+            meanings.Length == 0 ? null : meanings,
+            normalizedTags);
         error = null;
         return true;
     }

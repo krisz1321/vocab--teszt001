@@ -14,7 +14,8 @@ public sealed class AiService(
     HttpClient httpClient,
     IConfiguration configuration,
     ILogger<AiService> logger,
-    AppDbContext dbContext) : IAiService
+    AppDbContext dbContext,
+    AiFillUsage aiFillUsage) : IAiService
 {
     private const string OffTopicText = "Ez nem kapcsolódik a tárgyhoz.";
 
@@ -406,6 +407,183 @@ public sealed class AiService(
         {
             Example = sentence,
             Reused = false
+        };
+    }
+
+    public async Task<GenerateDeckFillResponseDto?> GenerateDeckFillAsync(
+        int userId,
+        GenerateDeckFillRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var owned = await dbContext.Decks
+            .AsNoTracking()
+            .Where(deck => deck.Id == request.DeckId && deck.UserId == userId)
+            .Select(deck => new
+            {
+                DeckLevel = deck.ExampleLevel,
+                AccountLevel = deck.User.ExampleLevel
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (owned is null)
+        {
+            return null;
+        }
+
+        var level = ExampleLevels.IsAllowed(owned.DeckLevel)
+            ? owned.DeckLevel
+            : ExampleLevels.IsAllowed(owned.AccountLevel)
+                ? owned.AccountLevel
+                : ExampleLevels.Default;
+
+        // A napi keret alapból csak számolva van; az EnforceDailyLimit bekapcsolásáig nem tilt.
+        if (aiFillUsage.EnforceDailyLimit)
+        {
+            var before = await aiFillUsage.GetStatusAsync(userId, cancellationToken);
+            if (before.Remaining < request.Items.Count)
+            {
+                throw new AiServiceException(
+                    AiServiceErrorKind.LimitReached,
+                    "The daily AI fill limit was reached.");
+            }
+        }
+
+        var items = request.Items;
+        var results = items.Select((_, index) => new DeckFillResultDto { Index = index }).ToList();
+        var needDefinition = items.Select(item => item.NeedDefinition).ToArray();
+        var needExample = items.Select(item => item.NeedExample).ToArray();
+        var definitions = items.Select(item => item.Definition?.Trim() ?? string.Empty).ToArray();
+
+        for (var attempt = 0; attempt < 2; attempt++)
+        {
+            var pending = Enumerable.Range(0, items.Count)
+                .Where(index => needDefinition[index] || needExample[index])
+                .ToList();
+            if (pending.Count == 0)
+            {
+                break;
+            }
+
+            const string systemPromptStart =
+                "You help build flashcards for an English learner whose first language is Hungarian. " +
+                "The user message is a JSON object with a CEFR level and an items array. " +
+                "For every item write only the fields it asks for. " +
+                "definition: one short English sentence that defines the term. Do not use the term, its root, or an " +
+                "obvious inflected form; for a multi-word term do not repeat the whole phrase. " +
+                "example: one natural English sentence that contains the term unchanged. ";
+            var systemPrompt =
+                systemPromptStart +
+                $"The requested CEFR level is {level}; treat it as a recommendation and prefer that level's vocabulary and grammar. " +
+                "If the term itself is harder or easier than that level, keep the rest of the sentence close to the requested level. " +
+                "The Hungarian meaning, when given, only tells which sense of the term is meant; never put Hungarian in the output. " +
+                "When a definition is supplied for an item, the example must fit that sense. " +
+                "Return only a JSON object with exactly one property: items, an array with one object per requested item. " +
+                "Each object has an integer property index (copied from the input) and string properties definition and example; " +
+                "use an empty string for a field that was not requested.";
+            var userPrompt = JsonSerializer.Serialize(new
+            {
+                Level = level,
+                Items = pending.Select(index => new
+                {
+                    Index = index,
+                    items[index].Term,
+                    HungarianMeaning = items[index].TargetMeanings,
+                    NeedDefinition = needDefinition[index],
+                    NeedExample = needExample[index],
+                    Definition = definitions[index].Length == 0 ? null : definitions[index]
+                })
+            });
+
+            GeneratedDeckFillContent generated;
+            try
+            {
+                var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+                generated = DeserializeContent<GeneratedDeckFillContent>(content);
+            }
+            catch (AiServiceException exception) when (exception.Kind != AiServiceErrorKind.Configuration)
+            {
+                // Az első sikertelen kísérlet után még egyszer próbáljuk; ha már van elkészült elem, a többit hibásnak jelöljük.
+                if (attempt == 0)
+                {
+                    continue;
+                }
+
+                if (results.Any(result => result.Definition is not null || result.Example is not null))
+                {
+                    break;
+                }
+
+                throw;
+            }
+
+            foreach (var generatedItem in generated.Items)
+            {
+                var index = generatedItem.Index;
+                if (!pending.Contains(index))
+                {
+                    continue;
+                }
+
+                var term = items[index].Term;
+                if (needDefinition[index])
+                {
+                    var definition = generatedItem.Definition?.Trim() ?? string.Empty;
+                    if (definition.Length > 0 && definition.Length <= 500 && DefinitionAvoidsTerm(definition, term))
+                    {
+                        results[index].Definition = definition;
+                        definitions[index] = definition;
+                        needDefinition[index] = false;
+                    }
+                }
+
+                // A példát csak akkor fogadjuk el, ha van mihez kötni: a szükséges definíció már megvan.
+                if (needExample[index] && !needDefinition[index])
+                {
+                    var example = generatedItem.Example?.Trim() ?? string.Empty;
+                    if (example.Length > 0 && example.Length <= 500 && ExampleContainsTerm(example, term))
+                    {
+                        results[index].Example = example;
+                        needExample[index] = false;
+                    }
+                }
+            }
+        }
+
+        var generatedCount = 0;
+        for (var index = 0; index < items.Count; index++)
+        {
+            var result = results[index];
+            if (result.Definition is not null || result.Example is not null)
+            {
+                generatedCount++;
+            }
+
+            if (needDefinition[index] || needExample[index])
+            {
+                result.Error = needDefinition[index]
+                    ? "Az AI nem adott érvényes definíciót."
+                    : "Az AI nem adott érvényes példamondatot.";
+            }
+
+            var termKey = items[index].Term.Trim().ToLowerInvariant();
+            if (result.Definition is not null)
+            {
+                await SaveDefinitionAsync(termKey, level, result.Definition, cancellationToken);
+            }
+
+            if (result.Example is not null && definitions[index].Length > 0)
+            {
+                await SaveExampleAsync(termKey, definitions[index], level, result.Example, cancellationToken);
+            }
+        }
+
+        var status = await aiFillUsage.AddAsync(userId, generatedCount, cancellationToken);
+        return new GenerateDeckFillResponseDto
+        {
+            Items = results,
+            UsedToday = status.Used,
+            DailyLimit = status.DailyLimit,
+            RemainingToday = status.Remaining
         };
     }
 
@@ -831,6 +1009,20 @@ public sealed class AiService(
     private sealed class GeneratedExampleContent
     {
         public string Example { get; set; } = string.Empty;
+    }
+
+    private sealed class GeneratedDeckFillContent
+    {
+        public List<GeneratedDeckFillItem> Items { get; set; } = [];
+    }
+
+    private sealed class GeneratedDeckFillItem
+    {
+        public int Index { get; set; }
+
+        public string? Definition { get; set; }
+
+        public string? Example { get; set; }
     }
 
     private sealed class FitsGuessContent
@@ -1338,6 +1530,25 @@ public sealed class AiService(
         }
 
         return false;
+    }
+
+    // Egyszavas kifejezésnél a szigorú szabály (se a szó, se a töve), többszavasnál csak a teljes kifejezés tiltott,
+    // mert egy "in the first place" definíciója természetes módon használhat "the"-t vagy "in"-t.
+    private static bool DefinitionAvoidsTerm(string definition, string term) =>
+        Tokenize(term).Count > 1
+            ? !ContainsTokenSequence(definition, term)
+            : !ContainsForbiddenTermOrStem(definition, term);
+
+    // Az igei "to ..." kifejezésnél a példa elhagyhatja a "to" szót ("jump for joy"), a többi rész egyben marad.
+    private static bool ExampleContainsTerm(string example, string term)
+    {
+        if (ContainsTokenSequence(example, term))
+        {
+            return true;
+        }
+
+        var tokens = Tokenize(term);
+        return tokens.Count > 1 && tokens[0] == "to" && ContainsTokenSequence(example, string.Join(' ', tokens.Skip(1)));
     }
 
     private static bool ContainsTokenSequence(string value, string expected)

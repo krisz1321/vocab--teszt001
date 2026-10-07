@@ -5,7 +5,7 @@ using VocabApp.Api.Models;
 
 namespace VocabApp.Api.Services;
 
-public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answerToken) : IStudyService
+public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answerToken, AiFillUsage aiFillUsage) : IStudyService
 {
     private const int LearnedStreakThreshold = 3;
     private const int ForecastDays = 30;
@@ -215,7 +215,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
 
     public async Task<StudySettingsDto?> GetSettingsAsync(int userId, CancellationToken cancellationToken = default)
     {
-        return await dbContext.Users
+        var settings = await dbContext.Users
             .AsNoTracking()
             .Where(user => user.Id == userId)
             .Select(user => new StudySettingsDto
@@ -231,9 +231,24 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 LeechThreshold = user.LeechThreshold,
                 ExampleLevel = user.ExampleLevel,
                 AiModel = user.AiModel,
-                TimeZoneId = user.TimeZoneId
+                TimeZoneId = user.TimeZoneId,
+                AiFillBatchSize = user.AiFillBatchSize
             })
             .SingleOrDefaultAsync(cancellationToken);
+
+        if (settings is not null)
+        {
+            await ApplyAiFillStatusAsync(settings, userId, cancellationToken);
+        }
+
+        return settings;
+    }
+
+    private async Task ApplyAiFillStatusAsync(StudySettingsDto settings, int userId, CancellationToken cancellationToken)
+    {
+        var status = await aiFillUsage.GetStatusAsync(userId, cancellationToken);
+        settings.AiFillDailyLimit = status.DailyLimit;
+        settings.AiFillRemainingToday = status.Remaining;
     }
 
     public async Task<StudySettingsResult> UpdateSettingsAsync(
@@ -259,6 +274,13 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             return StudySettingsResult.Fail(StatusCodes.Status400BadRequest, "A mentett szintek szabálya érvénytelen.");
         }
 
+        if (request.AiFillBatchSize is < AiFillLimits.MinBatchSize or > AiFillLimits.MaxBatchSize)
+        {
+            return StudySettingsResult.Fail(
+                StatusCodes.Status400BadRequest,
+                $"Az AI-kitöltés csomagmérete {AiFillLimits.MinBatchSize} és {AiFillLimits.MaxBatchSize} között lehet.");
+        }
+
         var timeZoneId = StudyClock.NormalizeTimeZoneId(request.TimeZoneId);
 
         var user = await dbContext.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
@@ -279,8 +301,9 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.ExampleLevel = exampleLevel;
         user.AiModel = aiModel;
         user.TimeZoneId = timeZoneId;
+        user.AiFillBatchSize = request.AiFillBatchSize;
         await dbContext.SaveChangesAsync(cancellationToken);
-        return StudySettingsResult.Success(new StudySettingsDto
+        var saved = new StudySettingsDto
         {
             DailyNewCardGoal = user.DailyNewCardGoal,
             MinimumAnswerSeconds = user.MinimumAnswerSeconds,
@@ -293,8 +316,11 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             LeechThreshold = user.LeechThreshold,
             ExampleLevel = user.ExampleLevel,
             AiModel = user.AiModel,
-            TimeZoneId = user.TimeZoneId
-        });
+            TimeZoneId = user.TimeZoneId,
+            AiFillBatchSize = user.AiFillBatchSize
+        };
+        await ApplyAiFillStatusAsync(saved, userId, cancellationToken);
+        return StudySettingsResult.Success(saved);
     }
 
     public async Task<StudySubmitResult> SubmitAsync(

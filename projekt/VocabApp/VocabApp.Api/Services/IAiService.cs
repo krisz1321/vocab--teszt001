@@ -24,6 +24,11 @@ public interface IAiService
         GenerateExampleRequestDto request,
         CancellationToken cancellationToken = default);
 
+    Task<GenerateDeckFillResponseDto?> GenerateDeckFillAsync(
+        int userId,
+        GenerateDeckFillRequestDto request,
+        CancellationToken cancellationToken = default);
+
     Task<GenerateTargetMeaningResponseDto> GenerateTargetMeaningAsync(
         int userId,
         GenerateTargetMeaningRequestDto request,

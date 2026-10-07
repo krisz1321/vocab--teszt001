@@ -47,6 +47,8 @@ public sealed class User
     [Required, MaxLength(128)]
     public string TimeZoneId { get; set; } = StudyClock.DefaultTimeZoneId;
 
+    public int AiFillBatchSize { get; set; } = AiFillLimits.DefaultBatchSize;
+
     public int StudyDayStreak { get; set; }
 
     public int LongestStudyDayStreak { get; set; }
@@ -58,4 +60,6 @@ public sealed class User
     public ICollection<Deck> Decks { get; set; } = new List<Deck>();
 
     public ICollection<UserStudyDay> StudyDays { get; set; } = new List<UserStudyDay>();
+
+    public ICollection<UserAiFillDay> AiFillDays { get; set; } = new List<UserAiFillDay>();
 }

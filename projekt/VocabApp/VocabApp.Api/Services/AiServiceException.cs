@@ -4,7 +4,8 @@ public enum AiServiceErrorKind
 {
     Configuration,
     Upstream,
-    InvalidResponse
+    InvalidResponse,
+    LimitReached
 }
 
 public sealed class AiServiceException : Exception

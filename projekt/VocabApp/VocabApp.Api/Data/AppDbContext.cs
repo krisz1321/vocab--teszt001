@@ -14,6 +14,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<CardProgress> CardProgresses => Set<CardProgress>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UserStudyDay> UserStudyDays => Set<UserStudyDay>();
+    public DbSet<UserAiFillDay> UserAiFillDays => Set<UserAiFillDay>();
     public DbSet<Deck> Decks => Set<Deck>();
     public DbSet<SharedDeck> SharedDecks => Set<SharedDeck>();
     public DbSet<SharedDeckCard> SharedDeckCards => Set<SharedDeckCard>();
@@ -48,6 +49,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.ExampleLevel).IsRequired().HasMaxLength(2).HasDefaultValue(ExampleLevels.Default);
         user.Property(u => u.AiModel).IsRequired().HasMaxLength(64).HasDefaultValue(AiModels.Default);
         user.Property(u => u.TimeZoneId).IsRequired().HasMaxLength(128).HasDefaultValue(StudyClock.DefaultTimeZoneId);
+        user.Property(u => u.AiFillBatchSize).HasDefaultValue(AiFillLimits.DefaultBatchSize);
         user.Property(u => u.StudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.LongestStudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.AiCallCount).HasDefaultValue(0);
@@ -72,6 +74,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .HasForeignKey(day => day.UserId)
             .IsRequired()
             .OnDelete(DeleteBehavior.Cascade);
+
+        user.HasMany(u => u.AiFillDays)
+            .WithOne(day => day.User)
+            .HasForeignKey(day => day.UserId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+
+        var aiFillDay = modelBuilder.Entity<UserAiFillDay>();
+        aiFillDay.HasIndex(day => new { day.UserId, day.Day }).IsUnique();
+        aiFillDay.Property(day => day.Count).HasDefaultValue(0);
 
         var studyDay = modelBuilder.Entity<UserStudyDay>();
         studyDay.HasIndex(day => new { day.UserId, day.DayUtc }).IsUnique();

@@ -210,6 +210,21 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
         return Ok(result.Value);
     }
 
+    [HttpPost("{id:int}/import/cards")]
+    public async Task<ActionResult<ImportDeckResultDto>> ImportCards(
+        int id,
+        ImportCardsDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await deckService.ImportCardsAsync(userId.Value, id, request, cancellationToken));
+    }
+
     private ActionResult<T> ToActionResult<T>(DeckCardResult<T> result)
     {
         if (result.Value is not null)

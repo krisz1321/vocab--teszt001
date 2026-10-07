@@ -463,6 +463,72 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 $"Egyetlen sor sem volt importálható. {skipped[0]}");
         }
 
+        return await SaveImportedRowsAsync(deckId, rows, skipped, cancellationToken);
+    }
+
+    public async Task<DeckCardResult<ImportDeckResultDto>> ImportCardsAsync(
+        int userId,
+        int deckId,
+        ImportCardsDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var ownsDeck = await dbContext.Decks
+            .AnyAsync(candidate => candidate.Id == deckId && candidate.UserId == userId, cancellationToken);
+        if (!ownsDeck)
+        {
+            return DeckCardResult<ImportDeckResultDto>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
+        }
+
+        if (request.Cards.Count == 0)
+        {
+            return DeckCardResult<ImportDeckResultDto>.Fail(StatusCodes.Status400BadRequest, "Nincs importálható sor.");
+        }
+
+        if (request.Cards.Count > DeckCsv.MaxDataRows)
+        {
+            return DeckCardResult<ImportDeckResultDto>.Fail(
+                StatusCodes.Status400BadRequest,
+                $"Legfeljebb {DeckCsv.MaxDataRows} sor importálható egyszerre.");
+        }
+
+        var rows = new List<DeckCsvRow>();
+        var skipped = new List<string>();
+        for (var index = 0; index < request.Cards.Count; index++)
+        {
+            var card = request.Cards[index];
+            if (!DeckCsv.TryValidateRow(
+                    card.Term?.Trim() ?? string.Empty,
+                    card.Definition?.Trim() ?? string.Empty,
+                    card.Example,
+                    card.TargetMeanings,
+                    card.Tags,
+                    $"{index + 1}. sor",
+                    out var row,
+                    out var rowError))
+            {
+                skipped.Add(rowError ?? $"{index + 1}. sor: érvénytelen sor.");
+                continue;
+            }
+
+            rows.Add(row);
+        }
+
+        if (rows.Count == 0)
+        {
+            return DeckCardResult<ImportDeckResultDto>.Fail(
+                StatusCodes.Status400BadRequest,
+                $"Egyetlen sor sem volt importálható. {skipped[0]}");
+        }
+
+        return await SaveImportedRowsAsync(deckId, rows, skipped, cancellationToken);
+    }
+
+    private async Task<DeckCardResult<ImportDeckResultDto>> SaveImportedRowsAsync(
+        int deckId,
+        List<DeckCsvRow> rows,
+        List<string> skipped,
+        CancellationToken cancellationToken)
+    {
         var now = DateTime.UtcNow;
         foreach (var row in rows)
         {

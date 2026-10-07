@@ -150,6 +150,47 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         }
     }
 
+    // Az import előnézetének kötegelt kitöltése: a percenkénti "ai" limit helyett napi keret számolódik (lásd AiFillUsage).
+    [HttpPost("generate/deck-fill")]
+    [DisableRateLimiting]
+    public async Task<ActionResult<GenerateDeckFillResponseDto>> GenerateDeckFill(
+        GenerateDeckFillRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var isValid = true;
+        foreach (var item in request.Items)
+        {
+            isValid &= RequireText(item.Term, nameof(item.Term));
+        }
+
+        if (!isValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            var result = await aiService.GenerateDeckFillAsync(userId.Value, request, cancellationToken);
+            return result is null
+                ? NotFound(new ProblemDetails
+                {
+                    Title = "A pakli nem található.",
+                    Status = StatusCodes.Status404NotFound
+                })
+                : Ok(result);
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
     [HttpPost("generate/target-meaning")]
     public async Task<ActionResult<GenerateTargetMeaningResponseDto>> GenerateTargetMeaning(
         GenerateTargetMeaningRequestDto request,
@@ -356,6 +397,8 @@ public sealed class AiController(IAiService aiService) : ControllerBase
                 (StatusCodes.Status503ServiceUnavailable, "Az MI-szolgáltatás jelenleg nem érhető el."),
             AiServiceErrorKind.Upstream =>
                 (StatusCodes.Status502BadGateway, "Hiba történt az MI-szolgáltatónál."),
+            AiServiceErrorKind.LimitReached =>
+                (StatusCodes.Status429TooManyRequests, "Elérted a mai AI-kitöltési keretet."),
             _ =>
                 (StatusCodes.Status502BadGateway, "Az MI érvénytelen választ adott.")
         };

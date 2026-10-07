@@ -36,4 +36,12 @@ public sealed class StudySettingsDto
 
     [MaxLength(128)]
     public string TimeZoneId { get; set; } = StudyClock.DefaultTimeZoneId;
+
+    [Range(AiFillLimits.MinBatchSize, AiFillLimits.MaxBatchSize)]
+    public int AiFillBatchSize { get; set; } = AiFillLimits.DefaultBatchSize;
+
+    // Csak olvasható (mentéskor figyelmen kívül marad): az import közbeni AI-kitöltés napi kerete és a mai hátralévő rész.
+    public int AiFillDailyLimit { get; set; }
+
+    public int AiFillRemainingToday { get; set; }
 }
