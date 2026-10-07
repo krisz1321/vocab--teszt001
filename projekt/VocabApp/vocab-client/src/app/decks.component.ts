@@ -1140,7 +1140,12 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                 <div class="progress" role="progressbar" aria-label="MI-kitöltés folyamata" [attr.aria-valuenow]="pasteAiDone" aria-valuemin="0" [attr.aria-valuemax]="pasteAiTotal">
                   <div class="progress-bar" [class.progress-bar-striped]="pasteAiRunning" [class.progress-bar-animated]="pasteAiRunning" [style.width.%]="pasteAiTotal ? (pasteAiDone * 100 / pasteAiTotal) : 0"></div>
                 </div>
-                <div class="small text-body-secondary mt-1">MI: {{ pasteAiDone }}/{{ pasteAiTotal }} sor{{ pasteAiRunning ? '…' : ' kész' }}</div>
+                <div class="small text-body-secondary mt-1">
+                  MI: {{ pasteAiDone }}/{{ pasteAiTotal }} sor feldolgozva{{ pasteAiRunning ? '…' : '' }}
+                  @if (pasteAiFailedCount > 0) {
+                    · <span class="text-danger">{{ pasteAiFailedCount }} sor kitöltetlen maradt (részletek a sorok mellett)</span>
+                  }
+                </div>
               </div>
             }
 
@@ -1524,6 +1529,10 @@ export class DecksComponent implements OnInit, OnDestroy {
 
   get pasteAiEligibleCount(): number {
     return this.pasteRows.filter(row => this.isAiEligible(row)).length;
+  }
+
+  get pasteAiFailedCount(): number {
+    return this.pasteRows.filter(row => row.aiError).length;
   }
 
   get canSavePaste(): boolean {
@@ -2520,9 +2529,20 @@ export class DecksComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const targets = this.pasteRows.filter(row => this.isAiEligible(row));
-    if (targets.length === 0) {
+    if (!this.pasteRows.some(row => this.needsAiFill(row))) {
       this.pasteError = 'Nincs mit kitölteni: minden sorban van definíció és példamondat.';
+      return;
+    }
+
+    // A nem küldhető sorok mellé kiírjuk az okot, hogy ne maradjanak magyarázat nélkül üresen.
+    for (const row of this.pasteRows) {
+      row.aiError = this.needsAiFill(row) ? this.aiSkipReason(row) : null;
+    }
+
+    const targets = this.pasteRows.filter(row => this.isAiEligible(row));
+    const skipped = this.pasteRows.filter(row => row.aiError).length;
+    if (targets.length === 0) {
+      this.pasteError = `${skipped} sort nem lehet MI-vel kitölteni, részletek a sorok mellett.`;
       return;
     }
 
@@ -2530,10 +2550,6 @@ export class DecksComponent implements OnInit, OnDestroy {
     const batches: PasteRow[][] = [];
     for (let start = 0; start < targets.length; start += size) {
       batches.push(targets.slice(start, start + size));
-    }
-
-    for (const row of this.pasteRows) {
-      row.aiError = null;
     }
 
     this.pasteError = null;
@@ -2578,13 +2594,42 @@ export class DecksComponent implements OnInit, OnDestroy {
     });
   }
 
-  private isAiEligible(row: PasteRow): boolean {
+  private needsAiFill(row: PasteRow): boolean {
+    return !row.definition.trim() || !row.example.trim();
+  }
+
+  // Az ok, amiért a sort nem lehet MI-vel kitölteni (a szerver ezeket a hosszakat nem fogadná el); null, ha küldhető.
+  private aiSkipReason(row: PasteRow): string | null {
     const term = row.term.trim();
-    return term.length > 0
-      && term.length <= 100
-      && row.targetMeanings.trim().length <= 200
-      && row.definition.trim().length <= 500
-      && (!row.definition.trim() || !row.example.trim());
+    if (!term) {
+      return 'Az MI nem tölti ki: hiányzik a szó.';
+    }
+
+    if (term.length > 100) {
+      return 'Az MI nem tölti ki: a szó hosszabb 100 karakternél.';
+    }
+
+    if (row.definition.trim().length > 500) {
+      return 'Az MI nem tölti ki: a definíció hosszabb 500 karakternél.';
+    }
+
+    return null;
+  }
+
+  private isAiEligible(row: PasteRow): boolean {
+    return this.needsAiFill(row) && this.aiSkipReason(row) === null;
+  }
+
+  // A magyar jelentés az MI-nek csak az értelem pontosításához kell, ezért a hosszú listát a limitnél (200) vesszőnél vágjuk le.
+  private meaningHint(value: string): string | null {
+    const text = value.trim();
+    if (text.length <= 200) {
+      return text || null;
+    }
+
+    const cut = text.slice(0, 200);
+    const comma = cut.lastIndexOf(',');
+    return (comma > 0 ? cut.slice(0, comma) : cut).trim();
   }
 
   private runPasteBatch(deckId: number, batches: PasteRow[][], position: number): void {
@@ -2602,7 +2647,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     const batch = batches[position];
     const items = batch.map(row => ({
       term: row.term.trim(),
-      targetMeanings: row.targetMeanings.trim() || null,
+      targetMeanings: this.meaningHint(row.targetMeanings),
       needDefinition: !row.definition.trim(),
       needExample: !row.example.trim(),
       definition: row.definition.trim() || null,

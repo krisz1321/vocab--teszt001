@@ -453,8 +453,10 @@ public sealed class AiService(
         var needDefinition = items.Select(item => item.NeedDefinition).ToArray();
         var needExample = items.Select(item => item.NeedExample).ToArray();
         var definitions = items.Select(item => item.Definition?.Trim() ?? string.Empty).ToArray();
+        var problems = new string?[items.Count];
 
-        for (var attempt = 0; attempt < 2; attempt++)
+        // Csak a még hiányzó elemeket kérjük újra, és megmondjuk az MI-nek, mi volt a baj az előző válasszal.
+        for (var attempt = 0; attempt < 3; attempt++)
         {
             var pending = Enumerable.Range(0, items.Count)
                 .Where(index => needDefinition[index] || needExample[index])
@@ -479,7 +481,8 @@ public sealed class AiService(
                 "When a definition is supplied for an item, the example must fit that sense. " +
                 "Return only a JSON object with exactly one property: items, an array with one object per requested item. " +
                 "Each object has an integer property index (copied from the input) and string properties definition and example; " +
-                "use an empty string for a field that was not requested.";
+                "use an empty string for a field that was not requested. " +
+                "When an item has PreviousProblem, your earlier answer for it was rejected for that reason: fix it.";
             var userPrompt = JsonSerializer.Serialize(new
             {
                 Level = level,
@@ -490,7 +493,8 @@ public sealed class AiService(
                     HungarianMeaning = items[index].TargetMeanings,
                     NeedDefinition = needDefinition[index],
                     NeedExample = needExample[index],
-                    Definition = definitions[index].Length == 0 ? null : definitions[index]
+                    Definition = definitions[index].Length == 0 ? null : definitions[index],
+                    PreviousProblem = problems[index]
                 })
             });
 
@@ -502,8 +506,8 @@ public sealed class AiService(
             }
             catch (AiServiceException exception) when (exception.Kind != AiServiceErrorKind.Configuration)
             {
-                // Az első sikertelen kísérlet után még egyszer próbáljuk; ha már van elkészült elem, a többit hibásnak jelöljük.
-                if (attempt == 0)
+                // Sikertelen kísérlet után újrapróbáljuk; az utolsónál, ha már van elkészült elem, a többit hibásnak jelöljük.
+                if (attempt < 2)
                 {
                     continue;
                 }
@@ -516,10 +520,11 @@ public sealed class AiService(
                 throw;
             }
 
+            var answered = new HashSet<int>();
             foreach (var generatedItem in generated.Items)
             {
                 var index = generatedItem.Index;
-                if (!pending.Contains(index))
+                if (!pending.Contains(index) || !answered.Add(index))
                 {
                     continue;
                 }
@@ -528,11 +533,24 @@ public sealed class AiService(
                 if (needDefinition[index])
                 {
                     var definition = generatedItem.Definition?.Trim() ?? string.Empty;
-                    if (definition.Length > 0 && definition.Length <= 500 && DefinitionAvoidsTerm(definition, term))
+                    if (definition.Length == 0)
+                    {
+                        problems[index] = "The definition was empty.";
+                    }
+                    else if (definition.Length > 500)
+                    {
+                        problems[index] = "The definition was longer than 500 characters; make it shorter.";
+                    }
+                    else if (!DefinitionAvoidsTerm(definition, term))
+                    {
+                        problems[index] = "The definition contained the term or a form of it; define it without using that word.";
+                    }
+                    else
                     {
                         results[index].Definition = definition;
                         definitions[index] = definition;
                         needDefinition[index] = false;
+                        problems[index] = null;
                     }
                 }
 
@@ -544,8 +562,18 @@ public sealed class AiService(
                     {
                         results[index].Example = example;
                         needExample[index] = false;
+                        problems[index] = null;
+                    }
+                    else
+                    {
+                        problems[index] = "The example sentence must contain the term exactly as given, and be at most 500 characters.";
                     }
                 }
+            }
+
+            foreach (var index in pending.Where(index => !answered.Contains(index)))
+            {
+                problems[index] = "The item was missing from the answer.";
             }
         }
 
