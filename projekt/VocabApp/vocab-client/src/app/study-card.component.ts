@@ -610,7 +610,7 @@ const hungarianPlain = 'aeiooouuu';
                     id="target-meanings"
                     class="form-control"
                     rows="3"
-                    maxlength="200"
+                    maxlength="300"
                     [(ngModel)]="targetMeaningsDraft"
                     [disabled]="isGeneratingTargetMeaning || isSavingTargetMeaning"
                     placeholder="étel, kaja"></textarea>
@@ -1863,8 +1863,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           }
 
           const combined = this.appendMeanings(this.targetMeaningsDraft, response.meanings ?? '');
-          if (combined.length > 200) {
-            this.errorMessage = 'A célnyelvi jelentés legfeljebb 200 karakter.';
+          if (combined.length > 300) {
+            this.errorMessage = 'A célnyelvi jelentés legfeljebb 300 karakter.';
             return;
           }
 
@@ -1901,7 +1901,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
             return throwError(() => new Error('empty'));
           }
 
-          if (meanings.length > 200) {
+          if (meanings.length > 300) {
             return throwError(() => new Error('too-long'));
           }
 
@@ -1923,7 +1923,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
             this.setHttpError(error, 'A célnyelvi jelentés generálása');
           } else {
             this.errorMessage = error instanceof Error && error.message === 'too-long'
-              ? 'A generált jelentés hosszabb a megengedett 200 karakternél.'
+              ? 'A generált jelentés hosszabb a megengedett 300 karakternél.'
               : 'Az MI nem adott használható magyar jelentést.';
           }
         },
@@ -1940,8 +1940,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       return;
     }
 
-    if (meanings.length > 200) {
-      this.errorMessage = 'A célnyelvi jelentés legfeljebb 200 karakter.';
+    if (meanings.length > 300) {
+      this.errorMessage = 'A célnyelvi jelentés legfeljebb 300 karakter.';
       return;
     }
 

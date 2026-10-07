@@ -18,7 +18,7 @@ public sealed class DeckFillItemDto
     public string Term { get; set; } = string.Empty;
 
     // A beillesztett magyar jelentés: csak a szó értelmét pontosítja a promptban.
-    [MaxLength(200)]
+    [MaxLength(300)]
     public string? TargetMeanings { get; set; }
 
     public bool NeedDefinition { get; set; }

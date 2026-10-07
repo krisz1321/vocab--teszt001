@@ -4,6 +4,6 @@ namespace VocabApp.Api.DTOs;
 
 public sealed class GenerateTargetMeaningResponseDto
 {
-    [MaxLength(200)]
+    [MaxLength(300)]
     public string Meanings { get; set; } = string.Empty;
 }

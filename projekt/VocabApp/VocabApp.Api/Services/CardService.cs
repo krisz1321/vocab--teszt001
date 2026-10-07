@@ -9,7 +9,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
 {
     private const int MaxTermLength = 100;
     private const int MaxTextLength = 500;
-    private const int MaxTargetMeaningsLength = 200;
+    private const int MaxTargetMeaningsLength = 300;
     private const int KnownStreak = 3;
     private const int KnownIntervalDays = 15;
     private const int MinSearchLength = 2;
@@ -433,7 +433,7 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         var normalizedMeanings = targetMeanings?.Trim();
         if (!string.IsNullOrEmpty(normalizedMeanings) && normalizedMeanings.Length > MaxTargetMeaningsLength)
         {
-            return "A célnyelvi jelentés legfeljebb 200 karakter lehet.";
+            return "A célnyelvi jelentés legfeljebb 300 karakter lehet.";
         }
 
         return null;

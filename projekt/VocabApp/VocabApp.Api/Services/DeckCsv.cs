@@ -21,7 +21,7 @@ public static partial class DeckCsv
     public const int MaxDataRows = 200;
     private const int MaxTermLength = 100;
     private const int MaxTextLength = 500;
-    private const int MaxTargetMeaningsLength = 200;
+    private const int MaxTargetMeaningsLength = 300;
     private const string HeaderError =
         "A CSV fejléce term,definition,example, term,definition,example,targetMeanings vagy term,definition,example,targetMeanings,tags legyen.";
 
@@ -284,7 +284,7 @@ public static partial class DeckCsv
         var meanings = targetMeanings?.Trim() ?? string.Empty;
         if (meanings.Length > MaxTargetMeaningsLength)
         {
-            error = $"{rowLabel}: a célnyelvi jelentés legfeljebb 200 karakter lehet.";
+            error = $"{rowLabel}: a célnyelvi jelentés legfeljebb 300 karakter lehet.";
             return false;
         }
 

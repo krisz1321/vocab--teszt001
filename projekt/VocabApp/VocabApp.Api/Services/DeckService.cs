@@ -36,7 +36,17 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, DescriptionTooLong);
         }
 
-        var deck = new Deck { UserId = userId, Name = name, Description = description };
+        string? exampleLevel = null;
+        if (!string.IsNullOrWhiteSpace(request.ExampleLevel))
+        {
+            exampleLevel = request.ExampleLevel.Trim();
+            if (!ExampleLevels.IsAllowed(exampleLevel))
+            {
+                return DeckCardResult<DeckDto>.Fail(StatusCodes.Status400BadRequest, "A mondatszint érvénytelen.");
+            }
+        }
+
+        var deck = new Deck { UserId = userId, Name = name, Description = description, ExampleLevel = exampleLevel };
         dbContext.Decks.Add(deck);
         await dbContext.SaveChangesAsync(cancellationToken);
 

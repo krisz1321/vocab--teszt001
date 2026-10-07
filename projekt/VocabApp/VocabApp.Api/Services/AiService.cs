@@ -644,7 +644,7 @@ public sealed class AiService(
         result.Meanings = result.Meanings.Trim();
 
         if (string.IsNullOrWhiteSpace(result.Meanings) ||
-            result.Meanings.Length > 200 ||
+            result.Meanings.Length > 300 ||
             ContainsTokenSequence(result.Meanings, request.Term))
         {
             throw new AiServiceException(

@@ -249,6 +249,18 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     placeholder="Miről szól a pakli? Mások ebben is kereshetnek."
                     [(ngModel)]="newDeckDescription"
                     [disabled]="isSavingDeck"></textarea>
+                  <label class="form-label small mb-1 mt-2" for="deckLevel">Mondatszint</label>
+                  <select
+                    id="deckLevel"
+                    name="deckLevel"
+                    class="form-select"
+                    [(ngModel)]="newDeckLevel"
+                    [disabled]="isSavingDeck">
+                    @for (level of exampleLevels; track level) {
+                      <option [value]="level">{{ level }}{{ level === accountLevel ? ' (fiók szintje)' : '' }}</option>
+                    }
+                  </select>
+                  <div class="form-text">Az MI ilyen nehézségű definíciókat és példamondatokat készít ehhez a paklihoz. Később a pakli beállításaiban módosítható.</div>
                   <div class="d-flex gap-2 mt-2">
                     <button type="submit" class="btn btn-primary btn-sm" [disabled]="isSavingDeck || !newDeckName.trim()">
                       @if (isSavingDeck) {
@@ -522,7 +534,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             name="targetMeanings"
                             class="form-control"
                             rows="2"
-                            maxlength="200"
+                            maxlength="300"
                             placeholder="étel, kaja"
                             [(ngModel)]="targetMeanings"
                             (keydown.control.enter)="saveCard()"
@@ -1113,6 +1125,9 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
           @if (pasteError) {
             <div class="alert alert-warning py-2" role="alert">{{ pasteError }}</div>
           }
+          @if (pasteTrimmedCount > 0) {
+            <div class="alert alert-info py-2" role="status">{{ pasteTrimmedCount }} sor szövege hosszabb volt a megengedettnél, ezért levágtam (a szó 100, a magyar jelentés 300 karakterig).</div>
+          }
 
           @if (pasteRows.length > 0) {
             <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
@@ -1163,17 +1178,17 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                 <tbody>
                   @for (row of pasteRows; track row; let i = $index) {
                     <tr>
-                      <td><input type="text" class="form-control form-control-sm" name="pt{{ i }}" [(ngModel)]="row.term" aria-label="Szó"></td>
+                      <td><input type="text" class="form-control form-control-sm" name="pt{{ i }}" maxlength="100" [(ngModel)]="row.term" aria-label="Szó"></td>
                       <td>
-                        <textarea class="form-control form-control-sm" rows="2" name="pd{{ i }}" [(ngModel)]="row.definition" [class.is-invalid]="!row.definition.trim()" aria-label="Definíció"></textarea>
+                        <textarea class="form-control form-control-sm" rows="2" name="pd{{ i }}" maxlength="500" [(ngModel)]="row.definition" [class.is-invalid]="!row.definition.trim()" aria-label="Definíció"></textarea>
                         @if (row.aiError) {
                           <div class="small text-danger">{{ row.aiError }}</div>
                         } @else if (row.definition.trim() && rowIssue(row)) {
                           <div class="small text-danger">{{ rowIssue(row) }}</div>
                         }
                       </td>
-                      <td><textarea class="form-control form-control-sm" rows="2" name="pe{{ i }}" [(ngModel)]="row.example" aria-label="Példamondat"></textarea></td>
-                      <td><input type="text" class="form-control form-control-sm" name="pm{{ i }}" [(ngModel)]="row.targetMeanings" aria-label="Magyar jelentés"></td>
+                      <td><textarea class="form-control form-control-sm" rows="2" name="pe{{ i }}" maxlength="500" [(ngModel)]="row.example" aria-label="Példamondat"></textarea></td>
+                      <td><input type="text" class="form-control form-control-sm" name="pm{{ i }}" maxlength="300" [(ngModel)]="row.targetMeanings" aria-label="Magyar jelentés"></td>
                       <td><button type="button" class="btn btn-sm btn-outline-danger" aria-label="Sor törlése" (click)="removePasteRow(i)">✕</button></td>
                     </tr>
                   }
@@ -1373,6 +1388,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   selectedDeckId: number | null = null;
   newDeckName = '';
   newDeckDescription = '';
+  newDeckLevel = 'B1';
   renameDraft = '';
   descriptionDraft = '';
   publicQuery = '';
@@ -1431,6 +1447,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   pasteRows: PasteRow[] = [];
   pasteError: string | null = null;
   pasteSaving = false;
+  pasteTrimmedCount = 0;
   pasteAiRunning = false;
   pasteAiDone = 0;
   pasteAiTotal = 0;
@@ -1631,6 +1648,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     this.creating = !this.creating;
     this.newDeckName = '';
     this.newDeckDescription = '';
+    this.newDeckLevel = this.accountLevel;
     if (this.creating) {
       setTimeout(() => document.getElementById('deckName')?.focus(), 50);
     }
@@ -1650,7 +1668,11 @@ export class DecksComponent implements OnInit, OnDestroy {
 
     this.errorMessage = null;
     this.isSavingDeck = true;
-    this.http.post<Deck>('/api/decks', { name, description: this.newDeckDescription.trim() || null }).pipe(
+    this.http.post<Deck>('/api/decks', {
+      name,
+      description: this.newDeckDescription.trim() || null,
+      exampleLevel: this.exampleLevels.includes(this.newDeckLevel) ? this.newDeckLevel : null,
+    }).pipe(
       finalize(() => {
         this.isSavingDeck = false;
       }),
@@ -2048,8 +2070,8 @@ export class DecksComponent implements OnInit, OnDestroy {
       return `Az angol definíció legfeljebb 500 karakter lehet (most ${definition.length}).`;
     }
 
-    if (targetMeanings.length > 200) {
-      return `A magyar jelentés legfeljebb 200 karakter lehet (most ${targetMeanings.length}).`;
+    if (targetMeanings.length > 300) {
+      return `A magyar jelentés legfeljebb 300 karakter lehet (most ${targetMeanings.length}).`;
     }
 
     if (example.length > 500) {
@@ -2213,7 +2235,27 @@ export class DecksComponent implements OnInit, OnDestroy {
 
   // ---------- MI-segítség a kártyához
 
+  // Az MI-generálás előtt kiírjuk a mondatszintet, és jóváhagyást kérünk.
+  private confirmAiLevel(what: string, action: () => void): void {
+    this.pendingConfirm = {
+      title: 'MI-generálás',
+      message: `Az MI ${this.pasteLevel} szinten generálja ${what} (a pakli mondatszintje). Folytatod?`,
+      confirmLabel: 'Generálás',
+      danger: false,
+      action,
+    };
+  }
+
   generateDefinition(): void {
+    const term = this.term.trim();
+    if (!term || this.isBusyAi || this.isSavingCard || this.selectedDeckId === null) {
+      return;
+    }
+
+    this.confirmAiLevel('a definíciót', () => this.runGenerateDefinition());
+  }
+
+  private runGenerateDefinition(): void {
     const term = this.term.trim();
     if (!term || this.isBusyAi || this.isSavingCard || this.selectedDeckId === null) {
       return;
@@ -2252,8 +2294,8 @@ export class DecksComponent implements OnInit, OnDestroy {
     ).subscribe({
       next: (response) => {
         const combined = this.appendMeanings(this.targetMeanings, response.meanings ?? '');
-        if (combined.length > 200) {
-          this.cardError = 'A magyar jelentés legfeljebb 200 karakter lehet.';
+        if (combined.length > 300) {
+          this.cardError = 'A magyar jelentés legfeljebb 300 karakter lehet.';
           return;
         }
 
@@ -2279,6 +2321,24 @@ export class DecksComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (needDefinition) {
+      // Csak a definíció függ a szinttől; ha az már megvan, a magyar jelentés kérése nem kér jóváhagyást.
+      this.confirmAiLevel('a definíciót', () => this.runAutoFill());
+      return;
+    }
+
+    this.runAutoFill();
+  }
+
+  private runAutoFill(): void {
+    const term = this.term.trim();
+    if (!term || this.isBusyAi || this.isSavingCard || this.selectedDeckId === null) {
+      return;
+    }
+
+    const deckId = this.selectedDeckId;
+    const needDefinition = !this.definition.trim();
+    const needMeaning = !this.targetMeanings.trim();
     this.cardError = null;
     this.isAutoFilling = true;
 
@@ -2295,7 +2355,7 @@ export class DecksComponent implements OnInit, OnDestroy {
       ).subscribe({
         next: (response) => {
           const combined = this.appendMeanings(this.targetMeanings, response.meanings ?? '');
-          if (combined.length <= 200) {
+          if (combined.length <= 300) {
             this.targetMeanings = combined;
           }
         },
@@ -2516,21 +2576,29 @@ export class DecksComponent implements OnInit, OnDestroy {
       return 'A példamondat legfeljebb 500 karakter lehet.';
     }
 
-    if (row.targetMeanings.trim().length > 200) {
-      return 'A magyar jelentés legfeljebb 200 karakter lehet.';
+    if (row.targetMeanings.trim().length > 300) {
+      return 'A magyar jelentés legfeljebb 300 karakter lehet.';
     }
 
     return null;
   }
 
   startPasteAi(): void {
-    const deckId = this.selectedDeckId;
-    if (this.pasteAiRunning || deckId === null) {
+    if (this.pasteAiRunning || this.selectedDeckId === null) {
       return;
     }
 
     if (!this.pasteRows.some(row => this.needsAiFill(row))) {
       this.pasteError = 'Nincs mit kitölteni: minden sorban van definíció és példamondat.';
+      return;
+    }
+
+    this.confirmAiLevel('a definíciókat és a példamondatokat', () => this.runPasteAi());
+  }
+
+  private runPasteAi(): void {
+    const deckId = this.selectedDeckId;
+    if (this.pasteAiRunning || deckId === null) {
       return;
     }
 
@@ -2620,16 +2688,20 @@ export class DecksComponent implements OnInit, OnDestroy {
     return this.needsAiFill(row) && this.aiSkipReason(row) === null;
   }
 
-  // A magyar jelentés az MI-nek csak az értelem pontosításához kell, ezért a hosszú listát a limitnél (200) vesszőnél vágjuk le.
-  private meaningHint(value: string): string | null {
+  // A 300 karakternél hosszabb jelentést az utolsó vesszőig vágjuk le (ha nincs vessző, keményen), hogy ne maradjon félbevágott szó.
+  private clampMeanings(value: string): string {
     const text = value.trim();
-    if (text.length <= 200) {
-      return text || null;
+    if (text.length <= 300) {
+      return text;
     }
 
-    const cut = text.slice(0, 200);
+    const cut = text.slice(0, 300);
     const comma = cut.lastIndexOf(',');
     return (comma > 0 ? cut.slice(0, comma) : cut).trim();
+  }
+
+  private meaningHint(value: string): string | null {
+    return this.clampMeanings(value) || null;
   }
 
   private runPasteBatch(deckId: number, batches: PasteRow[][], position: number): void {
@@ -2697,6 +2769,7 @@ export class DecksComponent implements OnInit, OnDestroy {
       : this.pasteTermSep === 'custom' ? this.unescapeSeparator(this.pasteTermCustom) : '\t';
 
     const rows: PasteRow[] = [];
+    this.pasteTrimmedCount = 0;
     for (const chunk of text.split(rowSeparator || '\n')) {
       const line = chunk.trim();
       if (!line) {
@@ -2705,11 +2778,19 @@ export class DecksComponent implements OnInit, OnDestroy {
 
       // Az első elválasztónál vágunk, így a vesszővel tagolt magyar jelentéslista egyben marad.
       const at = termSeparator ? line.indexOf(termSeparator) : -1;
+      const term = (at < 0 ? line : line.slice(0, at)).trim();
+      const meanings = at < 0 ? '' : line.slice(at + termSeparator.length).trim();
+      const clampedTerm = term.slice(0, 100).trim();
+      const clampedMeanings = this.clampMeanings(meanings);
+      if (clampedTerm !== term || clampedMeanings !== meanings) {
+        this.pasteTrimmedCount++;
+      }
+
       rows.push({
-        term: (at < 0 ? line : line.slice(0, at)).trim(),
+        term: clampedTerm,
         definition: '',
         example: '',
-        targetMeanings: at < 0 ? '' : line.slice(at + termSeparator.length).trim(),
+        targetMeanings: clampedMeanings,
         aiError: null,
       });
     }

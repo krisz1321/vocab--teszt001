@@ -137,7 +137,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         sharedCard.Property(c => c.Term).IsRequired().HasMaxLength(100);
         sharedCard.Property(c => c.Definition).IsRequired().HasMaxLength(500);
         sharedCard.Property(c => c.Example).HasMaxLength(500);
-        sharedCard.Property(c => c.TargetMeanings).HasMaxLength(200);
+        sharedCard.Property(c => c.TargetMeanings).HasMaxLength(300);
         sharedCard.Property(c => c.Tags).HasMaxLength(CardTags.MaxStoredLength);
         sharedCard.HasOne(c => c.SharedDeck)
             .WithMany(s => s.Cards)
@@ -163,7 +163,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         card.Property(c => c.Term).IsRequired().HasMaxLength(100);
         card.Property(c => c.Definition).IsRequired().HasMaxLength(500);
         card.Property(c => c.Example).HasMaxLength(500);
-        card.Property(c => c.TargetMeanings).HasMaxLength(200);
+        card.Property(c => c.TargetMeanings).HasMaxLength(300);
         card.Property(c => c.Tags).HasMaxLength(CardTags.MaxStoredLength);
         card.HasOne(c => c.Deck)
             .WithMany(d => d.Cards)

@@ -17,7 +17,7 @@ public sealed class SharedDeckCard
     [MaxLength(500)]
     public string? Example { get; set; }
 
-    [MaxLength(200)]
+    [MaxLength(300)]
     public string? TargetMeanings { get; set; }
 
     [MaxLength(CardTags.MaxStoredLength)]
