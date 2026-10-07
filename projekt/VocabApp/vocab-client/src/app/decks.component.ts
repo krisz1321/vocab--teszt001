@@ -1060,8 +1060,9 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
             <button type="button" class="btn-close" aria-label="Bezárás" (click)="requestClosePaste()"></button>
           </div>
           <p class="text-body-secondary small mb-3">
-            Másold be a szavakat (például Quizlet exportból): soronként egy szó, az elválasztó, majd a magyar jelentés.
-            A második oszlop a <strong>magyar jelentés</strong> lesz, az angol definíciót és a példamondatot kézzel vagy MI-vel töltheted ki.
+            Másold be a szavakat soronként egy szóval. Ha már megvan a magyar jelentés (például Quizlet exportból), írd a szó után az elválasztó jel mögé: az lesz a <strong>magyar jelentés</strong>.
+            Ha <strong>csak angol szavaid vannak</strong>, az is jó: kapcsold be lent a „Magyar jelentés készítése MI-vel” opciót, és az MI megírja a magyar jelentést is.
+            Az angol definíciót és a példamondatot is kitöltetheted MI-vel.
           </p>
 
           <label class="form-label small fw-semibold" for="paste-text">Szöveg</label>
@@ -1071,7 +1072,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
             rows="6"
             [(ngModel)]="pasteText"
             [disabled]="pasteAiRunning || pasteSaving"
-            placeholder="within walking distance&#9;csak pár percnyire van gyalog"></textarea>
+            placeholder="Magyar jelentéssel:&#10;within walking distance&#9;csak pár percnyire van gyalog&#10;&#10;Vagy csak angol szavak (a jelentést az MI írja):&#10;ability&#10;benefit"></textarea>
 
           <div class="row g-3 mb-3">
             <div class="col-md-6">
@@ -1114,11 +1115,17 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
           </div>
           <div class="form-check mb-1">
             <input class="form-check-input" type="checkbox" id="paste-simplify" name="pasteSimplify" [(ngModel)]="pasteSimplify">
-            <label class="form-check-label" for="paste-simplify">Magyar jelentés egyszerűsítése MI-vel</label>
+            <label class="form-check-label" for="paste-simplify">Magyar jelentés készítése és egyszerűsítése MI-vel</label>
           </div>
-          <p class="small text-body-secondary mb-2">Bekapcsolva az MI a hosszú jelentéslistából 2–4 rövid, jól tanulható jelentést készít (az eredeti csak támpont). A kitöltés után a táblában átírhatod.</p>
+          <p class="small text-body-secondary mb-2">
+            @if (pasteSimplify) {
+              Bekapcsolva: ha egy sorban <strong>nincs magyar jelentés</strong>, az MI megírja (2–4 rövid, gyakori jelentés). Ha van, a hosszú jelentéslistát rövidíti le (az eredeti csak támpont). A kitöltés után a táblában bármit átírhatsz.
+            } @else {
+              Kapcsold be, ha csak angol szavakat írtál be, és az MI-vel szeretnél hozzájuk magyar jelentést. Ha már van jelentés, ezzel rövidebbé, jobban tanulhatóvá is teheted.
+            }
+          </p>
           <p class="small text-body-secondary mb-3">
-            Definíció és példamondat készül a pakli szintjén ({{ pasteLevel }}), {{ aiFillBatchSize }} szavanként egy MI-hívásban.
+            Definíció és példamondat{{ pasteSimplify ? ' (és magyar jelentés)' : '' }} készül a pakli szintjén ({{ pasteLevel }}), {{ aiFillBatchSize }} szavanként egy MI-hívásban.
             Mai keret: {{ aiFillRemaining ?? '…' }} / {{ aiFillLimit }} (a korlát jelenleg nincs érvényben).
           </p>
 
@@ -1130,6 +1137,12 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
 
           @if (pasteError) {
             <div class="alert alert-warning py-2" role="alert">{{ pasteError }}</div>
+          }
+          @if (pasteRows.length > 0 && !pasteSimplify && pasteNoMeaningCount > 0 && !pasteAiRunning) {
+            <div class="alert alert-info py-2 d-flex flex-wrap justify-content-between align-items-center gap-2" role="status">
+              <span>{{ pasteNoMeaningCount }} sorban nincs magyar jelentés. Az MI megírhatja őket.</span>
+              <button type="button" class="btn btn-sm btn-outline-primary" (click)="fillPasteMeanings()" [disabled]="pasteSaving">Magyar jelentés készítése MI-vel</button>
+            </div>
           }
           @if (pasteRows.length > slowImportRows) {
             <div class="alert alert-warning py-2" role="status">
@@ -1556,6 +1569,10 @@ export class DecksComponent implements OnInit, OnDestroy {
 
   get pasteMissingCount(): number {
     return this.pasteRows.filter(row => !row.definition.trim()).length;
+  }
+
+  get pasteNoMeaningCount(): number {
+    return this.pasteRows.filter(row => !row.targetMeanings.trim()).length;
   }
 
   get pasteAiEligibleCount(): number {
@@ -2644,6 +2661,12 @@ export class DecksComponent implements OnInit, OnDestroy {
     this.pasteAiTotal = targets.length;
     this.pasteAiRunning = true;
     this.runPasteBatch(deckId, batches, 0);
+  }
+
+  /** A „nincs magyar jelentés” sávból: bekapcsolja a jelentéskészítést, és rögtön el is indítja az MI-kitöltést. */
+  fillPasteMeanings(): void {
+    this.pasteSimplify = true;
+    this.startPasteAi();
   }
 
   cancelPasteAi(): void {
