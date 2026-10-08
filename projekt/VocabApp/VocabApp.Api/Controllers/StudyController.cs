@@ -65,6 +65,23 @@ public sealed class StudyController(IStudyService studyService) : ControllerBase
             });
     }
 
+    [HttpPut("settings/automatic-ai-check")]
+    public async Task<ActionResult<AutomaticAiCheckDto>> SetAutomaticAiCheck(
+        AutomaticAiCheckDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var enabled = await studyService.SetAutomaticAiCheckAsync(userId.Value, request.Enabled, cancellationToken);
+        return enabled is null
+            ? NotFound(new ProblemDetails { Title = "A felhasználó nem található.", Status = StatusCodes.Status404NotFound })
+            : Ok(new AutomaticAiCheckDto { Enabled = enabled.Value });
+    }
+
     [HttpGet("next")]
     public async Task<ActionResult<StudyNextDto>> GetNext(
         [FromQuery] int? deckId,

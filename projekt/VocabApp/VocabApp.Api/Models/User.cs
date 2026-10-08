@@ -23,9 +23,11 @@ public sealed class User
 
     public int MinimumAnswerSeconds { get; set; }
 
-    public bool AutomaticAiCheck { get; set; }
+    public bool AutomaticAiCheck { get; set; } = true;
 
     public bool AcceptHungarianParaphrase { get; set; }
+
+    public bool AcceptPartialMeaningMatch { get; set; } = true;
 
     public bool RequireAppealReason { get; set; } = true;
 

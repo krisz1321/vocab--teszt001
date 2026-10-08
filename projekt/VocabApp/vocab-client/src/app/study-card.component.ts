@@ -37,6 +37,8 @@ interface StudyNextResponse {
   minimumAnswerSeconds: number;
   automaticAiCheck: boolean;
   acceptHungarianParaphrase: boolean;
+  acceptPartialMeaningMatch: boolean;
+  aiCheckAvailable: boolean;
   requireAppealReason: boolean;
   status: 'ready' | 'dailyLimitReached' | 'empty';
 }
@@ -518,6 +520,18 @@ const hungarianPlain = 'aeiooouuu';
                   <span class="badge text-bg-info">Könnyűség: {{ card.easeFactor | number:'1.1-1' }}</span>
                   <button
                     type="button"
+                    class="btn btn-sm suspend-btn"
+                    [class.btn-outline-primary]="automaticAiCheck"
+                    [class.btn-outline-secondary]="!automaticAiCheck"
+                    [disabled]="isTogglingAiCheck"
+                    (click)="toggleAutomaticAiCheck()"
+                    [attr.aria-pressed]="automaticAiCheck"
+                    [attr.aria-label]="automaticAiCheck ? 'Automatikus MI-ellenőrzés kikapcsolása' : 'Automatikus MI-ellenőrzés bekapcsolása'"
+                    [attr.title]="automaticAiCheck ? 'Automatikus MI-ellenőrzés: bekapcsolva (kattints a kikapcsoláshoz)' : 'Automatikus MI-ellenőrzés: kikapcsolva (kattints a bekapcsoláshoz)'">
+                    <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4l1.8 4.7L17.5 10.5l-4.7 1.8L11 17l-1.8-4.7L4.5 10.5l4.7-1.8z"/><path d="M18 3v4M16 5h4"/>@if (!automaticAiCheck) {<path d="M4 20L20 4"/>}</svg>
+                  </button>
+                  <button
+                    type="button"
                     class="btn btn-outline-secondary btn-sm suspend-btn"
                     [disabled]="isSuspendBusy"
                     (click)="suspendCurrentCard('buried')"
@@ -618,7 +632,8 @@ const hungarianPlain = 'aeiooouuu';
                           type="button"
                           class="btn btn-outline-primary"
                           (click)="evaluateMeaningWithAi()"
-                          [disabled]="isSubmitting">
+                          [disabled]="isSubmitting || !aiCheckAvailable"
+                          [attr.title]="aiCheckAvailable ? null : 'Az MI-keret elfogyott.'">
                           MI-ellenőrzés
                         </button>
                         <button
@@ -1097,8 +1112,10 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   mode: StudyMode = this.readStudyMode();
   direction: StudyDirection = this.readStudyDirection();
   cardDirection: 'en' | 'hu' = 'en';
-  automaticAiCheck = false;
+  automaticAiCheck = true;
   acceptHungarianParaphrase = false;
+  acceptPartialMeaningMatch = true;
+  aiCheckAvailable = true;
   requireAppealReason = true;
   meaningAwaitingGrade = false;
   answer = '';
@@ -1160,6 +1177,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   cardNotice: string | null = null;
   private pendingCardNotice: string | null = null;
   isSuspending = false;
+  isTogglingAiCheck = false;
   studyStatus: StudyNextResponse['status'] | null = null;
   newCardsIntroducedToday = 0;
   sessionAnswered = 0;
@@ -1763,6 +1781,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           this.availableCards = response.availableCards;
           this.automaticAiCheck = response.automaticAiCheck;
           this.acceptHungarianParaphrase = response.acceptHungarianParaphrase;
+          this.acceptPartialMeaningMatch = response.acceptPartialMeaningMatch;
+          this.aiCheckAvailable = response.aiCheckAvailable;
           this.requireAppealReason = response.requireAppealReason;
           this.studyStatus = response.status;
           this.answerToken = response.answerToken;
@@ -1790,6 +1810,21 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
   get isSuspendBusy(): boolean {
     return this.isSuspending || this.isSubmitting || this.isValidating || this.isAppealing;
+  }
+
+  toggleAutomaticAiCheck(): void {
+    if (this.isTogglingAiCheck) {
+      return;
+    }
+
+    this.errorMessage = null;
+    this.isTogglingAiCheck = true;
+    this.http.put<{ enabled: boolean }>(`${this.apiBaseUrl}/study/settings/automatic-ai-check`, { enabled: !this.automaticAiCheck })
+      .pipe(finalize(() => this.isTogglingAiCheck = false))
+      .subscribe({
+        next: result => this.automaticAiCheck = result.enabled,
+        error: (error: HttpErrorResponse) => this.setHttpError(error, 'Az automatikus MI-ellenőrzés átkapcsolása'),
+      });
   }
 
   suspendCurrentCard(mode: 'suspended' | 'buried'): void {
@@ -1878,7 +1913,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       return;
     }
 
-    if (this.automaticAiCheck) {
+    if (this.automaticAiCheck && this.aiCheckAvailable) {
       this.evaluateMeaningWithAi();
       return;
     }
@@ -1935,6 +1970,10 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           }
 
           this.meaningAwaitingGrade = true;
+          if (error.status === 429) {
+            this.aiCheckAvailable = false;
+          }
+
           this.setHttpError(error, 'A válasz ellenőrzése');
         },
       });
@@ -2531,14 +2570,23 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       return false;
     }
 
-    return this.targetMeaningPieces(stored).includes(normalizedAnswer);
+    const accepted = this.targetMeaningPieces(stored);
+    if (accepted.includes(normalizedAnswer)) {
+      return true;
+    }
+
+    return this.acceptPartialMeaningMatch
+      && this.targetMeaningPieces(answer).some(piece => accepted.includes(piece));
   }
 
+  // A zárójeles megjegyzés nélküli alak is elfogadott: "jobb (irány)" → "jobb" és "jobb irany".
   private targetMeaningPieces(stored: string): string[] {
-    return stored
-      .split(/[,;\n\r]+/)
+    const withoutNotes = stored.replace(/\([^)]*\)/g, '');
+    const pieces = [stored, withoutNotes]
+      .flatMap(text => text.split(/[,;\n\r]+/))
       .map(piece => this.normalizeTargetMeaning(piece))
       .filter(piece => piece.length > 0);
+    return [...new Set(pieces)];
   }
 
   private normalizeTargetMeaning(value: string): string {
@@ -3246,6 +3294,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       this.errorMessage = `${context} sikertelen: az MI-szolgáltató nem adott megfelelő választ.`;
     } else if (error.status === 404) {
       this.errorMessage = `${context} sikertelen: a kért adat nem található.`;
+    } else if (error.status === 429) {
+      this.errorMessage = `${context} sikertelen: az MI-keret elfogyott.`;
     } else {
       this.errorMessage = `${context} sikertelen. Kérlek, próbáld újra.`;
     }

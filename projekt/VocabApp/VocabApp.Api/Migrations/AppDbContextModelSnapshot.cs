@@ -746,6 +746,11 @@ namespace VocabApp.Api.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(false);
 
+                    b.Property<bool>("AcceptPartialMeaningMatch")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
                     b.Property<int>("AiCallCount")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
@@ -766,7 +771,7 @@ namespace VocabApp.Api.Migrations
                     b.Property<bool>("AutomaticAiCheck")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
-                        .HasDefaultValue(false);
+                        .HasDefaultValue(true);
 
                     b.Property<int>("DailyNewCardGoal")
                         .ValueGeneratedOnAdd()

@@ -16,6 +16,8 @@ public sealed class StudySettingsDto
 
     public bool AcceptHungarianParaphrase { get; set; }
 
+    public bool AcceptPartialMeaningMatch { get; set; } = true;
+
     public bool RequireAppealReason { get; set; } = true;
 
     public bool ReuseSavedExamples { get; set; }

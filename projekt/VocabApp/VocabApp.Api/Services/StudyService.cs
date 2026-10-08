@@ -38,6 +38,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 candidate.MinimumAnswerSeconds,
                 candidate.AutomaticAiCheck,
                 candidate.AcceptHungarianParaphrase,
+                candidate.AcceptPartialMeaningMatch,
                 candidate.RequireAppealReason,
                 candidate.TimeZoneId,
                 candidate.LeechThreshold
@@ -49,6 +50,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             return StudyNextResult.Success(new StudyNextDto { Status = "empty" });
         }
 
+        var aiCheckAvailable = await IsAiCheckAvailableAsync(userId, cancellationToken);
         var localToday = StudyClock.LocalDate(user.TimeZoneId, now);
         var dayStartUtc = StudyClock.UtcStartOfLocalDate(user.TimeZoneId, localToday);
         var dayEndUtc = StudyClock.UtcStartOfLocalDate(user.TimeZoneId, localToday.AddDays(1));
@@ -91,6 +93,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 user.MinimumAnswerSeconds,
                 user.AutomaticAiCheck,
                 user.AcceptHungarianParaphrase,
+                user.AcceptPartialMeaningMatch,
+                aiCheckAvailable,
                 user.RequireAppealReason,
                 introducedToday,
                 0,
@@ -105,6 +109,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             user.MinimumAnswerSeconds,
             user.AutomaticAiCheck,
             user.AcceptHungarianParaphrase,
+            user.AcceptPartialMeaningMatch,
+            aiCheckAvailable,
             user.RequireAppealReason,
             introducedToday,
             pool.Count,
@@ -224,6 +230,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 MinimumAnswerSeconds = user.MinimumAnswerSeconds,
                 AutomaticAiCheck = user.AutomaticAiCheck,
                 AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
+                AcceptPartialMeaningMatch = user.AcceptPartialMeaningMatch,
                 RequireAppealReason = user.RequireAppealReason,
                 ReuseSavedExamples = user.ReuseSavedExamples,
                 SavedLevelPolicy = user.SavedLevelPolicy,
@@ -244,11 +251,36 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         return settings;
     }
 
+    // Az MI-ellenőrzés csak akkor tiltott, ha a napi keret érvényesítve van és elfogyott (alapból nincs érvényesítve).
+    private async Task<bool> IsAiCheckAvailableAsync(int userId, CancellationToken cancellationToken)
+    {
+        if (!aiFillUsage.EnforceDailyLimit)
+        {
+            return true;
+        }
+
+        var status = await aiFillUsage.GetStatusAsync(userId, cancellationToken);
+        return status.Remaining > 0;
+    }
+
     private async Task ApplyAiFillStatusAsync(StudySettingsDto settings, int userId, CancellationToken cancellationToken)
     {
         var status = await aiFillUsage.GetStatusAsync(userId, cancellationToken);
         settings.AiFillDailyLimit = status.DailyLimit;
         settings.AiFillRemainingToday = status.Remaining;
+    }
+
+    public async Task<bool?> SetAutomaticAiCheckAsync(int userId, bool enabled, CancellationToken cancellationToken = default)
+    {
+        var user = await dbContext.Users.SingleOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
+        if (user is null)
+        {
+            return null;
+        }
+
+        user.AutomaticAiCheck = enabled;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return user.AutomaticAiCheck;
     }
 
     public async Task<StudySettingsResult> UpdateSettingsAsync(
@@ -293,6 +325,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.MinimumAnswerSeconds = request.MinimumAnswerSeconds;
         user.AutomaticAiCheck = request.AutomaticAiCheck;
         user.AcceptHungarianParaphrase = request.AcceptHungarianParaphrase;
+        user.AcceptPartialMeaningMatch = request.AcceptPartialMeaningMatch;
         user.RequireAppealReason = request.RequireAppealReason;
         user.ReuseSavedExamples = request.ReuseSavedExamples;
         user.SavedLevelPolicy = savedLevelPolicy;
@@ -309,6 +342,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             MinimumAnswerSeconds = user.MinimumAnswerSeconds,
             AutomaticAiCheck = user.AutomaticAiCheck,
             AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
+            AcceptPartialMeaningMatch = user.AcceptPartialMeaningMatch,
             RequireAppealReason = user.RequireAppealReason,
             ReuseSavedExamples = user.ReuseSavedExamples,
             SavedLevelPolicy = user.SavedLevelPolicy,
@@ -471,6 +505,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         int minimumAnswerSeconds,
         bool automaticAiCheck,
         bool acceptHungarianParaphrase,
+        bool acceptPartialMeaningMatch,
+        bool aiCheckAvailable,
         bool requireAppealReason,
         int newCardsIntroducedToday,
         int availableCards,
@@ -483,6 +519,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             MinimumAnswerSeconds = minimumAnswerSeconds,
             AutomaticAiCheck = automaticAiCheck,
             AcceptHungarianParaphrase = acceptHungarianParaphrase,
+            AcceptPartialMeaningMatch = acceptPartialMeaningMatch,
+            AiCheckAvailable = aiCheckAvailable,
             RequireAppealReason = requireAppealReason,
             NewCardsIntroducedToday = newCardsIntroducedToday,
             AvailableCards = availableCards,
