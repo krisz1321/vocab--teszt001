@@ -17,6 +17,48 @@ public sealed class StudyStatsDto
     public StudyStatsRetentionDto Retention { get; set; } = new();
     public List<StudyStatsCardDto> Cards { get; set; } = [];
     public List<StudyStatsConfusionDto> Confusions { get; set; } = [];
+    public StudyStatsTodayDto Today { get; set; } = new();
+    public List<StudyStatsActivityDayDto> Activity { get; set; } = [];
+    public StudyStatsMaturityDto Maturity { get; set; } = new();
+    public List<StudyStatsDeckDto> Decks { get; set; } = [];
+    public int LeechCount { get; set; }
+}
+
+public sealed class StudyStatsTodayDto
+{
+    public int AnswerCount { get; set; }
+    public int CorrectCount { get; set; }
+    public int SecondsStudied { get; set; }
+    public int NewCardsIntroduced { get; set; }
+    public int DailyNewCardGoal { get; set; }
+}
+
+public sealed class StudyStatsActivityDayDto
+{
+    public DateTime Date { get; set; }
+    public int AnswerCount { get; set; }
+    public int CorrectCount { get; set; }
+    public int SecondsStudied { get; set; }
+}
+
+public sealed class StudyStatsMaturityDto
+{
+    public int New { get; set; }
+    public int Learning { get; set; }
+    public int Young { get; set; }
+    public int Mature { get; set; }
+    public int Suspended { get; set; }
+}
+
+public sealed class StudyStatsDeckDto
+{
+    public int DeckId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public int TotalCards { get; set; }
+    public int LearnedCards { get; set; }
+    public int DueCards { get; set; }
+    public int CorrectCount { get; set; }
+    public int IncorrectCount { get; set; }
 }
 
 public sealed class StudyStatsConfusionDto
@@ -62,4 +104,9 @@ public sealed class StudyStatsCardDto
     public double? ErrorRate { get; set; }
     public bool IsLearned { get; set; }
     public DateTime NextReviewDate { get; set; }
+    public string DeckName { get; set; } = string.Empty;
+    public bool IsLeech { get; set; }
+    public bool IsSuspended { get; set; }
+    public bool IsNew { get; set; }
+    public DateTime? LastReviewedAt { get; set; }
 }

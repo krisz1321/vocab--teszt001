@@ -10,6 +10,11 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
     private const int LearnedStreakThreshold = 3;
     private const int ForecastDays = 30;
     private const int RetentionWindowDays = 30;
+    private const int ActivityDays = 91;
+    private const int LearnedDaysWindow = 30;
+    private const int LearnedWeeksWindow = 12;
+    private const int YoungIntervalDays = 7;
+    private const int MatureIntervalDays = 21;
     private const int MaxAnswerDurationSeconds = 600;
     private const int MaxConfusionBonus = 10;
     public async Task<StudyNextResult> GetNextCardAsync(
@@ -128,12 +133,15 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             .Select(progress => new
             {
                 progress.Card.Term,
+                DeckId = progress.Card.DeckId,
+                DeckName = progress.Card.Deck.Name,
                 progress.IncorrectCount,
                 progress.CorrectCount,
                 progress.Streak,
                 progress.Interval,
                 progress.NextReviewDate,
                 progress.FirstReviewedAt,
+                progress.LastReviewedAt,
                 progress.SuspendedUntil,
                 progress.LearnedAt
             })
@@ -148,11 +156,14 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 candidate.LongestStudyDayStreak,
                 candidate.LastStudyDate,
                 candidate.AiCallCount,
-                candidate.TimeZoneId
+                candidate.TimeZoneId,
+                candidate.DailyNewCardGoal,
+                candidate.LeechThreshold
             })
             .SingleOrDefaultAsync(cancellationToken);
 
-            var today = StudyClock.LocalDate(user?.TimeZoneId, now);
+        var today = StudyClock.LocalDate(user?.TimeZoneId, now);
+        var leechThreshold = user?.LeechThreshold ?? CardLeech.DefaultThreshold;
 
         var studyDays = await dbContext.UserStudyDays
             .AsNoTracking()
@@ -161,6 +172,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             .ToListAsync(cancellationToken);
 
         var learnedAt = rows.Select(row => row.LearnedAt).ToList();
+        var todayStudy = studyDays.Where(day => day.DayUtc.Date == today).ToList();
 
         return new StudyStatsDto
         {
@@ -179,6 +191,37 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 .Where(day => day.DayUtc.Date == today)
                 .Sum(day => day.SecondsStudied),
             AiCallCount = user?.AiCallCount ?? 0,
+            Today = new StudyStatsTodayDto
+            {
+                AnswerCount = todayStudy.Sum(day => day.AnswerCount),
+                CorrectCount = todayStudy.Sum(day => day.CorrectCount),
+                SecondsStudied = todayStudy.Sum(day => day.SecondsStudied),
+                NewCardsIntroduced = rows.Count(row => row.FirstReviewedAt != null
+                    && StudyClock.LocalDateFromStoredUtc(user?.TimeZoneId, row.FirstReviewedAt.Value) == today),
+                DailyNewCardGoal = user?.DailyNewCardGoal ?? 0
+            },
+            Activity = BuildActivity(
+                studyDays.Select(day => (day.DayUtc.Date, day.AnswerCount, day.CorrectCount, day.SecondsStudied)).ToList(),
+                today),
+            Maturity = BuildMaturity(
+                rows.Select(row => (row.FirstReviewedAt != null, IsSuspended(row.SuspendedUntil, now), row.Interval)).ToList()),
+            Decks = rows
+                .GroupBy(row => (row.DeckId, row.DeckName))
+                .Select(group => new StudyStatsDeckDto
+                {
+                    DeckId = group.Key.DeckId,
+                    Name = group.Key.DeckName,
+                    TotalCards = group.Count(),
+                    LearnedCards = group.Count(row => row.LearnedAt != null),
+                    DueCards = group.Count(row => row.FirstReviewedAt != null
+                        && !IsSuspended(row.SuspendedUntil, now)
+                        && row.NextReviewDate <= now),
+                    CorrectCount = group.Sum(row => row.CorrectCount),
+                    IncorrectCount = group.Sum(row => row.IncorrectCount)
+                })
+                .OrderBy(deck => deck.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList(),
+            LeechCount = rows.Count(row => CardLeech.IsLeech(row.IncorrectCount, row.CorrectCount, leechThreshold)),
             Days = BuildLearnedDays(learnedAt, today, user?.TimeZoneId),
             Weeks = BuildLearnedWeeks(learnedAt, today, user?.TimeZoneId),
             Forecast = BuildForecast(
@@ -207,7 +250,12 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                         CorrectCount = row.CorrectCount,
                         ErrorRate = attempts == 0 ? null : (double)row.IncorrectCount / attempts,
                         IsLearned = row.LearnedAt != null,
-                        NextReviewDate = row.NextReviewDate
+                        NextReviewDate = row.NextReviewDate,
+                        DeckName = row.DeckName,
+                        IsLeech = CardLeech.IsLeech(row.IncorrectCount, row.CorrectCount, leechThreshold),
+                        IsSuspended = IsSuspended(row.SuspendedUntil, now),
+                        IsNew = row.FirstReviewedAt == null,
+                        LastReviewedAt = row.LastReviewedAt
                     };
                 })
                 .OrderBy(card => card.CorrectCount + card.IncorrectCount == 0)
@@ -744,14 +792,14 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         DateTime today,
         string? timeZoneId)
     {
-        var windowStart = today.AddDays(-13);
+        var windowStart = today.AddDays(-(LearnedDaysWindow - 1));
         var localDates = learnedAt
             .Where(value => value is not null)
             .Select(value => StudyClock.LocalDateFromStoredUtc(timeZoneId, value!.Value))
             .ToList();
         var cumulative = localDates.Count(learned => learned < windowStart);
-        var days = new List<StudyStatsDayDto>(14);
-        for (var index = 0; index < 14; index++)
+        var days = new List<StudyStatsDayDto>(LearnedDaysWindow);
+        for (var index = 0; index < LearnedDaysWindow; index++)
         {
             var date = windowStart.AddDays(index);
             var next = date.AddDays(1);
@@ -778,8 +826,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             .Where(value => value is not null)
             .Select(value => StudyClock.LocalDateFromStoredUtc(timeZoneId, value!.Value))
             .ToList();
-        var weeks = new List<StudyStatsWeekDto>(4);
-        for (var index = 3; index >= 0; index--)
+        var weeks = new List<StudyStatsWeekDto>(LearnedWeeksWindow);
+        for (var index = LearnedWeeksWindow - 1; index >= 0; index--)
         {
             var start = currentWeek.AddDays(-7 * index);
             var end = start.AddDays(7);
@@ -819,6 +867,69 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         return Enumerable.Range(0, ForecastDays)
             .Select(index => new StudyStatsForecastDto { Date = today.AddDays(index), DueCount = counts[index] })
             .ToList();
+    }
+
+    private static bool IsSuspended(DateTime? suspendedUntil, DateTime now) =>
+        suspendedUntil is DateTime until && until > now;
+
+    private static List<StudyStatsActivityDayDto> BuildActivity(
+        IReadOnlyList<(DateTime Day, int AnswerCount, int CorrectCount, int SecondsStudied)> studyDays,
+        DateTime today)
+    {
+        var byDay = studyDays
+            .GroupBy(day => day.Day)
+            .ToDictionary(
+                group => group.Key,
+                group => (
+                    Answers: group.Sum(day => day.AnswerCount),
+                    Correct: group.Sum(day => day.CorrectCount),
+                    Seconds: group.Sum(day => day.SecondsStudied)));
+
+        return Enumerable.Range(0, ActivityDays)
+            .Select(index =>
+            {
+                var date = today.AddDays(index - (ActivityDays - 1));
+                byDay.TryGetValue(date, out var totals);
+                return new StudyStatsActivityDayDto
+                {
+                    Date = date,
+                    AnswerCount = totals.Answers,
+                    CorrectCount = totals.Correct,
+                    SecondsStudied = totals.Seconds
+                };
+            })
+            .ToList();
+    }
+
+    private static StudyStatsMaturityDto BuildMaturity(
+        IReadOnlyList<(bool IsReviewed, bool IsSuspended, int Interval)> cards)
+    {
+        var maturity = new StudyStatsMaturityDto();
+        foreach (var (isReviewed, isSuspended, interval) in cards)
+        {
+            if (isSuspended)
+            {
+                maturity.Suspended++;
+            }
+            else if (!isReviewed)
+            {
+                maturity.New++;
+            }
+            else if (interval >= MatureIntervalDays)
+            {
+                maturity.Mature++;
+            }
+            else if (interval >= YoungIntervalDays)
+            {
+                maturity.Young++;
+            }
+            else
+            {
+                maturity.Learning++;
+            }
+        }
+
+        return maturity;
     }
 
     private static StudyStatsRetentionDto BuildRetention(IReadOnlyList<(int AnswerCount, int CorrectCount)> days)

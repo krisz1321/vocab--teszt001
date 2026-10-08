@@ -570,7 +570,7 @@ const hungarianPlain = 'aeiooouuu';
                     (keydown.control.enter)="submitShortcut($event)"
                     (keydown.enter)="onAnswerEnter($event)"
                     [disabled]="isSubmitting || updatedProgress !== null || isMeaningRevealed"
-                    [placeholder]="isReversed ? 'pl. food' : 'pl. kaja'"></textarea>
+                    [placeholder]="isReversed ? 'Ide írd az angol szót…' : 'Ide írd a választ…'"></textarea>
 
                   @if (!isMeaningRevealed) {
                     <div class="d-grid d-sm-flex gap-2 mt-3">

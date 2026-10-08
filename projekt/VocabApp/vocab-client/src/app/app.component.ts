@@ -234,7 +234,7 @@ interface AiModelOption {
       @if (view === 'study') {
         <app-study-card [initialDeckId]="studyDeckId" (openDecks)="goTo('decks')" />
       } @else if (view === 'stats') {
-        <app-stats />
+        <app-stats (startStudy)="goTo('study')" />
       } @else if (view === 'decks') {
         <app-decks (studyDeck)="studyDeck($event)" />
       } @else if (view === 'settings') {
