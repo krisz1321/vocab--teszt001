@@ -29,6 +29,9 @@ public sealed class User
 
     public bool AcceptPartialMeaningMatch { get; set; } = true;
 
+    // Hibás válasz után a kártya azonnal visszajön gyakorlásra (legfeljebb kétszer), ez nem számít bele a statisztikába.
+    public bool RepeatMistakes { get; set; }
+
     public bool RequireAppealReason { get; set; } = true;
 
     public bool ReuseSavedExamples { get; set; } = true;

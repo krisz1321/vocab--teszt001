@@ -821,6 +821,11 @@ namespace VocabApp.Api.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<bool>("RepeatMistakes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("RequireAppealReason")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")

@@ -38,6 +38,7 @@ interface StudyNextResponse {
   automaticAiCheck: boolean;
   acceptHungarianParaphrase: boolean;
   acceptPartialMeaningMatch: boolean;
+  repeatMistakes: boolean;
   aiCheckAvailable: boolean;
   requireAppealReason: boolean;
   status: 'ready' | 'dailyLimitReached' | 'empty';
@@ -144,6 +145,8 @@ type FreeBack = 'bilingual' | 'definition';
 
 const hungarianAccents = 'áéíóöőúüű';
 const hungarianPlain = 'aeiooouuu';
+
+const emptyAnswerMessage = 'A válasz nem lehet üres.';
 
 @Component({
   selector: 'app-study-card',
@@ -560,9 +563,16 @@ const hungarianPlain = 'aeiooouuu';
                   @if (!isReversed) {
                     <p class="text-body-secondary">Ehhez a szóhoz már van célnyelvi jelentés.</p>
                   }
+                  @if (isRetry) {
+                    <div class="alert alert-info py-2" role="status">
+                      Gyakorló kör ({{ retryRound }}/2): írd be még egyszer. Ez nem számít bele a statisztikába.
+                    </div>
+                  }
                   <label for="meaning-answer" class="form-label fw-semibold">{{ isReversed ? 'Írd be az angol szót.' : 'Írd be a magyar jelentést.' }}</label>
                   <textarea
                     id="meaning-answer"
+                    data-answer-input
+                    (input)="emptyAnswerWarned = false"
                     class="form-control"
                     [attr.rows]="isReversed ? 2 : 4"
                     [attr.maxlength]="isReversed ? 100 : 1000"
@@ -570,7 +580,7 @@ const hungarianPlain = 'aeiooouuu';
                     (keydown.control.enter)="submitShortcut($event)"
                     (keydown.enter)="onAnswerEnter($event)"
                     [disabled]="isSubmitting || updatedProgress !== null || isMeaningRevealed"
-                    [placeholder]="isReversed ? 'Ide írd az angol szót…' : 'Ide írd a választ…'"></textarea>
+                    placeholder="Válasz…"></textarea>
 
                   @if (!isMeaningRevealed) {
                     <div class="d-grid d-sm-flex gap-2 mt-3">
@@ -688,6 +698,8 @@ const hungarianPlain = 'aeiooouuu';
                 <label for="answer" class="form-label fw-semibold">{{ definitionPromptLabel }}</label>
                 <textarea
                   id="answer"
+                    data-answer-input
+                    (input)="emptyAnswerWarned = false"
                   class="form-control"
                   rows="4"
                   maxlength="1000"
@@ -802,6 +814,8 @@ const hungarianPlain = 'aeiooouuu';
                   <label for="recognition-answer" class="form-label fw-semibold">Melyik angol szó ez?</label>
                   <textarea
                     id="recognition-answer"
+                    data-answer-input
+                    (input)="emptyAnswerWarned = false"
                     class="form-control"
                     rows="3"
                     maxlength="100"
@@ -1036,11 +1050,15 @@ const hungarianPlain = 'aeiooouuu';
 
               @if (updatedProgress) {
                 <div class="border-top mt-4 pt-4">
-                  <p class="mb-3">
-                    Mentve: {{ updatedProgress.streak }} helyes válasz sorban,
-                    következő időköz {{ updatedProgress.interval }} nap,
-                    könnyűség {{ updatedProgress.easeFactor | number:'1.1-1' }}.
-                  </p>
+                  @if (isRetry) {
+                    <p class="mb-3">Gyakorló kör: nem számít bele a statisztikába és az ismétlési ütemezésbe.</p>
+                  } @else {
+                    <p class="mb-3">
+                      Mentve: {{ updatedProgress.streak }} helyes válasz sorban,
+                      következő időköz {{ updatedProgress.interval }} nap,
+                      könnyűség {{ updatedProgress.easeFactor | number:'1.1-1' }}.
+                    </p>
+                  }
                   <button
                     type="button"
                     class="btn btn-success"
@@ -1115,6 +1133,11 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   automaticAiCheck = true;
   acceptHungarianParaphrase = false;
   acceptPartialMeaningMatch = true;
+  repeatMistakes = false;
+  isRetry = false;
+  retryRound = 0;
+  private retryCard: { card: StudyCard; direction: 'en' | 'hu'; retriesLeft: number } | null = null;
+  private lastSavedProgress: CardProgress | null = null;
   aiCheckAvailable = true;
   requireAppealReason = true;
   meaningAwaitingGrade = false;
@@ -1214,6 +1237,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   private continueAfterMeaningSubmit = false;
   private freeKeyListener: ((event: KeyboardEvent) => void) | null = null;
   private lastNextButton: Element | null = null;
+  private lastFocusedAnswerInput: Element | null = null;
+  emptyAnswerWarned = false;
   private lastShownCardId: number | null = null;
   private nextFocusTimer: ReturnType<typeof setTimeout> | null = null;
   private freePointerId: number | null = null;
@@ -1461,6 +1486,17 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           }
         }, 350);
       }
+    }
+
+    // Új kártyánál a válaszmező kapja a fókuszt, hogy a következő szót azonnal lehessen gépelni.
+    const answerInput = this.host.nativeElement.querySelector('[data-answer-input]');
+    if (!answerInput) {
+      this.lastFocusedAnswerInput = null;
+    } else if (answerInput !== this.lastFocusedAnswerInput
+      && answerInput instanceof HTMLTextAreaElement
+      && !answerInput.disabled) {
+      this.lastFocusedAnswerInput = answerInput;
+      answerInput.focus({ preventScroll: true });
     }
 
     const shownCardId = this.card?.id ?? null;
@@ -1741,11 +1777,18 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       });
   }
 
-  loadNextCard(): void {
+  loadNextCard(continueSession = false): void {
     if (!this.studying) {
       return;
     }
 
+    if (continueSession && this.startRetryRound()) {
+      return;
+    }
+
+    this.retryCard = null;
+    this.isRetry = false;
+    this.retryRound = 0;
     this.speech.stop();
     const generation = ++this.loadGeneration;
     this.isLoadingCard = true;
@@ -1782,6 +1825,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           this.automaticAiCheck = response.automaticAiCheck;
           this.acceptHungarianParaphrase = response.acceptHungarianParaphrase;
           this.acceptPartialMeaningMatch = response.acceptPartialMeaningMatch;
+          this.repeatMistakes = response.repeatMistakes;
           this.aiCheckAvailable = response.aiCheckAvailable;
           this.requireAppealReason = response.requireAppealReason;
           this.studyStatus = response.status;
@@ -1897,7 +1941,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
     const trimmedAnswer = this.answer.trim();
     if (!trimmedAnswer) {
-      this.errorMessage = 'A válasz nem lehet üres.';
+      this.errorMessage = emptyAnswerMessage;
       return;
     }
 
@@ -2195,7 +2239,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
     const trimmedAnswer = this.answer.trim();
     if (!trimmedAnswer) {
-      this.errorMessage = 'A válasz nem lehet üres.';
+      this.errorMessage = emptyAnswerMessage;
       return;
     }
 
@@ -2380,7 +2424,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
     const trimmedAnswer = this.answer.trim();
     if (!trimmedAnswer) {
-      this.errorMessage = 'A válasz nem lehet üres.';
+      this.errorMessage = emptyAnswerMessage;
       return;
     }
 
@@ -2531,6 +2575,41 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     this.submitResult(this.overrideCorrect, this.aiIncorrect, this.pendingTypedAnswer ?? undefined);
   }
 
+  // Hibás válasz után ugyanaz a kártya jön vissza gyakorlásra. A kör nem megy a szerverre, így nem számít a statisztikába.
+  private startRetryRound(): boolean {
+    const retry = this.retryCard;
+    if (!retry || retry.retriesLeft <= 0 || this.mode !== 'meaning') {
+      return false;
+    }
+
+    this.speech.stop();
+    this.loadGeneration++;
+    retry.retriesLeft--;
+    this.retryRound++;
+    this.resetCardState();
+    this.card = retry.card;
+    this.cardDirection = retry.direction;
+    this.isRetry = true;
+    this.studyStatus = 'ready';
+    this.lastFocusedAnswerInput = null;
+    return true;
+  }
+
+  private finishRetryRound(isCorrect: boolean): void {
+    if (isCorrect) {
+      this.retryCard = null;
+    }
+
+    const continueAfter = this.continueAfterSave || this.continueAfterMeaningSubmit;
+    this.continueAfterSave = false;
+    this.continueAfterMeaningSubmit = false;
+    this.pendingIncorrect = false;
+    this.updatedProgress = this.lastSavedProgress;
+    if (continueAfter) {
+      this.loadNextCard(true);
+    }
+  }
+
   continueToNext(): void {
     if (this.updatedProgress &&
         !this.isGeneratingDefinition &&
@@ -2540,7 +2619,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
         !this.isLoadingPrompt &&
         !this.isValidating &&
         !this.isSubmitting) {
-      this.loadNextCard();
+      this.loadNextCard(true);
     }
   }
 
@@ -2699,6 +2778,11 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   }
 
   private submitResult(isCorrect: boolean, evaluatedByAi: boolean, typedAnswer?: string): void {
+    if (this.isRetry && this.card && !this.updatedProgress) {
+      this.finishRetryRound(isCorrect);
+      return;
+    }
+
     if (!this.card || !this.answerToken || this.updatedProgress || this.isSubmitting) {
       return;
     }
@@ -2722,9 +2806,12 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           this.continueAfterSave = false;
           this.pendingIncorrect = false;
           this.updatedProgress = progress;
+          this.lastSavedProgress = progress;
           this.sessionAnswered++;
           if (isCorrect) {
             this.sessionCorrect++;
+          } else if (this.repeatMistakes && this.mode === 'meaning' && this.card) {
+            this.retryCard = { card: this.card, direction: this.cardDirection, retriesLeft: 2 };
           }
           if (penalty === 'reveal') {
             this.isDefinitionRevealed = true;
@@ -2735,7 +2822,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           }
           if (this.continueAfterMeaningSubmit || continueAfter) {
             this.continueAfterMeaningSubmit = false;
-            this.loadNextCard();
+            this.loadNextCard(true);
           }
         },
         error: (error: HttpErrorResponse) => {
@@ -2799,6 +2886,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   }
 
   private resetCardState(): void {
+    this.emptyAnswerWarned = false;
     this.cardDirection = 'en';
     this.answer = '';
     this.targetMeaningsDraft = '';
@@ -3121,12 +3209,37 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
   submitShortcut(event: Event): void {
     event.preventDefault();
+    const isEmpty = !this.answer.trim();
+    if (isEmpty && this.emptyAnswerWarned) {
+      // Üres válasznál a második Enter "Nem tudom"-nak számít. A lenyomva tartott billentyű nem.
+      if (!(event as KeyboardEvent).repeat) {
+        this.giveUpFromKeyboard();
+      }
+      return;
+    }
+
     if (this.mode === 'meaning') {
       this.checkMeaningAnswer();
     } else if (this.mode === 'definition') {
       this.validateAnswer();
     } else if (this.mode === 'recognition') {
       this.checkRecognitionAnswer();
+    }
+
+    if (isEmpty && this.errorMessage === emptyAnswerMessage) {
+      this.emptyAnswerWarned = true;
+      this.errorMessage = `${emptyAnswerMessage} Ha nem tudod, nyomj még egy Entert.`;
+    }
+  }
+
+  private giveUpFromKeyboard(): void {
+    this.emptyAnswerWarned = false;
+    if (this.mode === 'meaning') {
+      this.giveUpMeaning();
+    } else if (this.mode === 'definition') {
+      this.revealDefinition();
+    } else if (this.mode === 'recognition') {
+      this.giveUpRecognition();
     }
   }
 

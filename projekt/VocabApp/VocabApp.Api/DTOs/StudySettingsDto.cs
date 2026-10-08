@@ -18,6 +18,8 @@ public sealed class StudySettingsDto
 
     public bool AcceptPartialMeaningMatch { get; set; } = true;
 
+    public bool RepeatMistakes { get; set; }
+
     public bool RequireAppealReason { get; set; } = true;
 
     public bool ReuseSavedExamples { get; set; }

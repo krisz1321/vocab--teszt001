@@ -37,6 +37,7 @@ interface StudySettings {
   automaticAiCheck: boolean;
   acceptHungarianParaphrase: boolean;
   acceptPartialMeaningMatch: boolean;
+  repeatMistakes: boolean;
   requireAppealReason: boolean;
   reuseSavedExamples: boolean;
   savedLevelPolicy: string;
@@ -338,6 +339,17 @@ interface AiModelOption {
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="acceptPartialMeaningMatch">Részleges egyezés elfogadása</label>
               <div class="form-text">Bekapcsolva a válasz akkor is helyes, ha a vesszővel elválasztott részei közül legalább egy egyezik a mentett jelentések valamelyikével. Kikapcsolva a teljes válasznak egyeznie kell egy jelentéssel.</div>
+            </div>
+            <div class="form-check mb-3">
+              <input
+                id="repeatMistakes"
+                name="repeatMistakes"
+                type="checkbox"
+                class="form-check-input"
+                [(ngModel)]="repeatMistakes"
+                [disabled]="isSavingStudySettings">
+              <label class="form-check-label" for="repeatMistakes">Hibás válasz után azonnali gyakorló ismétlés</label>
+              <div class="form-text">Bekapcsolva a hibásan megválaszolt kártya rögtön visszajön, és addig kell beírnod a jó választ, amíg sikerül, de legfeljebb kétszer. Ezek a gyakorló körök nem számítanak bele a statisztikába és az ismétlési ütemezésbe. Csak a Fordítás módban működik.</div>
             </div>
             <div class="form-check mb-3">
               <input
@@ -655,6 +667,7 @@ export class AppComponent implements OnInit {
   automaticAiCheck = true;
   acceptHungarianParaphrase = false;
   acceptPartialMeaningMatch = true;
+  repeatMistakes = false;
   requireAppealReason = true;
   reuseSavedExamples = true;
   allowOtherSavedLevels = false;
@@ -1012,6 +1025,7 @@ export class AppComponent implements OnInit {
       automaticAiCheck: this.automaticAiCheck,
       acceptHungarianParaphrase: this.acceptHungarianParaphrase,
       acceptPartialMeaningMatch: this.acceptPartialMeaningMatch,
+      repeatMistakes: this.repeatMistakes,
       requireAppealReason: this.requireAppealReason,
       reuseSavedExamples: this.reuseSavedExamples,
       savedLevelPolicy,
@@ -1032,6 +1046,7 @@ export class AppComponent implements OnInit {
         this.automaticAiCheck = settings.automaticAiCheck;
         this.acceptHungarianParaphrase = settings.acceptHungarianParaphrase;
         this.acceptPartialMeaningMatch = settings.acceptPartialMeaningMatch;
+        this.repeatMistakes = settings.repeatMistakes;
         this.requireAppealReason = settings.requireAppealReason;
         this.reuseSavedExamples = settings.reuseSavedExamples;
         this.applySavedLevelPolicy(settings.savedLevelPolicy);
@@ -1125,6 +1140,7 @@ export class AppComponent implements OnInit {
         this.automaticAiCheck = settings.automaticAiCheck;
         this.acceptHungarianParaphrase = settings.acceptHungarianParaphrase;
         this.acceptPartialMeaningMatch = settings.acceptPartialMeaningMatch;
+        this.repeatMistakes = settings.repeatMistakes;
         this.requireAppealReason = settings.requireAppealReason;
         this.reuseSavedExamples = settings.reuseSavedExamples;
         this.applySavedLevelPolicy(settings.savedLevelPolicy);

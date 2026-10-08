@@ -44,6 +44,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 candidate.AutomaticAiCheck,
                 candidate.AcceptHungarianParaphrase,
                 candidate.AcceptPartialMeaningMatch,
+                candidate.RepeatMistakes,
                 candidate.RequireAppealReason,
                 candidate.TimeZoneId,
                 candidate.LeechThreshold
@@ -99,6 +100,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 user.AutomaticAiCheck,
                 user.AcceptHungarianParaphrase,
                 user.AcceptPartialMeaningMatch,
+                user.RepeatMistakes,
                 aiCheckAvailable,
                 user.RequireAppealReason,
                 introducedToday,
@@ -115,6 +117,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             user.AutomaticAiCheck,
             user.AcceptHungarianParaphrase,
             user.AcceptPartialMeaningMatch,
+            user.RepeatMistakes,
             aiCheckAvailable,
             user.RequireAppealReason,
             introducedToday,
@@ -279,6 +282,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 AutomaticAiCheck = user.AutomaticAiCheck,
                 AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
                 AcceptPartialMeaningMatch = user.AcceptPartialMeaningMatch,
+                RepeatMistakes = user.RepeatMistakes,
                 RequireAppealReason = user.RequireAppealReason,
                 ReuseSavedExamples = user.ReuseSavedExamples,
                 SavedLevelPolicy = user.SavedLevelPolicy,
@@ -374,6 +378,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.AutomaticAiCheck = request.AutomaticAiCheck;
         user.AcceptHungarianParaphrase = request.AcceptHungarianParaphrase;
         user.AcceptPartialMeaningMatch = request.AcceptPartialMeaningMatch;
+        user.RepeatMistakes = request.RepeatMistakes;
         user.RequireAppealReason = request.RequireAppealReason;
         user.ReuseSavedExamples = request.ReuseSavedExamples;
         user.SavedLevelPolicy = savedLevelPolicy;
@@ -391,6 +396,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             AutomaticAiCheck = user.AutomaticAiCheck,
             AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
             AcceptPartialMeaningMatch = user.AcceptPartialMeaningMatch,
+            RepeatMistakes = user.RepeatMistakes,
             RequireAppealReason = user.RequireAppealReason,
             ReuseSavedExamples = user.ReuseSavedExamples,
             SavedLevelPolicy = user.SavedLevelPolicy,
@@ -554,6 +560,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         bool automaticAiCheck,
         bool acceptHungarianParaphrase,
         bool acceptPartialMeaningMatch,
+        bool repeatMistakes,
         bool aiCheckAvailable,
         bool requireAppealReason,
         int newCardsIntroducedToday,
@@ -568,6 +575,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             AutomaticAiCheck = automaticAiCheck,
             AcceptHungarianParaphrase = acceptHungarianParaphrase,
             AcceptPartialMeaningMatch = acceptPartialMeaningMatch,
+            RepeatMistakes = repeatMistakes,
             AiCheckAvailable = aiCheckAvailable,
             RequireAppealReason = requireAppealReason,
             NewCardsIntroducedToday = newCardsIntroducedToday,
