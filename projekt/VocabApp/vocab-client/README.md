@@ -4,7 +4,7 @@ A VocabApp Angular 19 kliense. Az API a `../VocabApp.Api` mappában van (ASP.NET
 
 ## Indítás
 
-A `..\start-dev.bat` az API-t (`http://localhost:5152`) és a klienst (`http://localhost:4200`) is elindítja:
+A `..\start-dev.bat` az API-t (`http://localhost:5152`) és a klienst (`http://localhost:4567`) is elindítja:
 
 ```bat
 ..\start-dev.bat [start|stop|restart|status]

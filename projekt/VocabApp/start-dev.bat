@@ -18,9 +18,9 @@ echo Starting VocabApp backend and frontend...
 cd /d "%~dp0VocabApp.Api"
 start "VocabApp API (HTTP :5152)" cmd /k "dotnet run --launch-profile http"
 cd /d "%~dp0vocab-client"
-start "VocabApp Angular (HTTP :4200)" cmd /k "npm start"
+start "VocabApp Angular (HTTP :4567)" cmd /k "npm start"
 echo Backend:  http://localhost:5152
-echo Frontend: http://localhost:4200
+echo Frontend: http://localhost:4567
 echo.
 echo To stop both services, run: start-dev.bat stop
 goto end
@@ -31,7 +31,7 @@ rem Stops them even if they were not started by this script.
 powershell -NoProfile -ExecutionPolicy Bypass -Command "%ROOT% Get-CimInstance Win32_Process | Where-Object { (%API_FILTER%) -or (%CLIENT_FILTER%) } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }"
 rem Close the windows opened by start.
 taskkill /fi "WINDOWTITLE eq VocabApp API (HTTP :5152)" /t /f >nul 2>&1
-taskkill /fi "WINDOWTITLE eq VocabApp Angular (HTTP :4200)" /t /f >nul 2>&1
+taskkill /fi "WINDOWTITLE eq VocabApp Angular (HTTP :4567)" /t /f >nul 2>&1
 echo Done.
 goto end
 
