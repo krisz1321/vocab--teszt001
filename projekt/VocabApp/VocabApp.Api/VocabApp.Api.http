@@ -1,41 +1,71 @@
 @VocabApp.Api_HostAddress = http://localhost:5152
 
-GET {{VocabApp.Api_HostAddress}}/api/study/next
-Accept: application/json
+# A kéréseket sorrendben kell futtatni: login -> next -> a többi.
+# Minden végpont (a login/register/availability kivételével) [Authorize], ezért kell a Bearer token.
+# Ha a next válaszában a card null (status: "empty"), a submit és az AI-kérések nem futtathatók.
+# Az AI-kérésekhez AiSettings:ApiKey kell (user secrets vagy appsettings.Development.json), különben 503 jön.
 
-###
-
-POST {{VocabApp.Api_HostAddress}}/api/study/submit
+# @name login
+POST {{VocabApp.Api_HostAddress}}/api/auth/login
 Content-Type: application/json
 
 {
-  "cardId": 1,
-  "isCorrect": true
+  "email": "demo@vocab.local",
+  "password": "DemoUser1"
+}
+
+###
+
+@token = {{login.response.body.$.token}}
+
+# @name next
+GET {{VocabApp.Api_HostAddress}}/api/study/next?focus=all
+Accept: application/json
+Authorization: Bearer {{token}}
+
+###
+
+@cardId = {{next.response.body.$.card.id}}
+@answerToken = {{next.response.body.$.answerToken}}
+
+POST {{VocabApp.Api_HostAddress}}/api/study/submit
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "cardId": {{cardId}},
+  "isCorrect": true,
+  "answerToken": "{{answerToken}}"
 }
 
 ###
 
 POST {{VocabApp.Api_HostAddress}}/api/ai/generate/definition
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
-  "term": "resilient"
+  "term": "resilient",
+  "cardId": {{cardId}}
 }
 
 ###
 
 POST {{VocabApp.Api_HostAddress}}/api/ai/generate/example
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "term": "resilient",
-  "definition": "Able to recover quickly from difficulty or change."
+  "definition": "Able to recover quickly from difficulty or change.",
+  "cardId": {{cardId}}
 }
 
 ###
 
 POST {{VocabApp.Api_HostAddress}}/api/ai/validate
 Content-Type: application/json
+Authorization: Bearer {{token}}
 
 {
   "term": "resilient",

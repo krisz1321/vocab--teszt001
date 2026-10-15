@@ -1,81 +1,140 @@
 # VocabApp — projekt szabályok
 
-Szakdolgozati, MI-támogatott adaptív szótanuló. Ez a fájl a jelenlegi kódot írja le.
-Ne találj ki funkciót. A User, Deck, JWT, AICache és SM-2 már a kódban van:
-ne add hozzá őket újra, és ne töröld őket, mintha a projekt még walking skeleton lenne.
+Szakdolgozati, MI-támogatott adaptív szótanuló. Ez a fájl a jelenlegi kódot írja le
+(utoljára a kóddal egyeztetve: 2026-10-12). Ne találj ki funkciót. A User, Deck, JWT,
+AiCache és SM-2 már a kódban van: ne add hozzá őket újra, és ne töröld őket, mintha a
+projekt még walking skeleton lenne. Ha a kód és ez a fájl eltér, a kód a mérvadó; szólj róla.
 
 A solution a `VocabApp/` mappa (`VocabApp.sln`). A workspace gyakran a `projekt`
-mappa; a git gyökér a felette lévő `teszt001`.
+mappa; a git gyökér a felette lévő `teszt001`. Ennek a fájlnak három azonos példánya van
+(`teszt001/`, `projekt/`, `projekt/VocabApp/`), hogy bármelyik mappát nyitod meg, érvényes
+legyen. Ha módosítod, mindhármat frissítsd.
 
 ## Szándékos korlátok — csak külön kérésre változtasd
 
 - Maradj SQLite-on (`ConnectionStrings:DefaultConnection` → `vocab.db`, `UseSqlite`). SQL Serverre ne válts.
-- Maradj `net8.0`-n. Ne emeld `net9`-re.
-- Nincs `SourceLang` / `TargetLang`. A kártya angol `Term`, angol `Definition`, opcionális `Example` és opcionális magyar `TargetMeanings`. A prompt és a UI ezt a párost követi. Többnyelvűséget ne adj hozzá.
+- Maradj `net8.0`-n (EF Core 8.0.x). Ne emeld `net9`-re.
+- Nincs `SourceLang` / `TargetLang`. A kártya angol `Term`, angol `Definition`, opcionális angol `Example`, opcionális magyar `TargetMeanings` és opcionális `Tags`. A prompt és a UI ezt a párost (angol ↔ magyar) követi. Többnyelvűséget ne adj hozzá.
 - Az ismétlés SM-2 (`Sm2Scheduler`). FSRS-re ne cseréld.
-- Nincs Angular Router. A nézet az `app.component.ts` `AppView` állapota: `study | stats | decks | profile`. A `@angular/router` csomag telepítve van, de nincs `provideRouter` és nincs route. URL-útvonalat ne vezess be.
+- Nincs Angular Router. A nézet az `app.component.ts` `AppView` állapota: `study | stats | decks | profile | settings`. A `@angular/router` csomag telepítve van, de nincs `provideRouter` és nincs route. URL-útvonalat ne vezess be.
 
-## Felépítés
+## Felépítés és futtatás
 
 - `VocabApp/VocabApp.Api/` — ASP.NET Core Web API, controller-alapú. Nem minimal API.
-- `VocabApp/vocab-client/` — Angular 19, standalone komponensek.
+- `VocabApp/vocab-client/` — Angular 19, standalone komponensek, Bootstrap 5.3.
+- Indítás: `VocabApp/start-dev.bat [start|stop|restart|status]`. API: `http://localhost:5152` (`http` launch profile), Angular: `http://localhost:4200`. A kliens relatív `/api` címet hív, a `proxy.conf.json` továbbítja az 5152-es portra. A `stop` és a `status` a mappa saját folyamatait (`VocabApp.Api.exe`, a `vocab-client` `ng serve`-je) a parancssoruk alapján keresi meg, így a nem a `start`-tal indított példányt is látja; más projekt folyamataihoz nem nyúl.
 
-Backend: `Controllers/`, `Services/`, `DTOs/`, `Models/`, `Data/AppDbContext`, `Migrations/`.
-EF Core Code First + SQLite. Sémaváltozás migrációval; induláskor `MigrateAsync` fut.
-A controller vékony; az üzleti logika a `Services/` rétegben van.
-DTO a `DTOs/` mappában, `...Dto` végződéssel.
+Backend: `Controllers/`, `Services/`, `DTOs/`, `Models/`, `Data/` (`AppDbContext`, `BaseUserSeed`), `Migrations/`.
+- EF Core Code First + SQLite. Sémaváltozás migrációval. A migrációk egy része kézzel írt (nincs `.Designer.cs`): ezekben a `[DbContext]` és `[Migration]` attribútum a fő fájlban van, az `AppDbContextModelSnapshot` pedig naprakész. Új migrációnál a snapshot is frissüljön.
+- Induláskor sorban: `MigrateAsync`, `SharedDeckSnapshot.BackfillHashesAsync`, `BaseUserSeed.EnsureAsync`. A seed minden környezetben, minden induláskor lefut: két demó fiókot (`demo@vocab.local`, `second@vocab.local`) és azok paklijait hozza létre, ha hiányoznak.
+- A controller vékony; az üzleti logika a `Services/` rétegben van (interfész + implementáció, DI a `Program.cs`-ben).
+- DTO a `DTOs/` mappában, `...Dto` végződéssel.
+- Hibakezelés: a service eredményobjektumot ad vissza (`DeckCardResult<T>`, `StatusResult`, `AuthResult`, `StudyNextResult`, `StudySubmitResult`, `StudySettingsResult`) `ErrorStatus` + magyar `ErrorTitle` mezővel. A controller ebből `ProblemDetails`-t készít, és a felület a `Title`-t jeleníti meg. A beépített modellvalidáció címe is magyar (`Program.cs`). Üzleti hibára a service-ek nem dobnak kivételt; kivétel az MI-hiba (`AiServiceException`), amit az `AiController` alakít válasszá.
+- A controllerek a felhasználót a JWT `sub` claimből olvassák (privát `GetUserId()`), `MapInboundClaims = false`. Minden adatlekérdezés a felhasználóra szűr (`Deck.UserId == userId`); ezt új végpontnál is tartsd meg.
 
-Frontend (`vocab-client/src/app/`): `app.component.ts` (belépés és nézet),
-`study-card.component.ts`, `decks.component.ts`, `stats.component.ts`,
-`auth-session.service.ts`, `auth.interceptor.ts`, `app.config.ts`.
+Frontend (`vocab-client/src/app/`): a komponensek sablonja és stílusa inline a `.ts` fájlban (nincs külön `.html`/`.scss` komponensfájl).
+- `app.component.ts` — belépés/regisztráció, navigáció, a `profile` és a `settings` nézet.
+- `study-card.component.ts` — tanulás (`study` nézet).
+- `decks.component.ts` — saját és publikus paklik, kártyaszerkesztés, import/export, megosztás.
+- `stats.component.ts` + `stats.model.ts` — statisztika.
+- `auth-session.service.ts`, `auth.interceptor.ts`, `app.config.ts`.
+- `theme.service.ts`, `theme-picker.component.ts` — téma (ocean | forest | sunset; light | dark | system).
+- `speech.service.ts`, `speech-settings.component.ts`, `speak-button.component.ts`, `mute-button.component.ts` — felolvasás (Web Speech API).
+- Globális stílus: `src/styles.scss` + a Bootstrap CSS. Production budget (`angular.json`): komponensstílus figyelmeztetés 4 kB, hiba 8 kB. A `decks.component.ts` stílusa közel van a hibahatárhoz (kb. 7,5 kB), ezért a szegmensgombjai (`.dseg*`), párbeszédablakai és toastja a `styles.scss`-ben vannak; ehhez a komponenshez ne adj több stílust.
 
 ## Entitások
 
-- `User` — fiók, jelszóhash, megjelenített név, napi új kártya cél, minimum válaszidő, automata AI-ellenőrzés, streak.
-- `Deck` — a user paklija; `IsPublic`.
-- `Card` — egy deckhez tartozik; `Term`, `Definition`, `Example?`, `TargetMeanings?`.
-- `CardProgress` — 1:1 a `Card`-dal. SM-2: `EaseFactor`, `Interval`, `NextReviewDate`, `Streak`, helyes és helytelen számlálók.
-- `AiCache` — prompt-hash → eltárolt válasz.
+- `User` — fiók (`Email` kisbetűsítve, egyedi; `Username` 3–30 karakter, `[A-Za-z0-9_.-]`, kis-nagybetű-független egyedi; `PasswordHash`; `DisplayName?`), tanulási beállítások (`DailyNewCardGoal` 0–100, `MinimumAnswerSeconds` 0–120, `AutomaticAiCheck`, `AcceptHungarianParaphrase`, `AcceptPartialMeaningMatch`, `RepeatMistakes`, `RequireAppealReason`, `LeechThreshold` 2–50), MI-beállítások (`AiModel`, `ExampleLevel`, `ReuseSavedExamples`, `SavedLevelPolicy`, `GenerateAlternateDefinitions`, `AiFillBatchSize` 1–10, `AiCallCount`), `TimeZoneId`, napi streak (`StudyDayStreak`, `LongestStudyDayStreak`, `LastStudyDate`).
+- `Deck` — a user paklija: `Name`, `Description?`, `ExampleLevel?`, és ha megosztott pakliból mentették: `SourceSharedDeckId?`, `SourceVersion?`. Nincs `IsPublic` oszlop: a `DeckDto.IsPublic` a `SharedDeck.IsActive`-ból számolt érték.
+- `Card` — egy deckhez tartozik; `Term`, `Definition`, `Example?`, `TargetMeanings?`, `Tags?` (kisbetűs, vesszővel elválasztott, legfeljebb 5 címke × 24 karakter, lásd `CardTags`).
+- `CardProgress` — 1:1 a `Card`-dal. SM-2: `EaseFactor`, `Interval`, `NextReviewDate`, `Streak`, `CorrectCount`, `IncorrectCount`; továbbá `FirstReviewedAt?`, `LastReviewedAt?`, `LearnedAt?`, `MarkedKnown`, `SuspendedUntil?`.
 - `CardConfusion` — a user melyik kártyát melyikkel keverte össze, és hányszor.
-- `UserStudyDay` — napi tanulási idő és válaszszámok.
+- `UserStudyDay` — napi tanulási idő és válaszszámok. A `DayUtc` neve ellenére a felhasználó időzónája szerinti naptári napot tárolja.
+- `UserAiFillDay` — az import közbeni MI-kitöltés napi számlálója (a `Day` szintén helyi nap).
+- `SharedDeck` + `SharedDeckCard` — egy pakli közzétett pillanatképe (`Version`, `IsActive`, `ContentHash`). `SharedDeckSave` — ki mentette le (userenként egy sor).
+- `FreeStudyMark` — „tudom / nem tudom” jelölés a Kártyázás módhoz.
+- `AiCache` — prompt-hash → eltárolt MI-válasz.
+- `SavedDefinition`, `SavedExample` — korábban generált definíciók és példamondatok közös (nem felhasználónkénti) tára újrahasznosításhoz.
+- Avatar: nem az adatbázisban van, hanem fájlként: `App_Data/avatars/{userId}.{jpg|png|webp}`, legfeljebb 1 MB.
 
-## Végpontcsoportok — kérés nélkül ne nevezd át
+## Végpontok — kérés nélkül ne nevezd át
 
-- `POST /api/auth/register`, `POST /api/auth/login` — nyilvános.
-- `GET /api/auth/avatar/{userId}` — nyilvános. Profil, jelszó, avatar feltöltés és törlés, valamint `DELETE /api/auth/account` JWT-t kér.
-- `/api/decks` — lista, létrehozás, átnevezés, megosztás, publikus keresés, másolás, törlés, CSV export és import. `[Authorize]`.
-- `/api/cards` — `by-deck/{deckId}`, létrehozás, módosítás, törlés. `[Authorize]`.
-- `/api/study` — `GET next`, `POST submit`, `GET|PUT settings`, `GET stats`. `[Authorize]`.
-- `/api/ai` — `POST generate/definition`, `generate/example`, `generate/target-meaning`, `validate`. `[Authorize]`. Az AI-válasz cache-elhető (`AiCache`).
+- `/api/auth` — az osztályon nincs `[Authorize]`. Nyilvános: `POST register`, `POST login`, `GET availability`, `GET avatar/{userId}`. JWT-t kér: `GET|PUT profile`, `PUT profile/username`, `PUT password`, `PUT|DELETE avatar`, `DELETE account`.
+- `/api/decks` `[Authorize]` — `GET` lista, `POST` létrehozás, `PUT {id}` átnevezés, `PUT {id}/description`, `PUT {id}/example-level`, `PUT {id}/share` (megosztás be/ki), `POST {id}/share/update` (új verzió közzététele), `GET public`, `GET public/{id}/cards`, `POST public/{id}/copy`, `DELETE {id}`, `GET {id}/export` (CSV), `POST {id}/import` (`text/csv` törzs), `POST {id}/import/cards` (JSON sorok).
+- `/api/cards` `[Authorize]` — `GET by-deck/{deckId}`, `GET learned`, `GET search?q=`, `GET tags?deckId=`, `POST`, `PUT {id}`, `PUT {id}/known`, `PUT {id}/suspension`, `POST {id}/reset-learned`, `DELETE {id}`.
+- `/api/study` `[Authorize]` — `GET next?deckId=&focus=&tag=`, `POST submit`, `GET|PUT settings`, `PUT settings/automatic-ai-check`, `GET stats`.
+- `/api/free-study` `[Authorize]` — `GET cards?deckId=&focus=&tag=`, `PUT|DELETE cards/{cardId}/mark`, `DELETE marks?deckId=`.
+- `/api/ai` `[Authorize]` — `POST generate/definition`, `generate/card-definition`, `generate/extra-definition`, `generate/example`, `generate/target-meaning`, `generate/deck-fill`, `recognize-ambiguity`, `validate`, `appeal-answer`, `explain-answer`.
 
 ## Auth, CORS, titkok
 
-- JWT Bearer. `Jwt:Key`, `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpiresDays` a konfigurációból jön. Hiányzó értékkel az API nem indul.
-- Jelszó: `IPasswordHasher<User>`. Nyers jelszót ne tárolj.
+- JWT Bearer. `Jwt:Key`, `Jwt:Issuer`, `Jwt:Audience`, `Jwt:ExpiresDays` a konfigurációból jön. Hiányzó értékkel az API nem indul. Claimek: `sub` (userId), `email`.
+- A kliens a tokent `sessionStorage`-ban tartja (`vocabapp.token`). Az interceptor minden `/api/` kérésre ráteszi, és 401-re (a login, register, password hívás kivételével) törli a sessiont. A UI-preferenciák `localStorage`-ban vannak.
+- Jelszó: `IPasswordHasher<User>`. Nyers jelszót ne tárolj. Új jelszó: legalább 8 karakter, betű és szám, nem egyezhet az emaillel.
 - CORS policy: `Frontend`. Eredet csak `http://localhost:4200` és `http://127.0.0.1:4200`. `AllowAnyOrigin`-re ne nyisd.
 - `UseHttpsRedirection` csak Developmenten kívül.
 - A védett végpontokon hagyd meg az `[Authorize]`-t. Az `AllowAnonymous`-t ne terjeszd új végpontra.
-- Az AI-kulcs mindig `IConfiguration`-ből jön: `AiSettings:ApiKey`, `AiSettings:Endpoint`, `AiSettings:Model`. C# fájlba ne írd bele.
+- Rate limiting: `auth` (IP-nként 20/perc), `availability` (IP-nként 60/perc), `ai` (userenként 40/perc). Csak akkor aktív, ha `RateLimiting:Enabled = true`; alapból ki van kapcsolva.
+- Az AI-kulcs mindig `IConfiguration`-ből jön: `AiSettings:ApiKey`, `AiSettings:Endpoint`, `AiSettings:Model`, `AiSettings:HttpReferer`, `AiSettings:AppName`. C# fájlba és a commitolt `appsettings.json`-ba ne írd bele; a valódi kulcs a git által figyelmen kívül hagyott `appsettings.Development.json`-ban van.
 - Titkot ne logolj és ne commitolj: `Jwt:Key`, API-kulcs, appsettings-titkok.
 
 ## SRS és kártyaválasztás
 
-A `submit` ellenőrzi a `StudyAnswerToken`t (user, kártya, minimum válaszidő), majd a `Sm2Scheduler`-rel számol.
-Helyes válasznál nő az `EaseFactor`, a `Streak` és az `Interval`, és kitolódik a `NextReviewDate`.
-Helytelen válasznál az `EaseFactor` csökken, a `Streak` és az `Interval` 0, a kártya azonnal esedékes.
+`Sm2Scheduler`: helyes válasz q=4, hibás q=2.
+- Helyes válasznál az `EaseFactor` nem változik (q=4 esetén a módosítás 0), a `Streak` nő, az `Interval` 1 → 6 → `round(előző × EaseFactor)` nap, és a `NextReviewDate` kitolódik. `Streak >= 3` esetén a `LearnedAt` beállítódik.
+- Helytelen válasznál az `EaseFactor` 0,32-vel csökken (minimum 1,3), a `Streak` és az `Interval` 0, az `IncorrectCount` nő, a kártya azonnal esedékes.
 
-A `next` készlete: lejárt ismétlések, plusz még nem látott kártyák, ha a mai új kártyák száma a `DailyNewCardGoal` alatt van.
-A húzás súlyozott: `IncorrectCount + 1`, plusz `CardConfusion` bónusz, plafonnal.
-Ne cseréld egyenletes véletlenre, és az `EaseFactor`t ne vedd ki a számításból.
+`GET next` (`StudyService.GetNextCardAsync`):
+- A felfüggesztett kártyák (`SuspendedUntil > now`) kimaradnak. A `deckId` és a `tag` szűr.
+- A `focus` értékei: `all` (alapértelmezett) | `due` | `mistakes` | `new`. Ismételt kártya (`FirstReviewedAt != null`) csak esedékesen (`NextReviewDate <= now`) kerül a készletbe, minden fókusznál; így a korai válasz nem léptetheti az SM-2-t. A `due` és az `all` az esedékes ismétléseket adja, a `mistakes` ezek közül a valaha hibázottakat (`IncorrectCount > 0`), a `new` nem ad ismételt kártyát. A nem esedékes kártyák szabad gyakorlása a `free` mód (Kártyázás) dolga.
+- Új kártya (`FirstReviewedAt == null`) csak `all` és `new` fókusznál kerül a készletbe, és csak ha a mai új kártyák száma a `DailyNewCardGoal` alatt van. A mai új kártyák száma felhasználónként, minden paklin összesen számol (a `deckId`/`tag` szűrő és a felfüggesztés nem számít bele), egyezően a statisztikával.
+- A húzás súlyozott véletlen: `IncorrectCount + 1 + min(CardConfusion-bónusz, 10)`, ahol a bónusz a kártyát bármelyik oldalon érintő `CardConfusion.Count` összege. A súlyban nincs `EaseFactor`; az az SM-2 ütemezésben számít. Egyenletes véletlenre ne cseréld.
+- A válasz `Status` mezője: `ready` | `empty` | `dailyLimitReached`. A kártya mellé `AnswerToken` jár.
 
-A tanulófelület módjai (`study-card.component.ts`): `meaning | definition | recognition`. Kérés nélkül ne nevezd át.
+`POST submit` (`StudySubmitDto`: `CardId`, `IsCorrect`, `AnswerToken`, `TypedAnswer?`):
+- A szerver nem ellenőrzi a választ: az `IsCorrect`-et a kliens dönti el (helyi összevetés, az `/api/ai/validate` eredménye vagy elfogadott fellebbezés).
+- A `StudyAnswerToken` HMAC-SHA256 (`Jwt:Key`) a `userId:cardId:időbélyeg` adatokon, 12 óráig érvényes. A `MinimumAnswerSeconds` előtti beküldés 400-at ad.
+- A submit frissíti az SM-2-t, a `UserStudyDay`-t (válaszonként legfeljebb 600 mp), a napi streaket, és hibás válasznál a `CardConfusion`-t, ha a beírt szó egy másik kártya `Term`-je.
+- A `RepeatMistakes` csak kliensoldali: `meaning` módban a hibás kártya legfeljebb kétszer visszajön, ezek a körök nem mennek a szerverre.
+
+Kártyaállapotok:
+- `PUT known` → `MarkedKnown`, `LearnedAt`, `Streak = 3`, `Interval = 15`.
+- `PUT suspension`: `none` | `suspended` (`SuspendedUntil = DateTime.MaxValue`) | `buried` (a felhasználó időzónája szerinti következő nap elejéig).
+- Nehéz szó (leech): `CardLeech.IsLeech` — `IncorrectCount >= LeechThreshold` és `IncorrectCount > CorrectCount`.
+
+Idő: a napi határok a `User.TimeZoneId` (IANA, alapértelmezés `Europe/Budapest`) szerint számolódnak, a `StudyClock` segítségével. Az SQLite a `DateTime`-ot `Unspecified` jelöléssel olvassa vissza, ami „Z” nélkül szerializálódik. A `DeckService` és a `CardService.GetLearnedAsync` kiküldés előtt `DateTime.SpecifyKind(..., Utc)`-t hív, a `StudyService` nem; a kliens ezért a „Z” nélküli időpontot a `stats.model.ts` `parseUtcInstant` függvényével UTC-ként olvassa. A követendő minta a `SpecifyKind`.
+
+A tanulófelület (`study-card.component.ts`) módjai: `meaning` (Fordítás) | `definition` (Magyarázd el angolul) | `recognition` (Találd ki a szót) | `free` (Kártyázás). Az irány (`StudyDirection`): `en` | `hu` | `mixed`. A `free` mód a `/api/free-study` végpontokat és a `FreeStudyMark`-ot használja, az SM-2-t nem érinti. Kérés nélkül ezeket ne nevezd át.
+
+## MI-integráció (`AiService`)
+
+- OpenRouter-kompatibilis chat completions végpont. A modell a `User.AiModel`, az `AiModels` engedélyezett listájából.
+- A system prompt angol. A felhasználói adat `JsonSerializer`-rel szerializálva megy a user üzenetbe (így maradjon, ne fűzd a promptba nyers szövegként). A válasz JSON objektum, a tanulónak szóló visszajelzés magyar.
+- A generált szöveget a kód ellenőrzi (a definíció nem tartalmazhatja a szót, a példamondatnak tartalmaznia kell, hosszkorlátok). Hibánál `AiServiceException` keletkezik, a controller ezt 503 (konfiguráció), 502 (szolgáltató vagy érvénytelen válasz) vagy 429 (napi keret) válasszá alakítja.
+- CEFR-szint: `Deck.ExampleLevel` → `User.ExampleLevel` → `B1`.
+- Cache: az `AiCache`-t csak a `generate/target-meaning` használja (a hash a modellt is tartalmazza). A definíciók és példák a `SavedDefinition` / `SavedExample` táblába kerülnek; ha a `ReuseSavedExamples` be van kapcsolva, 50% eséllyel egy mentett változat jön vissza a `SavedLevelPolicy` szerint szűrve.
+- `generate/deck-fill`: kötegelt kitöltés importhoz, kérésenként legfeljebb 10 elem, legfeljebb 3 próbálkozás. Ki van véve az `ai` rate limit alól. Napi keret: `AiFill:DailyLimit` (100), a `UserAiFillDay` számolja, de csak `AiFill:EnforceDailyLimit = true` esetén tilt (alapból nem).
+- Minden szolgáltatóhívás növeli a `User.AiCallCount`-ot.
+
+## Megosztás, import, export
+
+- `PUT {id}/share` `IsPublic=true` esetén pillanatképet készít (`SharedDeck` + `SharedDeckCard`). A saját pakli későbbi szerkesztése nem változtatja meg; csak a `POST {id}/share/update` írja felül és növeli a `Version`-t. A `ContentHash` jelzi a közzé nem tett változást. `IsPublic=false` csak inaktiválja a megosztást (a verzió és a mentésszám megmarad).
+- `POST public/{id}/copy`: saját pakli lesz belőle friss `CardProgress`-szel, `SourceSharedDeckId` és `SourceVersion` kitöltésével. A saját megosztás nem jelenik meg a publikus listában.
+- CSV (`DeckCsv`): fejléc `term,definition,example[,targetMeanings[,tags]]`, legfeljebb 10 000 sor. A hibás sor kimarad (`SkippedRows`). Exportnál a képletnek látszó cellák elé aposztróf kerül, importnál ez visszaáll.
 
 ## Kódolás
 
-- C#: PascalCase típus és metódus, camelCase lokális, `async`/`await` minden I/O-nál (DB, HTTP), nullable reference types bekapcsolva.
+- C#: PascalCase típus és metódus, camelCase lokális, `async`/`await` minden I/O-nál (DB, HTTP), `CancellationToken` továbbadva, nullable reference types bekapcsolva. Primary constructoros DI (`sealed class X(AppDbContext dbContext) : IX`).
+- A felhasználónak szóló szöveg (hibaüzenet, `ProblemDetails.Title`, UI) magyar; az azonosítók angolok; a kommentek magyarok.
 - Angular: standalone, `inject()`, explicit `imports`, signal vagy egyszerű property. `NgModule` nincs.
 - `app.config.ts`: `provideHttpClient(withInterceptors([authInterceptor]))`. A JWT az interceptoron megy ki.
 - UI: Bootstrap 5 osztályok. Saját CSS csak akkor, ha a Bootstrap nem elég.
+
+## Ismert nyitott problémák — nem specifikáció
+
+Ezek a jelenlegi kód hibái vagy eldöntetlen kérdései. Kérés nélkül ne javítsd őket, de ne is építs rájuk szándékos viselkedésként. Ha megoldódnak, töröld innen.
+
+- A `vocab.db` és a `.vs/` mappa a `.gitignore` ellenére követett a gitben. A `vocab.db` változásait ne commitold.
 
 ## Munkamódszer
 

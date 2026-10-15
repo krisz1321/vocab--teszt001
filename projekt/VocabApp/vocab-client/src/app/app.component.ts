@@ -381,7 +381,7 @@ interface AiModelOption {
                 class="form-check-input"
                 [(ngModel)]="reuseSavedExamples"
                 [disabled]="isSavingStudySettings">
-              <label class="form-check-label" for="reuseSavedExamples">Mentett példamondatok újrafelhasználása</label>
+              <label class="form-check-label" for="reuseSavedExamples">Mentett definíciók és példamondatok újrafelhasználása</label>
               <div class="form-text">Bekapcsolva, ha már van mentett mondat vagy definíció, kettőből egyszer egy korábbit ad vissza, API-hívás nélkül. Kikapcsolva minden kérés új mondatot vagy definíciót kér.</div>
             </div>
             <div class="mb-3">

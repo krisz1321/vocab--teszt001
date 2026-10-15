@@ -127,7 +127,7 @@ export class ThemePickerComponent {
     { id: 'system', label: 'Rendszer' },
   ];
 
-  /** Ha igaz, a panel nincs gomb mögé rejtve, hanem közvetlenül látszik (pl. a profilon). */
+  /** Ha igaz, a panel nincs gomb mögé rejtve, hanem közvetlenül látszik (pl. a Beállítások nézeten). */
   @Input() inline = false;
   /** Csak ikon, felirat nélkül (keskeny helyre). */
   @Input() compact = false;

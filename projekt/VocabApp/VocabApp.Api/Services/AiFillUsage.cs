@@ -6,7 +6,7 @@ namespace VocabApp.Api.Services;
 
 public readonly record struct AiFillStatus(int Used, int DailyLimit)
 {
-    // A hátralévő érték negatív is lehet: a napi keret egyelőre csak számolva van, nincs érvényesítve.
+    // A hátralévő érték negatív is lehet, ha az AiFill:EnforceDailyLimit ki van kapcsolva (alapértelmezés): ekkor a keret csak számolódik.
     public int Remaining => DailyLimit - Used;
 }
 

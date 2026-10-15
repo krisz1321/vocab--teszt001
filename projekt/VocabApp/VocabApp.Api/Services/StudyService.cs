@@ -61,17 +61,20 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var dayStartUtc = StudyClock.UtcStartOfLocalDate(user.TimeZoneId, localToday);
         var dayEndUtc = StudyClock.UtcStartOfLocalDate(user.TimeZoneId, localToday.AddDays(1));
         var source = UserProgress(userId, deckId, now, CardTags.NormalizeFilter(tag));
-        var introducedToday = await source
+        // A napi új kártya limit felhasználónként, minden paklin összesen számol (a statisztikával egyezően).
+        var introducedToday = await dbContext.CardProgresses
+            .AsNoTracking()
             .CountAsync(
-                progress => progress.FirstReviewedAt >= dayStartUtc && progress.FirstReviewedAt < dayEndUtc,
+                progress => progress.Card.Deck.UserId == userId
+                    && progress.FirstReviewedAt >= dayStartUtc
+                    && progress.FirstReviewedAt < dayEndUtc,
                 cancellationToken);
 
-        var reviewsQuery = source.Where(progress => progress.FirstReviewedAt != null);
-        if (studyFocus == "due")
-        {
-            reviewsQuery = reviewsQuery.Where(progress => progress.NextReviewDate <= now);
-        }
-        else if (studyFocus == "mistakes")
+        // Ismételt kártya csak esedékesen kerül a készletbe, különben a korai válasz is léptetné az SM-2-t.
+        var reviewsQuery = source.Where(progress =>
+            progress.FirstReviewedAt != null &&
+            progress.NextReviewDate <= now);
+        if (studyFocus == "mistakes")
         {
             reviewsQuery = reviewsQuery.Where(progress => progress.IncorrectCount > 0);
         }

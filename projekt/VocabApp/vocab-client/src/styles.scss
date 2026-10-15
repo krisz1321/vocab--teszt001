@@ -619,3 +619,27 @@ $tabbar-height: 4.25rem;
 
   > :first-child { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 }
+
+// Paklik nézet: szegmensgombok és párbeszédablakok.
+// A decks.component.ts-ből került ide, hogy a komponens stílusa a 8 kB-os budget alatt maradjon.
+.dseg { display: inline-flex; gap: .25rem; padding: .25rem; background: var(--app-surface-2); border: 1px solid var(--app-border); border-radius: 999px; }
+.dseg-wrap { flex-wrap: wrap; border-radius: 1rem; }
+.dseg-btn { display: inline-flex; flex-direction: row; align-items: center; gap: .3rem; flex: 0 0 auto; padding: .4rem .9rem; border: 0; border-radius: 999px; background: transparent; color: var(--app-muted); font-family: inherit; font-size: .95rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.dseg-sm .dseg-btn { padding: .3rem .7rem; font-size: .875rem; }
+.dseg-btn.active { background: var(--app-primary); color: var(--app-on-primary); }
+.dseg-btn:not(.active):hover { color: var(--app-text); }
+.dseg-count { display: inline-block; min-width: 1.4rem; padding: 0 .4rem; border-radius: 999px; background: rgba(127, 127, 127, .2); font-size: .75rem; text-align: center; }
+.dseg-btn.active .dseg-count { background: rgba(255, 255, 255, .25); }
+
+.confirm-backdrop { position: fixed; inset: 0; z-index: 1080; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(0, 0, 0, .5); }
+.confirm-dialog { width: min(28rem, 100%); padding: 1.5rem; border-radius: var(--app-radius); background: var(--app-surface); color: var(--app-text); border: 1px solid var(--app-border); box-shadow: 0 1rem 3rem rgba(0, 0, 0, .35); }
+.paste-dialog { width: min(64rem, 100%); max-height: calc(100vh - 2rem); overflow-y: auto; }
+.paste-sep-input { width: 7rem; }
+.paste-table-wrap { max-height: 22rem; overflow-y: auto; }
+.paste-table { min-width: 40rem; }
+.paste-table th { position: sticky; top: 0; background: var(--app-surface); z-index: 1; }
+.toast-box { position: fixed; right: 1rem; bottom: 1rem; z-index: 1090; display: flex; align-items: center; gap: .75rem; max-width: min(26rem, calc(100vw - 2rem)); padding: .75rem 1rem; border-radius: var(--app-radius-sm); background: #1f2937; color: #fff; box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .3); }
+
+@media (max-width: 991.98px) {
+  .toast-box { bottom: 5.5rem; }
+}

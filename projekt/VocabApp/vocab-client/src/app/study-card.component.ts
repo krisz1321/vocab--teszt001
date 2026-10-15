@@ -333,9 +333,9 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                   class="form-select mb-3"
                   [(ngModel)]="studyFocus"
                   (ngModelChange)="saveStudyFocus()">
-                  <option [ngValue]="'all'">Összes tanulható kártya</option>
+                  <option [ngValue]="'all'">Esedékes és új kártyák</option>
                   <option [ngValue]="'due'">Csak esedékes ismétlések</option>
-                  <option [ngValue]="'mistakes'">Csak korábban hibás kártyák</option>
+                  <option [ngValue]="'mistakes'">Esedékes, korábban hibás kártyák</option>
                   <option [ngValue]="'new'">Csak új kártyák</option>
                 </select>
                 <button type="submit" class="btn btn-primary" [disabled]="deckChoice === null">Tanulás</button>
@@ -357,7 +357,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
 
         @if (studying && mode !== 'free' && studyStatus === 'dailyLimitReached' && !isLoadingCard) {
           <div class="alert alert-info">
-            A mai új szavak elfogytak, és nincs esedékes ismétlés. Holnap folytathatod, vagy a profilban emelheted a napi célt.
+            A mai új szavak elfogytak, és nincs esedékes ismétlés. Holnap folytathatod, vagy a Beállításokban emelheted a napi célt.
           </div>
         }
 

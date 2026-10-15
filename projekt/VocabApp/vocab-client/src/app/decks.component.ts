@@ -1272,15 +1272,8 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
   `,
   styles: [`
     .min-w-0 { min-width: 0; }
-    .dseg { display: inline-flex; gap: .25rem; padding: .25rem; background: var(--app-surface-2); border: 1px solid var(--app-border); border-radius: 999px; }
-    .dseg-wrap { flex-wrap: wrap; border-radius: 1rem; }
-    .dseg-btn, .dtab-btn { border: 0; background: transparent; color: var(--app-muted); font-family: inherit; font-size: .95rem; font-weight: 600; cursor: pointer; flex: 0 0 auto; }
-    .dseg-btn { display: inline-flex; flex-direction: row; align-items: center; gap: .3rem; padding: .4rem .9rem; border-radius: 999px; white-space: nowrap; }
-    .dseg-sm .dseg-btn { padding: .3rem .7rem; font-size: .875rem; }
-    .dseg-btn.active { background: var(--app-primary); color: var(--app-on-primary); }
-    .dseg-btn:not(.active):hover { color: var(--app-text); }
-    .dseg-count { display: inline-block; min-width: 1.4rem; padding: 0 .4rem; border-radius: 999px; background: rgba(127, 127, 127, .2); font-size: .75rem; text-align: center; }
-    .dseg-btn.active .dseg-count { background: rgba(255, 255, 255, .25); }
+    /* A .dseg* szegmensgombok, a párbeszédablakok és a toast stílusa a src/styles.scss-ben van (8 kB-os budget). */
+    .dtab-btn { border: 0; background: transparent; color: var(--app-muted); font-family: inherit; font-size: .95rem; font-weight: 600; cursor: pointer; flex: 0 0 auto; }
 
     .deck-layout { display: grid; grid-template-columns: minmax(16rem, 21rem) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
     .deck-list-panel, .deck-detail-panel { background: var(--app-surface); border: 1px solid var(--app-border); border-radius: var(--app-radius); padding: 1rem; }
@@ -1361,21 +1354,11 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
     .preview-list { list-style: none; margin: 1rem 0 0; padding: 0; max-height: 18rem; overflow-y: auto; border-top: 1px solid var(--app-border); }
     .preview-list li { padding: .5rem 0; border-bottom: 1px solid var(--app-border); }
 
-    .confirm-backdrop { position: fixed; inset: 0; z-index: 1080; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(0, 0, 0, .5); }
-    .confirm-dialog { width: min(28rem, 100%); padding: 1.5rem; border-radius: var(--app-radius); background: var(--app-surface); color: var(--app-text); border: 1px solid var(--app-border); box-shadow: 0 1rem 3rem rgba(0, 0, 0, .35); }
-    .paste-dialog { width: min(64rem, 100%); max-height: calc(100vh - 2rem); overflow-y: auto; }
-    .paste-sep-input { width: 7rem; }
-    .paste-table-wrap { max-height: 22rem; overflow-y: auto; }
-    .paste-table { min-width: 40rem; }
-    .paste-table th { position: sticky; top: 0; background: var(--app-surface); z-index: 1; }
-    .toast-box { position: fixed; right: 1rem; bottom: 1rem; z-index: 1090; display: flex; align-items: center; gap: .75rem; max-width: min(26rem, calc(100vw - 2rem)); padding: .75rem 1rem; border-radius: var(--app-radius-sm); background: #1f2937; color: #fff; box-shadow: 0 .5rem 1.5rem rgba(0, 0, 0, .3); }
-
     @media (max-width: 991.98px) {
       .deck-layout { grid-template-columns: minmax(0, 1fr); }
       .deck-list-panel { position: static; max-height: none; }
       .deck-layout:not(.show-detail) .deck-detail-panel { display: none; }
       .deck-layout.show-detail .deck-list-panel { display: none; }
-      .toast-box { bottom: 5.5rem; }
     }
     @media (max-width: 575.98px) {
       .card-row { flex-direction: column; }
@@ -2344,7 +2327,6 @@ export class DecksComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const deckId = this.selectedDeckId;
     const needDefinition = !this.definition.trim();
     const needMeaning = !this.targetMeanings.trim();
     if (!needDefinition && !needMeaning) {
