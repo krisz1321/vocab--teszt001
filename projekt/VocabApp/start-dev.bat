@@ -6,8 +6,9 @@ set "VOCAB_ROOT=%~dp0"
 rem Get-Item expands a short (8.3) path, so the match works however the script was invoked.
 set "ROOT=$r = (Get-Item -LiteralPath $env:VOCAB_ROOT).FullName;"
 rem Only this folder's processes: VocabApp.Api.exe built here and the vocab-client ng serve.
-set "API_FILTER=$_.Name -eq 'VocabApp.Api.exe' -and $_.ExecutablePath -like ($r + '*')"
-set "CLIENT_FILTER=$_.Name -eq 'node.exe' -and $_.CommandLine -like ('*' + $r + 'vocab-client*ng.js*serve*')"
+rem The process paths are expanded too, so instances started from a short (8.3) path also match.
+set "API_FILTER=$_.Name -eq 'VocabApp.Api.exe' -and $_.ExecutablePath -and (Get-Item -LiteralPath $_.ExecutablePath -ErrorAction SilentlyContinue).FullName -like ($r + '*')"
+set "CLIENT_FILTER=$_.Name -eq 'node.exe' -and $_.CommandLine -like '*vocab-client*ng.js*serve*' -and $_.CommandLine -match '([A-Za-z]:\\[^\x22]*?ng\.js)' -and (Get-Item -LiteralPath $Matches[1] -ErrorAction SilentlyContinue).FullName -like ($r + 'vocab-client*')"
 
 if /i "%~1"=="stop" goto stop
 if /i "%~1"=="restart" goto restart
@@ -15,10 +16,12 @@ if /i "%~1"=="status" goto status
 if not "%~1"=="" if /i not "%~1"=="start" goto help
 
 echo Starting VocabApp backend and frontend...
-cd /d "%~dp0VocabApp.Api"
-start "VocabApp API (HTTP :5152)" cmd /k "dotnet run --launch-profile http"
-cd /d "%~dp0vocab-client"
-start "VocabApp Angular (HTTP :4567)" cmd /k "npm start"
+rem Both services start from the long folder path: from a short (8.3) path the Angular dev server
+rem loads @angular/core twice (NG0203 on startup), and the stop/status filters would not match.
+set "API_START=%ROOT% Set-Location -LiteralPath (Join-Path $r 'VocabApp.Api'); dotnet run --launch-profile http"
+set "CLIENT_START=%ROOT% Set-Location -LiteralPath (Join-Path $r 'vocab-client'); npm start"
+start "VocabApp API (HTTP :5152)" cmd /k powershell -NoProfile -ExecutionPolicy Bypass -Command "%API_START%"
+start "VocabApp Angular (HTTP :4567)" cmd /k powershell -NoProfile -ExecutionPolicy Bypass -Command "%CLIENT_START%"
 echo Backend:  http://localhost:5152
 echo Frontend: http://localhost:4567
 echo.
