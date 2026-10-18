@@ -63,4 +63,9 @@ public interface IAiService
         int userId,
         GrammarExampleRequestDto request,
         CancellationToken cancellationToken = default);
+
+    Task<GrammarHintResponseDto?> GenerateGrammarHintAsync(
+        int userId,
+        GrammarHintRequestDto request,
+        CancellationToken cancellationToken = default);
 }

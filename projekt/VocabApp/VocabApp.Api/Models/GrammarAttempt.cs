@@ -22,6 +22,9 @@ public sealed class GrammarAttempt
 
     public bool GrammarCorrect { get; set; }
 
+    // A tanuló az MI hibás ítélete után kézzel helyesnek jelölte ("Márpedig jó volt"); ilyenkor IsCorrect is true.
+    public bool ManuallyAccepted { get; set; }
+
     public DateTime CreatedAt { get; set; }
 
     public User User { get; set; } = null!;

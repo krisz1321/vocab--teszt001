@@ -40,16 +40,26 @@ interface GrammarTensesResponse {
 }
 
 interface GrammarCheckResponse {
+  attemptId: number;
   isCorrect: boolean;
   termUsedCorrectly: boolean;
   tenseCorrect: boolean;
   grammarCorrect: boolean;
   feedback: string;
   correctedSentence: string;
+  hungarianTranslation: string;
+}
+
+interface GrammarTranslationSetting {
+  enabled: boolean;
 }
 
 interface GrammarExampleResponse {
   example: string;
+}
+
+interface GrammarHintResponse {
+  sentence: string;
 }
 
 // A kulcsok a backend Models/GrammarTenses.cs listájával egyeznek.
@@ -128,6 +138,18 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                 @if (selectedTenses.length === 0) {
                   <div class="alert alert-warning mt-3 mb-0" role="status">Válassz ki legalább egy igeidőt a gyakorláshoz.</div>
                 }
+                <div class="form-check form-switch mt-3 mb-0">
+                  <input
+                    class="form-check-input"
+                    type="checkbox"
+                    role="switch"
+                    id="grammar-translation"
+                    [checked]="showTranslation"
+                    [disabled]="isSavingTranslation"
+                    (change)="toggleTranslation()">
+                  <label class="form-check-label" for="grammar-translation">A mondatom magyar jelentése az ellenőrzés után</label>
+                  <div class="form-text">Az MI azt fordítja le, amit valóban írtál, hibás mondatnál is. Nem jár külön MI-hívással.</div>
+                </div>
               }
             </div>
           </section>
@@ -253,7 +275,21 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                     }
                     Mutass egy példát
                   </button>
+                  <button type="button" class="btn btn-outline-secondary" [disabled]="isBusy" (click)="loadHint()" title="Magyar mondat, amit lefordíthatsz angolra">
+                    @if (isLoadingHint) {
+                      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                    }
+                    {{ hint ? 'Másik tipp' : 'Tipp' }}
+                  </button>
                   <button type="button" class="btn btn-link ms-auto" [disabled]="isBusy" (click)="next()">Kihagyás</button>
+                </div>
+              }
+
+              @if (hint) {
+                <div class="grammar-example mt-3">
+                  <span class="small text-body-secondary d-block">Tipp – fordítsd le angolra</span>
+                  <span>{{ hint }}</span>
+                  <app-speak-button [text]="hint" lang="hu" label="A magyar mondat" />
                 </div>
               }
 
@@ -268,13 +304,20 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
               @if (result) {
                 <div class="mt-3" role="status">
                   <div class="alert mb-3" [class.alert-success]="result.isCorrect" [class.alert-danger]="!result.isCorrect">
-                    <strong>{{ result.isCorrect ? 'Helyes!' : 'Nem egészen.' }}</strong> {{ result.feedback }}
+                    <strong>{{ manuallyAccepted ? 'Elfogadva kézzel.' : result.isCorrect ? 'Helyes!' : 'Nem egészen.' }}</strong> {{ result.feedback }}
                   </div>
                   <div class="d-flex flex-wrap gap-2 mb-3">
                     <span class="badge" [class.text-bg-success]="result.termUsedCorrectly" [class.text-bg-danger]="!result.termUsedCorrectly">{{ result.termUsedCorrectly ? '✓' : '✗' }} Szóhasználat</span>
                     <span class="badge" [class.text-bg-success]="result.tenseCorrect" [class.text-bg-danger]="!result.tenseCorrect">{{ result.tenseCorrect ? '✓' : '✗' }} Igeidő</span>
                     <span class="badge" [class.text-bg-success]="result.grammarCorrect" [class.text-bg-danger]="!result.grammarCorrect">{{ result.grammarCorrect ? '✓' : '✗' }} Nyelvtan</span>
                   </div>
+                  @if (result.hungarianTranslation) {
+                    <div class="grammar-example mb-3">
+                      <span class="small text-body-secondary d-block">A mondatod jelentése magyarul</span>
+                      <span>{{ result.hungarianTranslation }}</span>
+                      <app-speak-button [text]="result.hungarianTranslation" lang="hu" label="A magyar jelentés" />
+                    </div>
+                  }
                   @if (result.correctedSentence) {
                     <div class="grammar-example mb-3">
                       <span class="small text-body-secondary d-block">Javított mondat</span>
@@ -282,9 +325,19 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                       <app-speak-button [text]="result.correctedSentence" lang="en" label="A javított mondat" />
                     </div>
                   }
-                  <button #nextButton type="button" class="btn btn-primary" (click)="next()">
-                    {{ index + 1 < cards.length ? 'Következő' : 'Befejezés' }}
-                  </button>
+                  <div class="d-flex flex-wrap gap-2">
+                    <button #nextButton type="button" class="btn btn-primary" [disabled]="isBusy" (click)="next()">
+                      {{ index + 1 < cards.length ? 'Következő' : 'Befejezés' }}
+                    </button>
+                    @if (!result.isCorrect) {
+                      <button type="button" class="btn btn-outline-success" [disabled]="isBusy" (click)="acceptManually()">
+                        @if (isAccepting) {
+                          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                        }
+                        Márpedig jó volt
+                      </button>
+                    }
+                  </div>
                 </div>
               }
             </div>
@@ -331,6 +384,8 @@ export class GrammarComponent implements OnInit {
   selectedTenses: string[] = [];
   isLoadingTenses = false;
   isSavingTenses = false;
+  showTranslation = false;
+  isSavingTranslation = false;
 
   decks: GrammarDeck[] = [];
   tagOptions: GrammarTagOption[] = [];
@@ -348,9 +403,13 @@ export class GrammarComponent implements OnInit {
   sentence = '';
   confirmMissingTerm = false;
   example: string | null = null;
+  hint: string | null = null;
   result: GrammarCheckResponse | null = null;
   isChecking = false;
   isLoadingExample = false;
+  isLoadingHint = false;
+  isAccepting = false;
+  manuallyAccepted = false;
   correctCount = 0;
   checkedCount = 0;
   errorMessage: string | null = null;
@@ -363,13 +422,34 @@ export class GrammarComponent implements OnInit {
   }
 
   get isBusy(): boolean {
-    return this.isChecking || this.isLoadingExample;
+    return this.isChecking || this.isLoadingExample || this.isLoadingHint || this.isAccepting;
   }
 
   ngOnInit(): void {
     this.loadPreferences();
     this.loadTenses();
+    this.loadTranslationSetting();
     this.loadDecks();
+  }
+
+  toggleTranslation(): void {
+    if (this.isSavingTranslation) {
+      return;
+    }
+
+    const previous = this.showTranslation;
+    this.showTranslation = !previous;
+    this.errorMessage = null;
+    this.isSavingTranslation = true;
+    this.http.put<GrammarTranslationSetting>(`${this.apiBaseUrl}/grammar/translation`, { enabled: this.showTranslation })
+      .pipe(finalize(() => this.isSavingTranslation = false))
+      .subscribe({
+        next: response => this.showTranslation = response.enabled,
+        error: () => {
+          this.showTranslation = previous;
+          this.errorMessage = 'A beállítás mentése sikertelen. Kérlek, próbáld újra.';
+        },
+      });
   }
 
   tensesOf(group: TenseGroup): TenseOption[] {
@@ -568,6 +648,84 @@ export class GrammarComponent implements OnInit {
       });
   }
 
+  // "Márpedig jó volt": az MI szerint hibás mondat kézzel helyesnek jelölve (a szerveren a mentett eredmény is átvált).
+  acceptManually(): void {
+    const result = this.result;
+    const card = this.card;
+    if (!result || !card || result.isCorrect || this.isBusy) {
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    const cardId = card.id;
+    this.errorMessage = null;
+    this.isAccepting = true;
+    this.http.put<void>(`${this.apiBaseUrl}/grammar/attempts/${result.attemptId}/accept`, {})
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration) {
+          this.isAccepting = false;
+        }
+      }))
+      .subscribe({
+        next: () => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId || this.result !== result) {
+            return;
+          }
+
+          this.result = { ...result, isCorrect: true, correctedSentence: '' };
+          this.manuallyAccepted = true;
+          this.correctCount++;
+          setTimeout(() => this.nextButton?.nativeElement.focus({ preventScroll: true }));
+        },
+        error: () => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.errorMessage = 'A kézi elfogadás mentése sikertelen. Kérlek, próbáld újra.';
+        },
+      });
+  }
+
+  // Magyar mondat a kártya szavával és az aktuális igeidővel; többször is kérhető.
+  loadHint(): void {
+    const card = this.card;
+    if (!card || this.isBusy || this.result !== null) {
+      return;
+    }
+
+    const generation = this.loadGeneration;
+    const cardId = card.id;
+    this.errorMessage = null;
+    this.isLoadingHint = true;
+    this.http.post<GrammarHintResponse>(`${this.apiBaseUrl}/ai/grammar/hint`, {
+      cardId,
+      tense: this.currentTense,
+    })
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration) {
+          this.isLoadingHint = false;
+        }
+      }))
+      .subscribe({
+        next: response => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.hint = response.sentence;
+          this.focusSentence();
+        },
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.setHttpError(error, 'A tipp kérése');
+        },
+      });
+  }
+
   next(): void {
     if (this.isBusy) {
       return;
@@ -609,9 +767,13 @@ export class GrammarComponent implements OnInit {
     this.sentence = '';
     this.confirmMissingTerm = false;
     this.example = null;
+    this.hint = null;
     this.result = null;
     this.isChecking = false;
     this.isLoadingExample = false;
+    this.isLoadingHint = false;
+    this.isAccepting = false;
+    this.manuallyAccepted = false;
     this.errorMessage = null;
   }
 
@@ -653,6 +815,13 @@ export class GrammarComponent implements OnInit {
         next: response => this.selectedTenses = response.tenses,
         error: () => this.errorMessage = 'Az igeidők betöltése sikertelen. Kérlek, frissítsd az oldalt.',
       });
+  }
+
+  private loadTranslationSetting(): void {
+    this.http.get<GrammarTranslationSetting>(`${this.apiBaseUrl}/grammar/translation`).subscribe({
+      next: response => this.showTranslation = response.enabled,
+      error: () => this.showTranslation = false,
+    });
   }
 
   private loadDecks(): void {

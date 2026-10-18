@@ -570,6 +570,11 @@ namespace VocabApp.Api.Migrations
                     b.Property<bool>("IsCorrect")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("ManuallyAccepted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Tense")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -839,6 +844,11 @@ namespace VocabApp.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(true);
+
+                    b.Property<bool>("GrammarShowTranslation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
 
                     b.Property<DateTime?>("LastStudyDate")
                         .HasColumnType("TEXT");

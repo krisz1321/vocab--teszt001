@@ -384,7 +384,7 @@ public sealed class AiController(IAiService aiService, IGrammarService grammarSe
                 });
             }
 
-            await grammarService.RecordAttemptAsync(userId.Value, request.CardId, request.Tense, result, cancellationToken);
+            result.AttemptId = await grammarService.RecordAttemptAsync(userId.Value, request.CardId, request.Tense, result, cancellationToken);
             return Ok(result);
         }
         catch (AiServiceException exception)
@@ -412,6 +412,39 @@ public sealed class AiController(IAiService aiService, IGrammarService grammarSe
         try
         {
             var result = await aiService.GenerateGrammarExampleAsync(userId.Value, request, cancellationToken);
+            return result is null
+                ? NotFound(new ProblemDetails
+                {
+                    Title = "A kártya nem található.",
+                    Status = StatusCodes.Status404NotFound
+                })
+                : Ok(result);
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
+    [HttpPost("grammar/hint")]
+    public async Task<ActionResult<GrammarHintResponseDto>> GenerateGrammarHint(
+        GrammarHintRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        if (!RequireTense(request.Tense, nameof(request.Tense)))
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            var result = await aiService.GenerateGrammarHintAsync(userId.Value, request, cancellationToken);
             return result is null
                 ? NotFound(new ProblemDetails
                 {

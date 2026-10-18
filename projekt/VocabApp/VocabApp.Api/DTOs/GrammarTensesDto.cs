@@ -7,3 +7,8 @@ public sealed class GrammarTensesDto
     [Required, MaxLength(50)]
     public List<string> Tenses { get; set; } = new();
 }
+
+public sealed class GrammarTranslationDto
+{
+    public bool Enabled { get; set; }
+}

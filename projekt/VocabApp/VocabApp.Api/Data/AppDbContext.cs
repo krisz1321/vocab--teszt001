@@ -54,6 +54,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.TimeZoneId).IsRequired().HasMaxLength(128).HasDefaultValue(StudyClock.DefaultTimeZoneId);
         user.Property(u => u.AiFillBatchSize).HasDefaultValue(AiFillLimits.DefaultBatchSize);
         user.Property(u => u.SelectedGrammarTenses).IsRequired().HasMaxLength(GrammarTenses.MaxStoredLength).HasDefaultValue(GrammarTenses.Default);
+        user.Property(u => u.GrammarShowTranslation).HasDefaultValue(false);
         user.Property(u => u.StudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.LongestStudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.AiCallCount).HasDefaultValue(0);
@@ -214,6 +215,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         var grammarAttempt = modelBuilder.Entity<GrammarAttempt>();
         grammarAttempt.Property(attempt => attempt.Tense).IsRequired().HasMaxLength(GrammarTenses.MaxKeyLength);
+        grammarAttempt.Property(attempt => attempt.ManuallyAccepted).HasDefaultValue(false);
         grammarAttempt.HasIndex(attempt => new { attempt.UserId, attempt.Tense });
         grammarAttempt.HasOne(attempt => attempt.User)
             .WithMany()

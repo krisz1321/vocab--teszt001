@@ -58,6 +58,9 @@ public sealed class User
     [Required, MaxLength(GrammarTenses.MaxStoredLength)]
     public string SelectedGrammarTenses { get; set; } = GrammarTenses.Default;
 
+    // A Nyelvtan nézet ellenőrzése a tanuló mondatának magyar jelentését is visszaadja.
+    public bool GrammarShowTranslation { get; set; }
+
     public int StudyDayStreak { get; set; }
 
     public int LongestStudyDayStreak { get; set; }

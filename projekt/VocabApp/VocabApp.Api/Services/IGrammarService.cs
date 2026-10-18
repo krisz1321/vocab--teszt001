@@ -11,10 +11,19 @@ public interface IGrammarService
         IReadOnlyCollection<string> tenses,
         CancellationToken cancellationToken = default);
 
-    Task RecordAttemptAsync(
+    Task<DeckCardResult<GrammarTranslationDto>> GetTranslationAsync(int userId, CancellationToken cancellationToken = default);
+
+    Task<DeckCardResult<GrammarTranslationDto>> SetTranslationAsync(
+        int userId,
+        bool enabled,
+        CancellationToken cancellationToken = default);
+
+    Task<int> RecordAttemptAsync(
         int userId,
         int cardId,
         string tense,
         GrammarCheckResponseDto result,
         CancellationToken cancellationToken = default);
+
+    Task<bool> AcceptAttemptAsync(int userId, int attemptId, CancellationToken cancellationToken = default);
 }

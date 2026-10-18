@@ -38,6 +38,46 @@ public sealed class GrammarController(IGrammarService grammarService) : Controll
         return ToActionResult(await grammarService.SetTensesAsync(userId.Value, request.Tenses, cancellationToken));
     }
 
+    [HttpGet("translation")]
+    public async Task<ActionResult<GrammarTranslationDto>> GetTranslation(CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await grammarService.GetTranslationAsync(userId.Value, cancellationToken));
+    }
+
+    [HttpPut("translation")]
+    public async Task<ActionResult<GrammarTranslationDto>> SetTranslation(
+        GrammarTranslationDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return ToActionResult(await grammarService.SetTranslationAsync(userId.Value, request.Enabled, cancellationToken));
+    }
+
+    [HttpPut("attempts/{attemptId:int}/accept")]
+    public async Task<IActionResult> AcceptAttempt(int attemptId, CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        return await grammarService.AcceptAttemptAsync(userId.Value, attemptId, cancellationToken)
+            ? NoContent()
+            : NotFound(new ProblemDetails { Title = "Az eredmény nem található.", Status = StatusCodes.Status404NotFound });
+    }
+
     private ActionResult<T> ToActionResult<T>(DeckCardResult<T> result)
     {
         if (result.ErrorStatus is null && result.Value is not null)

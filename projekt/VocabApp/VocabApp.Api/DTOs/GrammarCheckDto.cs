@@ -16,6 +16,9 @@ public sealed class GrammarCheckRequestDto
 
 public sealed class GrammarCheckResponseDto
 {
+    /// <summary>A mentett GrammarAttempt azonosítója (a kézi elfogadáshoz).</summary>
+    public int AttemptId { get; set; }
+
     public bool IsCorrect { get; set; }
 
     public bool TermUsedCorrectly { get; set; }
@@ -29,4 +32,8 @@ public sealed class GrammarCheckResponseDto
 
     [MaxLength(500)]
     public string CorrectedSentence { get; set; } = string.Empty;
+
+    /// <summary>A tanuló mondatának magyar jelentése; üres, ha a GrammarShowTranslation ki van kapcsolva.</summary>
+    [MaxLength(500)]
+    public string HungarianTranslation { get; set; } = string.Empty;
 }

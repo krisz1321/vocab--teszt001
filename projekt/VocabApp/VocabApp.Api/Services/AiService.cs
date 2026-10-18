@@ -419,7 +419,7 @@ public sealed class AiService(
         var card = await dbContext.Cards
             .AsNoTracking()
             .Where(item => item.Id == request.CardId && item.Deck.UserId == userId)
-            .Select(item => new { item.Term, item.Definition })
+            .Select(item => new { item.Term, item.Definition, item.Deck.User.GrammarShowTranslation })
             .SingleOrDefaultAsync(cancellationToken);
 
         if (card is null)
@@ -427,6 +427,11 @@ public sealed class AiService(
             return null;
         }
 
+        var translationRule = card.GrammarShowTranslation
+            ? " Also return hungarianTranslation: a natural Hungarian translation of the learner's sentence exactly as " +
+              "written (not of the corrected sentence), at most 300 characters; when the sentence is wrong, translate " +
+              "what it actually says as closely as possible."
+            : string.Empty;
         var systemPrompt =
             "You check a sentence written by a Hungarian learner of English who practises verb tenses. " +
             "The learner had to write one English sentence in the requested tense that contains the supplied term " +
@@ -436,11 +441,13 @@ public sealed class AiService(
             "tense; when the term is a stative verb that does not normally take a continuous form, a continuous " +
             "tense is incorrect and the feedback explains why. grammarCorrect: the sentence is grammatical English; " +
             "ignore capitalisation and the final punctuation mark. A short or simple but correct sentence is " +
-            "acceptable; the feedback may then suggest a richer sentence. Return only a JSON object with exactly " +
-            "five properties: termUsedCorrectly (boolean), tenseCorrect (boolean), grammarCorrect (boolean), " +
-            "feedback (a non-empty Hungarian string of at most three sentences addressed to the learner), and " +
+            "acceptable; the feedback may then suggest a richer sentence." + translationRule +
+            $" Return only a JSON object with exactly {(card.GrammarShowTranslation ? "six" : "five")} properties: " +
+            "termUsedCorrectly (boolean), tenseCorrect (boolean), grammarCorrect (boolean), " +
+            "feedback (a non-empty Hungarian string of at most three sentences addressed to the learner), " +
             "correctedSentence (a corrected version of the learner's sentence in the requested tense, at most 300 " +
-            "characters, or an empty string when all three checks pass).";
+            "characters, or an empty string when all three checks pass)" +
+            (card.GrammarShowTranslation ? ", and hungarianTranslation (string)." : ".");
         var userPrompt = JsonSerializer.Serialize(new
         {
             term = card.Term,
@@ -450,15 +457,27 @@ public sealed class AiService(
         });
 
         var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
-        var parsed = DeserializeContent<GrammarCheckContent>(content);
+        // A DeserializeContent minden tulajdonságot megkövetel, ezért a fordítás külön osztályból jön.
+        var parsed = card.GrammarShowTranslation
+            ? DeserializeContent<TranslatedGrammarCheckContent>(content)
+            : DeserializeContent<GrammarCheckContent>(content);
         var result = new GrammarCheckResponseDto
         {
             TermUsedCorrectly = parsed.TermUsedCorrectly,
             TenseCorrect = parsed.TenseCorrect,
             GrammarCorrect = parsed.GrammarCorrect,
             Feedback = parsed.Feedback?.Trim() ?? string.Empty,
-            CorrectedSentence = parsed.CorrectedSentence?.Trim() ?? string.Empty
+            CorrectedSentence = parsed.CorrectedSentence?.Trim() ?? string.Empty,
+            HungarianTranslation = (parsed as TranslatedGrammarCheckContent)?.HungarianTranslation?.Trim() ?? string.Empty
         };
+
+        if (card.GrammarShowTranslation &&
+            (string.IsNullOrWhiteSpace(result.HungarianTranslation) || result.HungarianTranslation.Length > 500))
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI grammar check did not satisfy the response contract.");
+        }
 
         // Az összesített ítéletet a szerver számolja, nem az MI-re bízza.
         result.IsCorrect = result.TermUsedCorrectly && result.TenseCorrect && result.GrammarCorrect;
@@ -485,37 +504,13 @@ public sealed class AiService(
         GrammarExampleRequestDto request,
         CancellationToken cancellationToken = default)
     {
-        var card = await dbContext.Cards
-            .AsNoTracking()
-            .Where(item => item.Id == request.CardId && item.Deck.UserId == userId)
-            .Select(item => new
-            {
-                item.Term,
-                item.Definition,
-                DeckLevel = item.Deck.ExampleLevel,
-                AccountLevel = item.Deck.User.ExampleLevel
-            })
-            .SingleOrDefaultAsync(cancellationToken);
-
+        var card = await FindGrammarCardAsync(userId, request.CardId, cancellationToken);
         if (card is null)
         {
             return null;
         }
 
-        string level;
-        if (ExampleLevels.IsAllowed(card.DeckLevel))
-        {
-            level = card.DeckLevel;
-        }
-        else if (ExampleLevels.IsAllowed(card.AccountLevel))
-        {
-            level = card.AccountLevel;
-        }
-        else
-        {
-            level = ExampleLevels.Default;
-        }
-
+        var level = card.Level;
         var systemPrompt =
             "Write one natural English example sentence in the requested tense that contains the supplied term in " +
             "the meaning given by the definition. The term may be inflected (for example a plural noun or a " +
@@ -544,6 +539,88 @@ public sealed class AiService(
 
         return new GrammarExampleResponseDto { Example = sentence };
     }
+
+    // Nyelvtan nézet, "Tipp": magyar mondat, amelynek a természetes angol fordítása a kártya szavát a kért igeidőben használja.
+    public async Task<GrammarHintResponseDto?> GenerateGrammarHintAsync(
+        int userId,
+        GrammarHintRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var card = await FindGrammarCardAsync(userId, request.CardId, cancellationToken);
+        if (card is null)
+        {
+            return null;
+        }
+
+        var systemPrompt =
+            "Write one natural Hungarian sentence that a Hungarian learner of English will translate into English. " +
+            "Its most natural English translation must use the supplied English term in the meaning given by the " +
+            "definition (targetMeanings, when present, are Hungarian equivalents of the term), and its main verb " +
+            "phrase must be in the requested English tense. Include a time expression or context in the Hungarian " +
+            "sentence that makes the English tense unambiguous. Write the sentence entirely in Hungarian, without " +
+            "the English term. " +
+            $"The requested CEFR level is {card.Level}; keep the sentence at that level. " +
+            "Return only a JSON object with exactly one string property: sentence.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            term = card.Term,
+            definition = card.Definition,
+            targetMeanings = card.TargetMeanings,
+            tense = GrammarTenses.Describe(request.Tense),
+            Level = card.Level
+        });
+
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+        var sentence = DeserializeContent<GeneratedGrammarHintContent>(content).Sentence.Trim();
+        if (string.IsNullOrWhiteSpace(sentence) || sentence.Length > 300)
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI grammar hint did not satisfy the response contract.");
+        }
+
+        return new GrammarHintResponseDto { Sentence = sentence };
+    }
+
+    // A Nyelvtan nézet kártyája a tulajdonlás ellenőrzésével és a CEFR-szinttel (pakli → fiók → B1).
+    private async Task<GrammarCard?> FindGrammarCardAsync(int userId, int cardId, CancellationToken cancellationToken)
+    {
+        var card = await dbContext.Cards
+            .AsNoTracking()
+            .Where(item => item.Id == cardId && item.Deck.UserId == userId)
+            .Select(item => new
+            {
+                item.Term,
+                item.Definition,
+                item.TargetMeanings,
+                DeckLevel = item.Deck.ExampleLevel,
+                AccountLevel = item.Deck.User.ExampleLevel
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (card is null)
+        {
+            return null;
+        }
+
+        string level;
+        if (ExampleLevels.IsAllowed(card.DeckLevel))
+        {
+            level = card.DeckLevel;
+        }
+        else if (ExampleLevels.IsAllowed(card.AccountLevel))
+        {
+            level = card.AccountLevel;
+        }
+        else
+        {
+            level = ExampleLevels.Default;
+        }
+
+        return new GrammarCard(card.Term, card.Definition, card.TargetMeanings, level);
+    }
+
+    private sealed record GrammarCard(string Term, string Definition, string? TargetMeanings, string Level);
 
     public async Task<GenerateDeckFillResponseDto?> GenerateDeckFillAsync(
         int userId,
@@ -1217,7 +1294,17 @@ public sealed class AiService(
         public string Example { get; set; } = string.Empty;
     }
 
-    private sealed class GrammarCheckContent
+    private sealed class GeneratedGrammarHintContent
+    {
+        public string Sentence { get; set; } = string.Empty;
+    }
+
+    private sealed class TranslatedGrammarCheckContent : GrammarCheckContent
+    {
+        public string? HungarianTranslation { get; set; }
+    }
+
+    private class GrammarCheckContent
     {
         public bool TermUsedCorrectly { get; set; }
 

@@ -48,14 +48,43 @@ public sealed class GrammarService(AppDbContext dbContext) : IGrammarService
         return DeckCardResult<GrammarTensesDto>.Success(new GrammarTensesDto { Tenses = keys.ToList() });
     }
 
-    public async Task RecordAttemptAsync(
+    public async Task<DeckCardResult<GrammarTranslationDto>> GetTranslationAsync(int userId, CancellationToken cancellationToken = default)
+    {
+        var enabled = await dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => (bool?)user.GrammarShowTranslation)
+            .SingleOrDefaultAsync(cancellationToken);
+
+        return enabled is null
+            ? DeckCardResult<GrammarTranslationDto>.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.")
+            : DeckCardResult<GrammarTranslationDto>.Success(new GrammarTranslationDto { Enabled = enabled.Value });
+    }
+
+    public async Task<DeckCardResult<GrammarTranslationDto>> SetTranslationAsync(
+        int userId,
+        bool enabled,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await dbContext.Users.SingleOrDefaultAsync(item => item.Id == userId, cancellationToken);
+        if (user is null)
+        {
+            return DeckCardResult<GrammarTranslationDto>.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.");
+        }
+
+        user.GrammarShowTranslation = enabled;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return DeckCardResult<GrammarTranslationDto>.Success(new GrammarTranslationDto { Enabled = enabled });
+    }
+
+    public async Task<int> RecordAttemptAsync(
         int userId,
         int cardId,
         string tense,
         GrammarCheckResponseDto result,
         CancellationToken cancellationToken = default)
     {
-        dbContext.GrammarAttempts.Add(new GrammarAttempt
+        var attempt = new GrammarAttempt
         {
             UserId = userId,
             CardId = cardId,
@@ -65,7 +94,29 @@ public sealed class GrammarService(AppDbContext dbContext) : IGrammarService
             TenseCorrect = result.TenseCorrect,
             GrammarCorrect = result.GrammarCorrect,
             CreatedAt = DateTime.UtcNow
-        });
+        };
+        dbContext.GrammarAttempts.Add(attempt);
         await dbContext.SaveChangesAsync(cancellationToken);
+        return attempt.Id;
+    }
+
+    // "Márpedig jó volt": a saját, MI szerint hibás eredmény kézzel helyesre vált. Idegen vagy nem létező → false (404).
+    public async Task<bool> AcceptAttemptAsync(int userId, int attemptId, CancellationToken cancellationToken = default)
+    {
+        var attempt = await dbContext.GrammarAttempts
+            .SingleOrDefaultAsync(item => item.Id == attemptId && item.UserId == userId, cancellationToken);
+        if (attempt is null)
+        {
+            return false;
+        }
+
+        if (!attempt.IsCorrect)
+        {
+            attempt.IsCorrect = true;
+            attempt.ManuallyAccepted = true;
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
+        return true;
     }
 }
