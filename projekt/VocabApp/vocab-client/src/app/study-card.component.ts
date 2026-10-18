@@ -1459,6 +1459,11 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     } else if (this.mode === 'recognition' && !this.isRecognitionRevealed) {
       text = this.isLoadingPrompt ? null : this.promptDefinition;
       key = `prompt:${this.card.id}:${text}`;
+    } else if (!this.showTermInHeader) {
+      // Magyar → angol irányban az angol szó a megoldás, ezért a látható magyar jelentést olvassuk fel.
+      text = this.card.targetMeanings;
+      lang = 'hu';
+      key = `hu:${this.card.id}:${this.mode}`;
     } else {
       text = this.card.term;
       key = `term:${this.card.id}:${this.mode}`;
