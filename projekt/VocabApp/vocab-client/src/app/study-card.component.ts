@@ -91,6 +91,7 @@ interface ExampleResponse {
 
 interface ValidationResponse {
   isCorrect: boolean;
+  isSynonym?: boolean;
   feedback: string;
   englishAnswer?: string;
 }
@@ -565,7 +566,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                   }
                   @if (isRetry) {
                     <div class="alert alert-info py-2" role="status">
-                      Gyakorló kör ({{ retryRound }}/2): írd be még egyszer. Ez nem számít bele a statisztikába.
+                      Gyakorló kör: írd be még egyszer. Ez nem számít bele a statisztikába.
                     </div>
                   }
                   <label for="meaning-answer" class="form-label fw-semibold">{{ isReversed ? 'Írd be az angol szót.' : 'Írd be a magyar jelentést.' }}</label>
@@ -925,9 +926,12 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
               @if (validationResult) {
                 <div
                   class="alert mt-3 mb-0"
-                  [class.alert-success]="validationResult.isCorrect"
-                  [class.alert-danger]="!validationResult.isCorrect">
-                  <strong>{{ validationResult.isCorrect ? 'Helyes válasz.' : 'Még nem pontos.' }}</strong>
+                  [class.alert-success]="validationResult.isCorrect && !validationResult.isSynonym"
+                  [class.alert-warning]="validationResult.isSynonym"
+                  [class.alert-danger]="!validationResult.isCorrect && !validationResult.isSynonym">
+                  <strong>{{ validationResult.isSynonym
+                    ? (validationResult.isCorrect ? 'Szinonima, elfogadva.' : 'Szinonima, nem a kártya szava.')
+                    : (validationResult.isCorrect ? 'Helyes válasz.' : 'Még nem pontos.') }}</strong>
                   @if (validationResult.feedback) {
                     {{ ' ' + validationResult.feedback }}
                   }
@@ -1133,9 +1137,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   automaticAiCheck = true;
   acceptHungarianParaphrase = false;
   acceptPartialMeaningMatch = true;
-  repeatMistakes = false;
+  repeatMistakes = true;
   isRetry = false;
-  retryRound = 0;
   private retryCard: { card: StudyCard; direction: 'en' | 'hu'; retriesLeft: number } | null = null;
   private lastSavedProgress: CardProgress | null = null;
   aiCheckAvailable = true;
@@ -1793,7 +1796,6 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
     this.retryCard = null;
     this.isRetry = false;
-    this.retryRound = 0;
     this.speech.stop();
     const generation = ++this.loadGeneration;
     this.isLoadingCard = true;
@@ -2590,7 +2592,6 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     this.speech.stop();
     this.loadGeneration++;
     retry.retriesLeft--;
-    this.retryRound++;
     this.resetCardState();
     this.card = retry.card;
     this.cardDirection = retry.direction;
@@ -2816,7 +2817,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           if (isCorrect) {
             this.sessionCorrect++;
           } else if (this.repeatMistakes && this.mode === 'meaning' && this.card) {
-            this.retryCard = { card: this.card, direction: this.cardDirection, retriesLeft: 2 };
+            this.retryCard = { card: this.card, direction: this.cardDirection, retriesLeft: 1 };
           }
           if (penalty === 'reveal') {
             this.isDefinitionRevealed = true;

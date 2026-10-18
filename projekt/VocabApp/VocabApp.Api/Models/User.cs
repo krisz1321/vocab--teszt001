@@ -29,8 +29,11 @@ public sealed class User
 
     public bool AcceptPartialMeaningMatch { get; set; } = true;
 
-    // Hibás válasz után a kártya azonnal visszajön gyakorlásra (legfeljebb kétszer), ez nem számít bele a statisztikába.
-    public bool RepeatMistakes { get; set; }
+    // Magyar → angol irányban a kártya szava helyett megadott szinonimát az MI-ellenőrzés helyesnek fogadja el.
+    public bool AcceptEnglishSynonyms { get; set; }
+
+    // Hibás válasz után a kártya azonnal visszajön gyakorlásra (egyszer), ez nem számít bele a statisztikába.
+    public bool RepeatMistakes { get; set; } = true;
 
     public bool RequireAppealReason { get; set; } = true;
 

@@ -1156,6 +1156,16 @@ public sealed class AiService(
                 .SingleOrDefaultAsync(cancellationToken) ?? false;
         }
 
+        var acceptSynonyms = false;
+        if (!request.Paraphrase && request.ToEnglish)
+        {
+            acceptSynonyms = await dbContext.Users
+                .AsNoTracking()
+                .Where(user => user.Id == userId)
+                .Select(user => (bool?)user.AcceptEnglishSynonyms)
+                .SingleOrDefaultAsync(cancellationToken) ?? false;
+        }
+
         var systemPrompt = request.Paraphrase
             ? acceptHungarian
                 ? "The learner is paraphrasing the reference definition and may answer in English or Hungarian. " +
@@ -1176,12 +1186,16 @@ public sealed class AiService(
                   "englishAnswer (an empty string)."
             : request.ToEnglish
                 ? "The learner was shown the Hungarian meaning (referenceDefinition) of an English word and had to " +
-                  "type that English word. The English word on the card is the term. Accept the answer when it is an " +
-                  "English word or phrase that correctly translates the Hungarian meaning, including a synonym that " +
-                  "differs from the term. Accept minor spelling errors. Reject an answer in Hungarian, an answer " +
-                  "with a different or opposite meaning, and an answer that is not a real English word. Return only " +
-                  "a JSON object with exactly two properties: isCorrect (boolean) and feedback (a non-empty " +
-                  "Hungarian string of at most two sentences)."
+                  "type that English word. The English word on the card is the term. isCorrect is true only when the " +
+                  "answer is the term itself, also with minor spelling errors, a British or American spelling " +
+                  "variant, a different inflection of the same word (plural, verb ending), or an added or missing " +
+                  "\"to\" or article. isSynonym is true when the answer is a different real English word or phrase " +
+                  "that also correctly translates the Hungarian meaning; then isCorrect is false and the feedback " +
+                  "says that the answer is a synonym and names the term, without saying whether it is accepted. " +
+                  "An answer in Hungarian, an answer with a different or opposite meaning, and an answer that is " +
+                  "not a real English word have both flags false. Return only a JSON object with exactly three " +
+                  "properties: isCorrect (boolean), isSynonym (boolean), and feedback (a non-empty Hungarian string " +
+                  "of at most two sentences)."
                 : "Compare the learner's answer with the reference definition semantically. Accept minor grammar and " +
                   "spelling errors, but reject a substantially wrong or opposite meaning. Return only a JSON object " +
                   "with exactly two properties: isCorrect (boolean) and feedback (a non-empty Hungarian string of at " +
@@ -1208,9 +1222,12 @@ public sealed class AiService(
         else
         {
             var parsed = DeserializeContent<MeaningValidationContent>(content);
+            // A szinonima elfogadásáról a felhasználó beállítása dönt, nem az MI.
+            var isSynonym = request.ToEnglish && parsed.IsSynonym && !parsed.IsCorrect;
             result = new ValidateAnswerResponseDto
             {
-                IsCorrect = parsed.IsCorrect,
+                IsCorrect = parsed.IsCorrect || (isSynonym && acceptSynonyms),
+                IsSynonym = isSynonym,
                 Feedback = parsed.Feedback?.Trim() ?? string.Empty
             };
         }
@@ -1495,6 +1512,8 @@ public sealed class AiService(
     private sealed class MeaningValidationContent
     {
         public bool IsCorrect { get; set; }
+
+        public bool IsSynonym { get; set; }
 
         public string? Feedback { get; set; }
     }

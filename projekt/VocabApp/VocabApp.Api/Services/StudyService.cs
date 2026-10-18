@@ -288,6 +288,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 AutomaticAiCheck = user.AutomaticAiCheck,
                 AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
                 AcceptPartialMeaningMatch = user.AcceptPartialMeaningMatch,
+                AcceptEnglishSynonyms = user.AcceptEnglishSynonyms,
                 RepeatMistakes = user.RepeatMistakes,
                 RequireAppealReason = user.RequireAppealReason,
                 ReuseSavedExamples = user.ReuseSavedExamples,
@@ -384,6 +385,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         user.AutomaticAiCheck = request.AutomaticAiCheck;
         user.AcceptHungarianParaphrase = request.AcceptHungarianParaphrase;
         user.AcceptPartialMeaningMatch = request.AcceptPartialMeaningMatch;
+        user.AcceptEnglishSynonyms = request.AcceptEnglishSynonyms;
         user.RepeatMistakes = request.RepeatMistakes;
         user.RequireAppealReason = request.RequireAppealReason;
         user.ReuseSavedExamples = request.ReuseSavedExamples;
@@ -402,6 +404,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             AutomaticAiCheck = user.AutomaticAiCheck,
             AcceptHungarianParaphrase = user.AcceptHungarianParaphrase,
             AcceptPartialMeaningMatch = user.AcceptPartialMeaningMatch,
+            AcceptEnglishSynonyms = user.AcceptEnglishSynonyms,
             RepeatMistakes = user.RepeatMistakes,
             RequireAppealReason = user.RequireAppealReason,
             ReuseSavedExamples = user.ReuseSavedExamples,

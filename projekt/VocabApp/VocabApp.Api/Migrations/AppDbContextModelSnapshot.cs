@@ -844,6 +844,11 @@ namespace VocabApp.Api.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("AcceptEnglishSynonyms")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
                     b.Property<bool>("AcceptHungarianParaphrase")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
@@ -932,7 +937,7 @@ namespace VocabApp.Api.Migrations
                     b.Property<bool>("RepeatMistakes")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
-                        .HasDefaultValue(false);
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("RequireAppealReason")
                         .ValueGeneratedOnAdd()
