@@ -10,9 +10,10 @@ import { MuteButtonComponent } from './mute-button.component';
 import { SpeechSettingsComponent } from './speech-settings.component';
 import { StudyCardComponent } from './study-card.component';
 import { GrammarComponent } from './grammar.component';
+import { CompositionComponent } from './composition.component';
 import { ThemePickerComponent } from './theme-picker.component';
 
-type AppView = 'study' | 'grammar' | 'stats' | 'decks' | 'profile' | 'settings';
+type AppView = 'study' | 'grammar' | 'composition' | 'stats' | 'decks' | 'profile' | 'settings';
 type AuthMode = 'login' | 'register';
 
 interface AuthResponse {
@@ -67,7 +68,7 @@ interface AiModelOption {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, StudyCardComponent, GrammarComponent, StatsComponent, DecksComponent, ThemePickerComponent, SpeechSettingsComponent, MuteButtonComponent],
+  imports: [CommonModule, FormsModule, StudyCardComponent, GrammarComponent, CompositionComponent, StatsComponent, DecksComponent, ThemePickerComponent, SpeechSettingsComponent, MuteButtonComponent],
   template: `
     @if (!session.isLoggedIn()) {
       <div class="auth-shell">
@@ -237,6 +238,8 @@ interface AiModelOption {
         <app-study-card [initialDeckId]="studyDeckId" (openDecks)="goTo('decks')" />
       } @else if (view === 'grammar') {
         <app-grammar (openDecks)="goTo('decks')" />
+      } @else if (view === 'composition') {
+        <app-composition (openDecks)="goTo('decks')" />
       } @else if (view === 'stats') {
         <app-stats (startStudy)="goTo('study')" />
       } @else if (view === 'decks') {
@@ -630,6 +633,7 @@ export class AppComponent implements OnInit {
   readonly navItems: { id: AppView; label: string; icon: string }[] = [
     { id: 'study', label: 'Tanulás', icon: 'M3 7l9-4 9 4-9 4-9-4Zm0 5l9 4 9-4M3 17l9 4 9-4' },
     { id: 'grammar', label: 'Nyelvtan', icon: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z' },
+    { id: 'composition', label: 'Mondatok', icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2ZM8 8h8M8 12h5' },
     { id: 'stats', label: 'Statisztika', icon: 'M5 20V10M12 20V4M19 20v-7' },
     { id: 'decks', label: 'Paklik', icon: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z' },
     { id: 'profile', label: 'Profil', icon: 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0' },

@@ -490,6 +490,63 @@ namespace VocabApp.Api.Migrations
                         });
                 });
 
+            modelBuilder.Entity("VocabApp.Api.Models.CompositionAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Coherent")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("GrammarCorrect")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ManuallyAccepted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CompositionAttempts");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.CompositionAttemptWord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("AttemptId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CardId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("UsedCorrectly")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptId");
+
+                    b.HasIndex("CardId");
+
+                    b.ToTable("CompositionAttemptWords");
+                });
+
             modelBuilder.Entity("VocabApp.Api.Models.Deck", b =>
                 {
                     b.Property<int>("Id")
@@ -1049,6 +1106,35 @@ namespace VocabApp.Api.Migrations
                     b.Navigation("Card");
                 });
 
+            modelBuilder.Entity("VocabApp.Api.Models.CompositionAttempt", b =>
+                {
+                    b.HasOne("VocabApp.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.CompositionAttemptWord", b =>
+                {
+                    b.HasOne("VocabApp.Api.Models.CompositionAttempt", "Attempt")
+                        .WithMany("Words")
+                        .HasForeignKey("AttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("VocabApp.Api.Models.Card", "Card")
+                        .WithMany()
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Attempt");
+
+                    b.Navigation("Card");
+                });
+
             modelBuilder.Entity("VocabApp.Api.Models.Deck", b =>
                 {
                     b.HasOne("VocabApp.Api.Models.SharedDeck", "SourceSharedDeck")
@@ -1178,6 +1264,11 @@ namespace VocabApp.Api.Migrations
             modelBuilder.Entity("VocabApp.Api.Models.Card", b =>
                 {
                     b.Navigation("Progress");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.CompositionAttempt", b =>
+                {
+                    b.Navigation("Words");
                 });
 
             modelBuilder.Entity("VocabApp.Api.Models.Deck", b =>

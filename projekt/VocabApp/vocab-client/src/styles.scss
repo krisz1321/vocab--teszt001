@@ -470,7 +470,7 @@ $tabbar-height: 4.25rem;
 
   .app-tabbar {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     position: fixed;
     inset: auto 0 0 0;
     z-index: 30;
@@ -485,13 +485,16 @@ $tabbar-height: 4.25rem;
     flex-direction: column;
     align-items: center;
     gap: .2rem;
-    padding: .45rem .25rem;
+    min-width: 0;
+    padding: .45rem .1rem;
     border: 0;
     border-radius: var(--app-radius-sm);
     background: transparent;
     color: var(--app-muted);
     font: inherit;
-    font-size: .72rem;
+    font-size: .64rem;
+    hyphens: auto;
+    overflow-wrap: anywhere;
     font-weight: 600;
     cursor: pointer;
 

@@ -622,6 +622,244 @@ public sealed class AiService(
 
     private sealed record GrammarCard(string Term, string Definition, string? TargetMeanings, string Level);
 
+    // Mondatok nézet: 1-2 összefüggő mondat, amely a feladat összes szavát használja. A szavakat a szerver tölti be.
+    public async Task<CompositionCheckResponseDto?> CheckCompositionAsync(
+        int userId,
+        CompositionCheckRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var task = await FindCompositionCardsAsync(userId, request.CardIds, cancellationToken);
+        if (task is null)
+        {
+            return null;
+        }
+
+        var translationRule = task.ShowTranslation
+            ? " Also return hungarianTranslation: a natural Hungarian translation of the learner's text exactly as " +
+              "written (not of the corrected text), at most 500 characters; when the text is wrong, translate what " +
+              "it actually says as closely as possible."
+            : string.Empty;
+        var systemPrompt =
+            "You check a short English text written by a Hungarian learner of English. The learner had to write one " +
+            "or two English sentences that use every supplied term in the meaning given by its definition. Judge " +
+            "these things separately. words: for every term, usedCorrectly is true when the text contains the term " +
+            "(an inflected form such as a plural noun or a conjugated verb is fine; a multi-word term may be " +
+            "naturally inflected) and uses it in the meaning of its definition. grammarCorrect: the text is " +
+            "grammatical English; ignore capitalisation and the final punctuation mark. coherent: the text has at " +
+            "most two sentences and, when it has two, they are clearly connected: they describe the same situation " +
+            "or the second continues the first; two unrelated sentences are not coherent. A simple but correct text " +
+            "is acceptable; the feedback may then suggest a richer one." + translationRule +
+            $" Return only a JSON object with exactly {(task.ShowTranslation ? "six" : "five")} properties: " +
+            "words (an array with exactly one object per term, each with the integer index copied from the input " +
+            "and the boolean usedCorrectly), grammarCorrect (boolean), coherent (boolean), " +
+            "feedback (a non-empty Hungarian string of at most three sentences addressed to the learner that names " +
+            "every missing or misused term), correctedText (a corrected version of the learner's text that uses " +
+            "every term correctly in at most two connected sentences, at most 500 characters, or an empty string " +
+            "when every check passes)" +
+            (task.ShowTranslation ? ", and hungarianTranslation (string)." : ".");
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            terms = task.Cards.Select((card, index) => new { index, term = card.Term, definition = card.Definition }),
+            text = request.Text.Trim()
+        });
+
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+        // A DeserializeContent minden tulajdonságot megkövetel, ezért a fordítás külön osztályból jön.
+        var parsed = task.ShowTranslation
+            ? DeserializeContent<TranslatedCompositionCheckContent>(content)
+            : DeserializeContent<CompositionCheckContent>(content);
+
+        // Pontosan egy ítélet kell szavanként; hiányzó vagy ismétlődő index → 502.
+        var verdicts = parsed.Words ?? [];
+        var byIndex = verdicts
+            .GroupBy(word => word.Index)
+            .ToDictionary(group => group.Key, group => group.First().UsedCorrectly);
+        if (verdicts.Count != task.Cards.Count ||
+            byIndex.Count != task.Cards.Count ||
+            Enumerable.Range(0, task.Cards.Count).Any(index => !byIndex.ContainsKey(index)))
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI composition check did not satisfy the response contract.");
+        }
+
+        var result = new CompositionCheckResponseDto
+        {
+            Words = task.Cards
+                .Select((card, index) => new CompositionWordResultDto
+                {
+                    CardId = card.Id,
+                    Term = card.Term,
+                    UsedCorrectly = byIndex[index]
+                })
+                .ToList(),
+            GrammarCorrect = parsed.GrammarCorrect,
+            Coherent = parsed.Coherent,
+            Feedback = parsed.Feedback?.Trim() ?? string.Empty,
+            CorrectedText = parsed.CorrectedText?.Trim() ?? string.Empty,
+            HungarianTranslation = (parsed as TranslatedCompositionCheckContent)?.HungarianTranslation?.Trim() ?? string.Empty
+        };
+
+        // Az összesített ítéletet a szerver számolja, nem az MI-re bízza.
+        result.IsCorrect = result.Words.All(word => word.UsedCorrectly) && result.GrammarCorrect && result.Coherent;
+        if (result.IsCorrect)
+        {
+            result.CorrectedText = string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(result.Feedback) ||
+            result.Feedback.Length > 500 ||
+            result.CorrectedText.Length > 500 ||
+            (task.ShowTranslation &&
+             (string.IsNullOrWhiteSpace(result.HungarianTranslation) || result.HungarianTranslation.Length > 500)))
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI composition check did not satisfy the response contract.");
+        }
+
+        return result;
+    }
+
+    // Mondatok nézet: angol minta (1-2 összefüggő mondat) a feladat összes szavával. Nem kerül a SavedExample táblába.
+    public async Task<CompositionExampleResponseDto?> GenerateCompositionExampleAsync(
+        int userId,
+        CompositionCardsRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var task = await FindCompositionCardsAsync(userId, request.CardIds, cancellationToken);
+        if (task is null)
+        {
+            return null;
+        }
+
+        var systemPrompt =
+            "Write a short natural English text of one or two connected sentences that uses every supplied term in " +
+            "the meaning given by its definition. Terms may be inflected (for example a plural noun or a conjugated " +
+            "verb). When there are two sentences, they must describe the same situation. " +
+            $"The requested CEFR level is {task.Level}; prefer that level's vocabulary. " +
+            "Return only a JSON object with exactly one string property: example.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            terms = task.Cards.Select(card => new { term = card.Term, definition = card.Definition }),
+            Level = task.Level
+        });
+
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+        var example = DeserializeContent<GeneratedExampleContent>(content).Example.Trim();
+
+        // A szavak jelenlétét nem ellenőrzi tokenre pontosan, mert ragozva szerepelhetnek.
+        if (string.IsNullOrWhiteSpace(example) || example.Length > CompositionLimits.MaxTextLength)
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI composition example did not satisfy the response contract.");
+        }
+
+        return new CompositionExampleResponseDto { Example = example };
+    }
+
+    // Mondatok nézet, "Tipp": magyar szöveg, amelynek a természetes angol fordítása a feladat összes szavát használja.
+    public async Task<CompositionHintResponseDto?> GenerateCompositionHintAsync(
+        int userId,
+        CompositionCardsRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var task = await FindCompositionCardsAsync(userId, request.CardIds, cancellationToken);
+        if (task is null)
+        {
+            return null;
+        }
+
+        var systemPrompt =
+            "Write a short natural Hungarian text of one or two connected sentences that a Hungarian learner of " +
+            "English will translate into English. Its most natural English translation must use every supplied " +
+            "English term in the meaning given by its definition (targetMeanings, when present, are Hungarian " +
+            "equivalents of the term). When there are two sentences, they must describe the same situation. Write " +
+            "the text entirely in Hungarian, without the English terms. " +
+            $"The requested CEFR level is {task.Level}; keep the text at that level. " +
+            "Return only a JSON object with exactly one string property: text.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            terms = task.Cards.Select(card => new
+            {
+                term = card.Term,
+                definition = card.Definition,
+                targetMeanings = card.TargetMeanings
+            }),
+            Level = task.Level
+        });
+
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+        var text = DeserializeContent<GeneratedCompositionHintContent>(content).Text.Trim();
+        if (string.IsNullOrWhiteSpace(text) || text.Length > CompositionLimits.MaxTextLength)
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI composition hint did not satisfy the response contract.");
+        }
+
+        return new CompositionHintResponseDto { Text = text };
+    }
+
+    // A Mondatok nézet kártyái a kérés sorrendjében, a tulajdonlás ellenőrzésével. Bármelyik hiányzik → null (404).
+    // CEFR-szint: ha minden pakli azonos érvényes szintű, az; különben a fiók szintje; végül B1.
+    private async Task<CompositionTask?> FindCompositionCardsAsync(
+        int userId,
+        IReadOnlyCollection<int> cardIds,
+        CancellationToken cancellationToken)
+    {
+        var ids = cardIds.Distinct().ToList();
+        var cards = await dbContext.Cards
+            .AsNoTracking()
+            .Where(item => ids.Contains(item.Id) && item.Deck.UserId == userId)
+            .Select(item => new
+            {
+                item.Id,
+                item.Term,
+                item.Definition,
+                item.TargetMeanings,
+                DeckLevel = item.Deck.ExampleLevel
+            })
+            .ToListAsync(cancellationToken);
+
+        if (cards.Count != ids.Count)
+        {
+            return null;
+        }
+
+        var account = await dbContext.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => new { user.ExampleLevel, user.GrammarShowTranslation })
+            .SingleAsync(cancellationToken);
+
+        var deckLevels = cards.Select(card => card.DeckLevel).Distinct().ToList();
+        string level;
+        if (deckLevels.Count == 1 && ExampleLevels.IsAllowed(deckLevels[0]))
+        {
+            level = deckLevels[0]!;
+        }
+        else if (ExampleLevels.IsAllowed(account.ExampleLevel))
+        {
+            level = account.ExampleLevel;
+        }
+        else
+        {
+            level = ExampleLevels.Default;
+        }
+
+        var ordered = ids
+            .Select(id => cards.Single(card => card.Id == id))
+            .Select(card => new CompositionCard(card.Id, card.Term, card.Definition, card.TargetMeanings))
+            .ToList();
+        return new CompositionTask(ordered, level, account.GrammarShowTranslation);
+    }
+
+    private sealed record CompositionCard(int Id, string Term, string Definition, string? TargetMeanings);
+
+    private sealed record CompositionTask(IReadOnlyList<CompositionCard> Cards, string Level, bool ShowTranslation);
+
     public async Task<GenerateDeckFillResponseDto?> GenerateDeckFillAsync(
         int userId,
         GenerateDeckFillRequestDto request,
@@ -1315,6 +1553,36 @@ public sealed class AiService(
         public string? Feedback { get; set; }
 
         public string? CorrectedSentence { get; set; }
+    }
+
+    private sealed class GeneratedCompositionHintContent
+    {
+        public string Text { get; set; } = string.Empty;
+    }
+
+    private sealed class TranslatedCompositionCheckContent : CompositionCheckContent
+    {
+        public string? HungarianTranslation { get; set; }
+    }
+
+    private class CompositionCheckContent
+    {
+        public List<CompositionWordContent>? Words { get; set; }
+
+        public bool GrammarCorrect { get; set; }
+
+        public bool Coherent { get; set; }
+
+        public string? Feedback { get; set; }
+
+        public string? CorrectedText { get; set; }
+    }
+
+    private sealed class CompositionWordContent
+    {
+        public int Index { get; set; }
+
+        public bool UsedCorrectly { get; set; }
     }
 
     private sealed class GeneratedDeckFillContent

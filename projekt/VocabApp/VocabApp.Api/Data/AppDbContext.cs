@@ -21,6 +21,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<SharedDeckSave> SharedDeckSaves => Set<SharedDeckSave>();
     public DbSet<FreeStudyMark> FreeStudyMarks => Set<FreeStudyMark>();
     public DbSet<GrammarAttempt> GrammarAttempts => Set<GrammarAttempt>();
+    public DbSet<CompositionAttempt> CompositionAttempts => Set<CompositionAttempt>();
+    public DbSet<CompositionAttemptWord> CompositionAttemptWords => Set<CompositionAttemptWord>();
     public DbSet<SavedExample> SavedExamples => Set<SavedExample>();
     public DbSet<SavedDefinition> SavedDefinitions => Set<SavedDefinition>();
 
@@ -225,6 +227,25 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         grammarAttempt.HasOne(attempt => attempt.Card)
             .WithMany()
             .HasForeignKey(attempt => attempt.CardId)
+            .OnDelete(DeleteBehavior.SetNull);
+
+        var compositionAttempt = modelBuilder.Entity<CompositionAttempt>();
+        compositionAttempt.Property(attempt => attempt.ManuallyAccepted).HasDefaultValue(false);
+        compositionAttempt.HasIndex(attempt => attempt.UserId);
+        compositionAttempt.HasOne(attempt => attempt.User)
+            .WithMany()
+            .HasForeignKey(attempt => attempt.UserId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        compositionAttempt.HasMany(attempt => attempt.Words)
+            .WithOne(word => word.Attempt)
+            .HasForeignKey(word => word.AttemptId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        modelBuilder.Entity<CompositionAttemptWord>()
+            .HasOne(word => word.Card)
+            .WithMany()
+            .HasForeignKey(word => word.CardId)
             .OnDelete(DeleteBehavior.SetNull);
 
         var progress = modelBuilder.Entity<CardProgress>();

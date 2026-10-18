@@ -144,6 +144,7 @@ public class Program
         builder.Services.AddScoped<IStudyService, StudyService>();
         builder.Services.AddScoped<IFreeStudyService, FreeStudyService>();
         builder.Services.AddScoped<IGrammarService, GrammarService>();
+        builder.Services.AddScoped<ICompositionService, CompositionService>();
         builder.Services.AddHttpClient<IAiService, AiService>(client =>
         {
             client.Timeout = TimeSpan.FromSeconds(60);

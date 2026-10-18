@@ -68,4 +68,19 @@ public interface IAiService
         int userId,
         GrammarHintRequestDto request,
         CancellationToken cancellationToken = default);
+
+    Task<CompositionCheckResponseDto?> CheckCompositionAsync(
+        int userId,
+        CompositionCheckRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<CompositionExampleResponseDto?> GenerateCompositionExampleAsync(
+        int userId,
+        CompositionCardsRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<CompositionHintResponseDto?> GenerateCompositionHintAsync(
+        int userId,
+        CompositionCardsRequestDto request,
+        CancellationToken cancellationToken = default);
 }
