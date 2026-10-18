@@ -269,12 +269,6 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                     }
                     Ellenőrzés
                   </button>
-                  <button type="button" class="btn btn-outline-secondary" [disabled]="isBusy || example !== null" (click)="loadExample()">
-                    @if (isLoadingExample) {
-                      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-                    }
-                    Mutass egy példát
-                  </button>
                   <button type="button" class="btn btn-outline-secondary" [disabled]="isBusy" (click)="loadHint()" title="Magyar mondat, amit lefordíthatsz angolra">
                     @if (isLoadingHint) {
                       <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
@@ -290,14 +284,6 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                   <span class="small text-body-secondary d-block">Tipp – fordítsd le angolra</span>
                   <span>{{ hint }}</span>
                   <app-speak-button [text]="hint" lang="hu" label="A magyar mondat" />
-                </div>
-              }
-
-              @if (example) {
-                <div class="grammar-example mt-3">
-                  <span class="small text-body-secondary d-block">Példamondat</span>
-                  <span>{{ example }}</span>
-                  <app-speak-button [text]="example" lang="en" label="A példamondat" />
                 </div>
               }
 
@@ -325,10 +311,25 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                       <app-speak-button [text]="result.correctedSentence" lang="en" label="A javított mondat" />
                     </div>
                   }
+                  @if (example) {
+                    <div class="grammar-example mb-3">
+                      <span class="small text-body-secondary d-block">Példamondat</span>
+                      <span>{{ example }}</span>
+                      <app-speak-button [text]="example" lang="en" label="A példamondat" />
+                    </div>
+                  }
                   <div class="d-flex flex-wrap gap-2">
                     <button #nextButton type="button" class="btn btn-primary" [disabled]="isBusy" (click)="next()">
                       {{ index + 1 < cards.length ? 'Következő' : 'Befejezés' }}
                     </button>
+                    @if (example === null) {
+                      <button type="button" class="btn btn-outline-secondary" [disabled]="isBusy" (click)="loadExample()">
+                        @if (isLoadingExample) {
+                          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                        }
+                        Mutass egy példát
+                      </button>
+                    }
                     @if (!result.isCorrect) {
                       <button type="button" class="btn btn-outline-success" [disabled]="isBusy" (click)="acceptManually()">
                         @if (isAccepting) {
@@ -611,9 +612,10 @@ export class GrammarComponent implements OnInit {
       });
   }
 
+  // Csak ellenőrzés után kérhető, mintaként; előtte bemásolható puska lenne.
   loadExample(): void {
     const card = this.card;
-    if (!card || this.isBusy || this.example !== null) {
+    if (!card || this.isBusy || this.example !== null || this.result === null) {
       return;
     }
 

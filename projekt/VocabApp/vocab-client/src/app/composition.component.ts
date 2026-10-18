@@ -229,12 +229,6 @@ const MAX_TEXT_LENGTH = 500;
                     }
                     Ellenőrzés
                   </button>
-                  <button type="button" class="btn btn-outline-secondary" [disabled]="isBusy || example !== null" (click)="loadExample()">
-                    @if (isLoadingExample) {
-                      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
-                    }
-                    Mutass egy példát
-                  </button>
                   <button type="button" class="btn btn-outline-secondary" [disabled]="isBusy" (click)="loadHint()" title="Magyar szöveg, amit lefordíthatsz angolra">
                     @if (isLoadingHint) {
                       <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
@@ -250,14 +244,6 @@ const MAX_TEXT_LENGTH = 500;
                   <span class="small text-body-secondary d-block">Tipp – fordítsd le angolra</span>
                   <span>{{ hint }}</span>
                   <app-speak-button [text]="hint" lang="hu" label="A magyar szöveg" />
-                </div>
-              }
-
-              @if (example) {
-                <div class="composition-note mt-3">
-                  <span class="small text-body-secondary d-block">Példa</span>
-                  <span>{{ example }}</span>
-                  <app-speak-button [text]="example" lang="en" label="A példa" />
                 </div>
               }
 
@@ -287,8 +273,23 @@ const MAX_TEXT_LENGTH = 500;
                       <app-speak-button [text]="result.correctedText" lang="en" label="A javított szöveg" />
                     </div>
                   }
+                  @if (example) {
+                    <div class="composition-note mb-3">
+                      <span class="small text-body-secondary d-block">Példa</span>
+                      <span>{{ example }}</span>
+                      <app-speak-button [text]="example" lang="en" label="A példa" />
+                    </div>
+                  }
                   <div class="d-flex flex-wrap gap-2">
                     <button #nextButton type="button" class="btn btn-primary" [disabled]="isBusy" (click)="next()">Következő</button>
+                    @if (example === null) {
+                      <button type="button" class="btn btn-outline-secondary" [disabled]="isBusy" (click)="loadExample()">
+                        @if (isLoadingExample) {
+                          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                        }
+                        Mutass egy példát
+                      </button>
+                    }
                     @if (!result.isCorrect) {
                       <button type="button" class="btn btn-outline-success" [disabled]="isBusy" (click)="acceptManually()">
                         @if (isAccepting) {
@@ -604,8 +605,9 @@ export class CompositionComponent implements OnInit {
       });
   }
 
+  // Csak ellenőrzés után kérhető, mintaként; előtte bemásolható puska lenne.
   loadExample(): void {
-    if (this.words.length === 0 || this.isBusy || this.example !== null) {
+    if (this.words.length === 0 || this.isBusy || this.example !== null || this.result === null) {
       return;
     }
 
