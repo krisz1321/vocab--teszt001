@@ -150,10 +150,10 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
       <div class="mx-auto page-wrap decks-page">
         <header class="d-flex flex-wrap justify-content-between align-items-end gap-3 mb-3">
           <div>
-            <h1 class="display-6 fw-semibold mb-1">Paklik</h1>
+            <h1 class="h3 mb-1">Paklik</h1>
             <p class="text-body-secondary mb-0">Hozz létre, szerkessz és oszd meg a szókártya-paklijaidat.</p>
           </div>
-          <div class="dseg" role="tablist" aria-label="Paklik">
+          <div class="dseg page-tabs" role="tablist" aria-label="Paklik">
             <button type="button" role="tab" class="dseg-btn" [class.active]="section === 'mine'" [attr.aria-selected]="section === 'mine'" (click)="setSection('mine')">
               Saját paklik <span class="dseg-count">{{ decks.length }}</span>
             </button>

@@ -222,11 +222,25 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
         }
 
         @if (phase === 'practice' && card) {
-          <div class="d-flex justify-content-between align-items-center mb-2 small text-body-secondary">
-            <span>{{ index + 1 }} / {{ cards.length }}</span>
-            <span>{{ correctCount }} / {{ checkedCount }} helyes</span>
-          </div>
-          <section class="card shadow-sm">
+          <section class="session-bar" aria-label="A gyakorlás állása">
+            <div class="session-bar-top">
+              <span class="fw-semibold">{{ index + 1 }}. szó / {{ cards.length }}</span>
+              <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" [disabled]="isBusy" (click)="backToSetup()">Vissza a beállításokhoz</button>
+            </div>
+            <div class="session-progress">
+              <div
+                class="progress"
+                role="progressbar"
+                aria-label="Haladás a szavakban"
+                [attr.aria-valuenow]="progressPercent"
+                aria-valuemin="0"
+                aria-valuemax="100">
+                <div class="progress-bar" [style.width.%]="progressPercent"></div>
+              </div>
+              <span class="session-meta">{{ selectedTenses.length }} igeidő · {{ checkedCount > 0 ? correctCount + ' / ' + checkedCount + ' helyes' : 'még nincs ellenőrzött mondat' }}</span>
+            </div>
+          </section>
+          <section class="card border-0 shadow-sm">
             <div class="card-body">
               <div class="d-flex align-items-center gap-2 mb-1">
                 <span class="grammar-term">{{ card.term }}</span>
@@ -343,13 +357,10 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
               }
             </div>
           </section>
-          <div class="text-center mt-3">
-            <button type="button" class="btn btn-link btn-sm" [disabled]="isBusy" (click)="backToSetup()">Vissza a beállításokhoz</button>
-          </div>
         }
 
         @if (phase === 'done') {
-          <section class="card shadow-sm text-center">
+          <section class="card border-0 shadow-sm text-center">
             <div class="card-body py-4">
               <h2 class="h5 mb-2">Kész!</h2>
               <p class="mb-3">{{ checkedCount }} ellenőrzött mondatból {{ correctCount }} lett helyes.</p>
@@ -424,6 +435,15 @@ export class GrammarComponent implements OnInit {
 
   get isBusy(): boolean {
     return this.isChecking || this.isLoadingExample || this.isLoadingHint || this.isAccepting;
+  }
+
+  /** A kör haladása: az aktuális szó ellenőrzés után már késznek számít. */
+  get progressPercent(): number {
+    if (this.cards.length === 0) {
+      return 0;
+    }
+
+    return Math.round(((this.index + (this.result ? 1 : 0)) / this.cards.length) * 100);
   }
 
   ngOnInit(): void {

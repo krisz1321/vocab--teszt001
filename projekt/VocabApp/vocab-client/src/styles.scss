@@ -412,6 +412,64 @@ $tabbar-height: 4.25rem;
   color: var(--app-text);
 }
 
+// --- Mobil fiókmenü (a felső sáv avatarja nyitja) ---
+.account-menu-backdrop { position: fixed; inset: 0; z-index: 1040; }
+
+.account-menu {
+  position: fixed;
+  z-index: 1050;
+  top: 3.6rem;
+  right: .75rem;
+  display: grid;
+  gap: .15rem;
+  width: min(19rem, calc(100vw - 1.5rem));
+  padding: .6rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+  color: var(--app-text);
+  box-shadow: 0 18px 50px -12px rgba(0, 0, 0, .35);
+}
+
+.account-menu-head {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  min-width: 0;
+  margin-bottom: .25rem;
+  padding: .35rem .45rem .7rem;
+  border-bottom: 1px solid var(--app-border);
+
+  .who { display: grid; min-width: 0; line-height: 1.25; }
+  .who strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.account-menu-item {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  width: 100%;
+  padding: .6rem .55rem;
+  border: 0;
+  border-radius: var(--app-radius-sm);
+  background: transparent;
+  color: var(--app-text);
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+
+  svg { width: 1.25rem; height: 1.25rem; color: var(--app-muted); }
+  &:hover { background: var(--app-surface-2); }
+  &.is-active, &.is-active svg { color: var(--app-primary); }
+  &.is-danger, &.is-danger svg { color: var(--app-danger); }
+}
+
+@media (min-width: 992px) {
+  .account-menu,
+  .account-menu-backdrop { display: none; }
+}
+
 // Számítógépes nézet: bal oldalsáv + tartalom
 @media (min-width: 992px) {
   .app-sidebar {
@@ -427,20 +485,49 @@ $tabbar-height: 4.25rem;
     z-index: 20;
   }
 
-  .app-sidebar .brand { margin: .25rem .4rem 1.25rem; }
+  .app-sidebar .brand { margin: .25rem .4rem .75rem; }
   .app-sidebar .sidebar-spacer { flex: 1 1 auto; }
-  .sidebar-tools { display: flex; align-items: center; gap: .5rem; padding: 0 .1rem; }
+  .sidebar-tools { display: flex; align-items: center; gap: .5rem; padding: .25rem .1rem 0; }
+
+  .nav-group-label {
+    margin: .75rem .9rem .15rem;
+    color: var(--app-muted);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
 
   .sidebar-user {
     display: flex;
     align-items: center;
-    gap: .7rem;
-    padding: .7rem;
+    gap: .5rem;
+    padding: .5rem .6rem .5rem .5rem;
     margin-top: .5rem;
     border: 1px solid var(--app-border);
     border-radius: var(--app-radius);
     background: var(--app-bg);
     min-width: 0;
+
+    &.is-active { border-color: var(--app-primary); }
+  }
+
+  .sidebar-user-main {
+    display: flex;
+    align-items: center;
+    gap: .7rem;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: .2rem;
+    border: 0;
+    border-radius: var(--app-radius-sm);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover { background: var(--app-surface-2); }
   }
 
   .sidebar-user .who { min-width: 0; flex: 1 1 auto; line-height: 1.2; }
@@ -470,7 +557,7 @@ $tabbar-height: 4.25rem;
 
   .app-tabbar {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     position: fixed;
     inset: auto 0 0 0;
     z-index: 30;
@@ -486,20 +573,40 @@ $tabbar-height: 4.25rem;
     align-items: center;
     gap: .2rem;
     min-width: 0;
-    padding: .45rem .1rem;
+    padding: .3rem .1rem;
     border: 0;
-    border-radius: var(--app-radius-sm);
     background: transparent;
     color: var(--app-muted);
     font: inherit;
-    font-size: .64rem;
-    hyphens: auto;
-    overflow-wrap: anywhere;
+    font-size: .7rem;
     font-weight: 600;
     cursor: pointer;
 
-    svg { width: 1.45rem; height: 1.45rem; }
-    &.is-active { color: var(--app-primary); background: rgba(var(--app-primary-rgb), .12); }
+    svg { width: 1.35rem; height: 1.35rem; }
+    &.is-active { color: var(--app-primary); }
+    &.is-active .tab-icon { background: rgba(var(--app-primary-rgb), .16); }
+  }
+
+  // Az aktív fülnél az ikon mögé pirula kerül, a felirat nem tördelődik.
+  .tab-icon {
+    display: grid;
+    place-items: center;
+    width: 3.2rem;
+    height: 1.9rem;
+    border-radius: 999px;
+    transition: background-color .15s ease;
+  }
+
+  .tab-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Gépelés közben a fülsor eltűnik, hogy ne takarja a válaszmezőt a képernyő-billentyűzet fölött.
+  body:has(.app-content textarea:focus, .app-content input:is([type='text'], [type='search'], [type='email'], [type='password'], [type='number'], :not([type])):focus) .app-tabbar {
+    display: none;
   }
 
   .app-content { padding: .25rem 0 calc(#{$tabbar-height} + 1.5rem); }
@@ -559,42 +666,231 @@ $tabbar-height: 4.25rem;
   }
 }
 
-// --- Tanulás: kártya-nézet átfestése ---
-.study-modes {
-  display: inline-grid;
-  grid-auto-flow: column;
-  gap: .25rem;
-  padding: .25rem;
-  border-radius: 999px;
-  background: var(--app-surface-2);
-  max-width: 100%;
-  overflow-x: auto;
-}
-
-.study-modes .btn {
-  --bs-btn-border-radius: 999px;
-  white-space: nowrap;
-  border: 0;
-  background: transparent;
-  color: var(--app-muted);
-
-  &.btn-primary { background: var(--app-primary); color: var(--app-on-primary); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
 
-.study-modes .btn:hover:not(.btn-primary) { background: var(--app-surface); color: var(--app-text); }
+// --- Tanulás: módcsempék (indító képernyő és a "Mód váltása" panel) ---
+.mode-tiles {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: .5rem;
+}
+
+.mode-tile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  width: 100%;
+  padding: .7rem 2.2rem .7rem .75rem;
+  border: 2px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+  color: var(--app-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease;
+
+  &:hover { border-color: color-mix(in srgb, var(--app-primary) 50%, var(--app-border)); }
+  &:focus-visible { outline: 0; box-shadow: 0 0 0 .25rem rgba(var(--app-primary-rgb), .25); }
+
+  &.is-active {
+    border-color: var(--app-primary);
+    background: rgba(var(--app-primary-rgb), .08);
+
+    // pipa a jobb felső sarokban
+    &::after {
+      content: '';
+      position: absolute;
+      top: .6rem;
+      right: .6rem;
+      width: 1.1rem;
+      height: 1.1rem;
+      border-radius: 50%;
+      background: var(--app-primary) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 70% no-repeat;
+    }
+  }
+}
+
+.mode-tile-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: var(--app-radius-sm);
+  background: rgba(var(--app-primary-rgb), .12);
+  color: var(--app-primary);
+
+  svg { width: 1.35rem; height: 1.35rem; }
+}
+
+.mode-tile-text {
+  display: grid;
+  gap: .1rem;
+  min-width: 0;
+  line-height: 1.3;
+
+  small { color: var(--app-muted); font-size: .82rem; }
+}
+
+.mode-tile-note {
+  justify-self: start;
+  margin-top: .2rem;
+  padding: .05rem .5rem;
+  border-radius: 999px;
+  background: var(--app-surface-2);
+  color: var(--app-muted);
+  font-size: .72rem;
+  font-weight: 600;
+}
+
+@media (min-width: 576px) {
+  .mode-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+  .mode-tile { flex-direction: column; align-items: flex-start; padding: .9rem; }
+}
+
+@media (min-width: 992px) {
+  .mode-tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .sheet .mode-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+// --- Tanulás közben: munkamenet-sáv a kártya fölött ---
+.session-bar {
+  display: grid;
+  gap: .4rem;
+  margin-bottom: 1rem;
+  padding: .75rem 1rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+}
+
+.session-bar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .5rem;
+}
+
+.mode-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-width: 0;
+  padding: .4rem .75rem;
+  border: 1px solid color-mix(in srgb, var(--app-primary) 45%, transparent);
+  border-radius: 999px;
+  background: rgba(var(--app-primary-rgb), .1);
+  color: var(--app-primary);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color .15s ease;
+
+  svg { flex: 0 0 auto; width: 1.15rem; height: 1.15rem; }
+  &:hover:not(:disabled) { background: rgba(var(--app-primary-rgb), .18); }
+  &:focus-visible { outline: 0; box-shadow: 0 0 0 .25rem rgba(var(--app-primary-rgb), .25); }
+  &:disabled { opacity: .6; cursor: default; }
+}
+
+.mode-chip-label { white-space: nowrap; }
+.mode-chip-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--app-muted); font-weight: 500; }
+
+.session-meta {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--app-muted);
+  font-size: .85rem;
+}
+
+.session-progress {
+  display: grid;
+  gap: .3rem;
+
+  .progress { height: .45rem; max-width: 22rem; }
+  .progress-bar { background-color: var(--app-primary); }
+  .session-meta { white-space: normal; }
+}
+
+// --- Indító képernyő (Tanulás, Mondatok): számozott lépések egy kártyában ---
+.setup-step {
+  margin: 1.5rem 0 .6rem;
+  font-size: 1rem;
+  font-weight: 650;
+
+  &:first-of-type { margin-top: 0; }
+}
+
+// --- Tanulás: kártyafej (szó + eszközgombok egy sorban, alatta halvány statisztika) ---
+.study-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .75rem;
+}
+
+.study-card-term { min-width: 0; }
+.study-card-tools { display: flex; flex: 0 0 auto; gap: .35rem; }
+
+.study-card-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .2rem .9rem;
+  margin: .6rem 0 1.5rem;
+  color: var(--app-muted);
+  font-size: .85rem;
+}
+
+// --- Felugró panel: telefonon alsó lap, nagyobb képernyőn középre zárt ablak ---
+.sheet-backdrop { position: fixed; inset: 0; z-index: 1060; background: rgba(0, 0, 0, .45); }
+
+.sheet {
+  position: fixed;
+  z-index: 1061;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(40rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-lg);
+  background: var(--app-surface);
+  color: var(--app-text);
+  box-shadow: 0 1.25rem 3rem rgba(0, 0, 0, .35);
+}
+
+.sheet-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+  margin-top: 1.25rem;
+}
 
 @media (max-width: 575.98px) {
-  .study-modes {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    grid-auto-flow: row;
+  .sheet {
+    inset: auto 0 0 0;
+    transform: none;
     width: 100%;
-    border-radius: var(--app-radius);
+    max-height: 85vh;
+    padding: 1rem 1rem calc(1rem + env(safe-area-inset-bottom, 0px));
+    border-radius: var(--app-radius-lg) var(--app-radius-lg) 0 0;
+    animation: sheet-up .2s ease-out;
   }
+
+  .sheet-actions > .btn { flex: 1 1 0; }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: none; }
 }
 
 .btn-light {
@@ -633,6 +929,12 @@ $tabbar-height: 4.25rem;
 .dseg-btn:not(.active):hover { color: var(--app-text); }
 .dseg-count { display: inline-block; min-width: 1.4rem; padding: 0 .4rem; border-radius: 999px; background: rgba(127, 127, 127, .2); font-size: .75rem; text-align: center; }
 .dseg-btn.active .dseg-count { background: rgba(255, 255, 255, .25); }
+
+// Fejléc melletti nézetváltó fülek (pl. Saját / Közös paklik): telefonon teljes szélességűek, egyenlő gombokkal.
+@media (max-width: 575.98px) {
+  .page-tabs { display: flex; width: 100%; }
+  .page-tabs .dseg-btn { flex: 1 1 0; justify-content: center; }
+}
 
 .confirm-backdrop { position: fixed; inset: 0; z-index: 1080; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(0, 0, 0, .5); }
 .confirm-dialog { width: min(28rem, 100%); padding: 1.5rem; border-radius: var(--app-radius); background: var(--app-surface); color: var(--app-text); border: 1px solid var(--app-border); box-shadow: 0 1rem 3rem rgba(0, 0, 0, .35); }

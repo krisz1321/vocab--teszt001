@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { AfterViewChecked, Component, DoCheck, ElementRef, EventEmitter, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
+import { AfterViewChecked, Component, DoCheck, ElementRef, EventEmitter, HostListener, Input, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize, switchMap, throwError } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
@@ -141,6 +141,19 @@ interface StudyTagOption {
 }
 type StudyMode = 'meaning' | 'definition' | 'recognition' | 'free';
 type StudyDirection = 'en' | 'hu' | 'mixed';
+
+interface StudyModeOption {
+  id: StudyMode;
+  label: string;
+  description: string;
+  icon: string;
+  note?: string;
+}
+
+interface StudyDirectionOption {
+  value: StudyDirection;
+  label: string;
+}
 type FreeFront = 'term' | 'other';
 type FreeBack = 'bilingual' | 'definition';
 
@@ -156,119 +169,119 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
   template: `
     <main class="container py-5">
       <div class="mx-auto page-wrap">
-        <header class="text-center" [class.mb-4]="!studying" [class.mb-3]="studying">
-          <h1 class="h3 mb-1">Tanulás</h1>
-          @if (!studying) {
-            <p class="text-body-secondary mb-3">Válassz gyakorlási módot.</p>
-          }
-          <div class="study-modes" role="group" aria-label="Tanulási mód">
-            <button
-              type="button"
-              class="btn"
-              [class.btn-primary]="mode === 'meaning'"
-              [class.btn-outline-primary]="mode !== 'meaning'"
-              [title]="modeHints.meaning"
-              (click)="setMode('meaning')"
-              [disabled]="isInteractionLocked">
-              Fordítás
-            </button>
-            <button
-              type="button"
-              class="btn"
-              [class.btn-primary]="mode === 'definition'"
-              [class.btn-outline-primary]="mode !== 'definition'"
-              [title]="modeHints.definition"
-              (click)="setMode('definition')"
-              [disabled]="isInteractionLocked">
-              Magyarázd el angolul
-            </button>
-            <button
-              type="button"
-              class="btn"
-              [class.btn-primary]="mode === 'recognition'"
-              [class.btn-outline-primary]="mode !== 'recognition'"
-              [title]="modeHints.recognition"
-              (click)="setMode('recognition')"
-              [disabled]="isInteractionLocked">
-              Találd ki a szót
-            </button>
-            <button
-              type="button"
-              class="btn"
-              [class.btn-primary]="mode === 'free'"
-              [class.btn-outline-primary]="mode !== 'free'"
-              [title]="modeHints.free"
-              (click)="setMode('free')"
-              [disabled]="isInteractionLocked">
-              Kártyázás
-            </button>
+        <!-- A módcsempék és az irányválasztó az indító képernyőn és a "Mód váltása" panelen is ugyanez. -->
+        <ng-template #modeTiles>
+          <div class="mode-tiles" role="radiogroup" aria-label="Tanulási mód">
+            @for (option of modeOptions; track option.id) {
+              <button
+                type="button"
+                class="mode-tile"
+                role="radio"
+                [class.is-active]="tileMode === option.id"
+                [attr.aria-checked]="tileMode === option.id"
+                (click)="pickTile(option.id)">
+                <span class="mode-tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="option.icon" /></svg></span>
+                <span class="mode-tile-text">
+                  <strong>{{ option.label }}</strong>
+                  <small>{{ option.description }}</small>
+                  @if (option.note) {
+                    <span class="mode-tile-note">{{ option.note }}</span>
+                  }
+                </span>
+              </button>
+            }
           </div>
-          @if (mode === 'meaning' || mode === 'definition') {
-            <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-2">
-              <span class="text-body-secondary small">Szót kapok:</span>
-              <div class="btn-group btn-group-sm" role="group" aria-label="A kérdés nyelve">
-                @for (option of directionOptions; track option.value) {
+        </ng-template>
+
+        <ng-template #directionPicker>
+          @if (tileMode === 'meaning' || tileMode === 'definition') {
+            <div class="mt-3">
+              <span class="form-label fw-semibold d-block mb-2">Irány</span>
+              <div class="seg" role="group" aria-label="Irány">
+                @for (option of directionOptionsFor(tileMode); track option.value) {
                   <button
                     type="button"
-                    class="btn"
-                    [class.btn-primary]="direction === option.value"
-                    [class.btn-outline-primary]="direction !== option.value"
-                    [attr.aria-pressed]="direction === option.value"
-                    (click)="setDirection(option.value)"
-                    [disabled]="isInteractionLocked">
+                    [class.is-active]="tileDirection === option.value"
+                    [attr.aria-pressed]="tileDirection === option.value"
+                    (click)="pickDirection(option.value)">
                     {{ option.label }}
                   </button>
                 }
               </div>
             </div>
           }
-          <p class="study-mode-hint text-body-secondary small mb-0 mt-2">{{ modeHint }}</p>
-          @if (mode !== 'free' && (dailyNewCardGoal !== null || (studying && studyStatus === 'ready'))) {
-            <p class="text-body-secondary small mb-0 mt-2">
-              @if (dailyNewCardGoal !== null) {
-                <span>Új szavak ma: {{ newCardsIntroducedToday }}/{{ dailyNewCardGoal }}</span>
-              }
-              @if (dailyNewCardGoal !== null && studying && studyStatus === 'ready') {
-                <span> · </span>
-              }
-              @if (studying && studyStatus === 'ready') {
-                <span>még {{ availableCards > 0 ? availableCards - 1 : 0 }} kártya választható</span>
-              }
-            </p>
-          }
-          @if (studying && mode !== 'free' && dailyNewCardGoal !== null && dailyNewCardGoal > 0) {
-            <div
-              class="progress study-progress mx-auto mt-2"
-              role="progressbar"
-              aria-label="Mai új szavak haladása"
-              [attr.aria-valuenow]="newCardsIntroducedToday"
-              aria-valuemin="0"
-              [attr.aria-valuemax]="dailyNewCardGoal">
-              <div class="progress-bar" [style.width.%]="dailyGoalPercent"></div>
-            </div>
-          }
-          @if (studying && mode !== 'free' && sessionAnswered > 0) {
-            <p class="text-body-secondary small mb-0 mt-1">
-              Ebben a gyakorlásban: {{ sessionAnswered }} válasz, ebből {{ sessionCorrect }} helyes ({{ sessionPercent }}%)
-            </p>
-          }
-          @if (studying) {
-            <div class="d-flex flex-wrap justify-content-center align-items-center gap-2 mt-2">
-              <span class="fw-semibold">{{ activeDeckLabel }}</span>
-              <span class="text-body-secondary">· {{ studyFocusLabel }}</span>
-              @if (studyTag) {
-                <span class="text-body-secondary">· címke: {{ studyTag }}</span>
-              }
+          <p class="text-body-secondary small mb-0 mt-2">{{ modeHintFor(tileMode, tileDirection) }}</p>
+        </ng-template>
+
+        @if (!studying) {
+          <header class="text-center mb-4">
+            <h1 class="h3 mb-1">Tanulás</h1>
+            <p class="text-body-secondary mb-0">Válaszd ki, hogyan és mit gyakorolsz.</p>
+          </header>
+        } @else {
+          <h1 class="visually-hidden">Tanulás</h1>
+          <section class="session-bar" aria-label="Tanulási munkamenet">
+            <div class="session-bar-top">
               <button
                 type="button"
-                class="btn btn-outline-secondary btn-sm"
+                class="mode-chip"
+                aria-haspopup="dialog"
+                [attr.aria-expanded]="modePickerOpen"
+                (click)="openModePicker()"
+                [disabled]="isInteractionLocked"
+                title="Mód váltása">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="activeModeOption.icon" /></svg>
+                <span class="mode-chip-label">{{ activeModeOption.label }}</span>
+                @if (activeDirectionLabel) {
+                  <span class="mode-chip-sub">· {{ activeDirectionLabel }}</span>
+                }
+                <svg class="icon mode-chip-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm flex-shrink-0"
                 (click)="chooseAnotherDeck()"
                 [disabled]="!canChangeDeck">
                 Másik pakli
               </button>
             </div>
+            <p class="session-meta">
+              <span class="fw-semibold">{{ activeDeckLabel }}</span> · {{ studyScopeDetail }}
+            </p>
+            @if (mode !== 'free' && (dailyNewCardGoal !== null || sessionSummary)) {
+              <div class="session-progress">
+                @if (dailyNewCardGoal !== null && dailyNewCardGoal > 0) {
+                  <div
+                    class="progress"
+                    role="progressbar"
+                    aria-label="Mai új szavak haladása"
+                    [attr.aria-valuenow]="newCardsIntroducedToday"
+                    aria-valuemin="0"
+                    [attr.aria-valuemax]="dailyNewCardGoal">
+                    <div class="progress-bar" [style.width.%]="dailyGoalPercent"></div>
+                  </div>
+                }
+                <span class="session-meta">{{ sessionSummary }}</span>
+              </div>
+            }
+          </section>
+
+          @if (modePickerOpen) {
+            <div class="sheet-backdrop" (click)="closeModePicker()"></div>
+            <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mode-sheet-title">
+              <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h5 mb-0" id="mode-sheet-title">Mód váltása</h2>
+                <button type="button" class="btn-close" aria-label="Bezárás" (click)="closeModePicker()"></button>
+              </div>
+              <ng-container *ngTemplateOutlet="modeTiles" />
+              <ng-container *ngTemplateOutlet="directionPicker" />
+              <div class="sheet-actions">
+                <button type="button" class="btn btn-outline-secondary" (click)="closeModePicker()">Mégse</button>
+                <button type="button" class="btn btn-primary" (click)="applyModePicker()" [disabled]="!modePickerChanged">Alkalmaz</button>
+              </div>
+            </div>
           }
-        </header>
+        }
 
         @if (errorMessage) {
           <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
@@ -280,7 +293,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
 
         @if (!studying) {
           <form class="card border-0 shadow-sm" (ngSubmit)="startStudy()">
-            <div class="card-body p-4">
+            <div class="card-body p-3 p-sm-4">
               @if (showStudyGuide) {
                 <div class="alert alert-info" role="note">
                   <h2 class="h6">Így működik a tanulás</h2>
@@ -300,46 +313,75 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                     <button type="button" class="btn btn-sm btn-primary" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
                   </div>
                 }
-                <label class="form-label fw-semibold" for="study-deck">Pakli</label>
-                <select
-                  id="study-deck"
-                  name="studyDeck"
-                  class="form-select mb-3"
-                  [(ngModel)]="deckChoice"
-                  (ngModelChange)="refreshTagOptions()">
-                  <option [ngValue]="null" disabled>Válassz paklit</option>
-                  <option [ngValue]="'all'">Összes pakli</option>
-                  @for (deck of decks; track deck.id) {
-                    <option [ngValue]="deck.id">{{ deck.name }}</option>
+                <h2 class="setup-step">1. Hogyan gyakorolsz?</h2>
+                <ng-container *ngTemplateOutlet="modeTiles" />
+                <ng-container *ngTemplateOutlet="directionPicker" />
+
+                <h2 class="setup-step">2. Mit gyakorolsz?</h2>
+                <div class="row g-3">
+                  <div class="col-sm-6">
+                    <label class="form-label" for="study-deck">Pakli</label>
+                    <select
+                      id="study-deck"
+                      name="studyDeck"
+                      class="form-select"
+                      [(ngModel)]="deckChoice"
+                      (ngModelChange)="refreshTagOptions()">
+                      <option [ngValue]="null" disabled>Válassz paklit</option>
+                      <option [ngValue]="'all'">Összes pakli</option>
+                      @for (deck of decks; track deck.id) {
+                        <option [ngValue]="deck.id">{{ deck.name }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="col-sm-6">
+                    <label class="form-label" for="study-focus">Gyakorlás típusa</label>
+                    <select
+                      id="study-focus"
+                      name="studyFocus"
+                      class="form-select"
+                      [(ngModel)]="studyFocus"
+                      (ngModelChange)="saveStudyFocus()">
+                      <option [ngValue]="'all'">Esedékes és új kártyák</option>
+                      <option [ngValue]="'due'">Csak esedékes ismétlések</option>
+                      <option [ngValue]="'mistakes'">Esedékes, korábban hibás kártyák</option>
+                      <option [ngValue]="'new'">Csak új kártyák</option>
+                    </select>
+                  </div>
+                  @if (tagOptions.length > 0) {
+                    <div class="col-sm-6">
+                      <label class="form-label" for="study-tag">Címke</label>
+                      <select
+                        id="study-tag"
+                        name="studyTag"
+                        class="form-select"
+                        [(ngModel)]="studyTag"
+                        (ngModelChange)="saveStudyTag()">
+                        <option [ngValue]="''">Minden címke</option>
+                        @for (option of tagOptions; track option.tag) {
+                          <option [ngValue]="option.tag">{{ option.tag }} ({{ option.count }})</option>
+                        }
+                      </select>
+                    </div>
                   }
-                </select>
-                @if (tagOptions.length > 0) {
-                  <label class="form-label fw-semibold" for="study-tag">Címke</label>
-                  <select
-                    id="study-tag"
-                    name="studyTag"
-                    class="form-select mb-3"
-                    [(ngModel)]="studyTag"
-                    (ngModelChange)="saveStudyTag()">
-                    <option [ngValue]="''">Minden címke</option>
-                    @for (option of tagOptions; track option.tag) {
-                      <option [ngValue]="option.tag">{{ option.tag }} ({{ option.count }})</option>
-                    }
-                  </select>
+                </div>
+                @if (mode !== 'free' && dailyNewCardGoal !== null && dailyNewCardGoal > 0) {
+                  <div class="session-progress mt-4">
+                    <div
+                      class="progress"
+                      role="progressbar"
+                      aria-label="Mai új szavak haladása"
+                      [attr.aria-valuenow]="newCardsIntroducedToday"
+                      aria-valuemin="0"
+                      [attr.aria-valuemax]="dailyNewCardGoal">
+                      <div class="progress-bar" [style.width.%]="dailyGoalPercent"></div>
+                    </div>
+                    <span class="session-meta">Új szavak ma: {{ newCardsIntroducedToday }}/{{ dailyNewCardGoal }}</span>
+                  </div>
                 }
-                <label class="form-label fw-semibold" for="study-focus">Gyakorlás típusa</label>
-                <select
-                  id="study-focus"
-                  name="studyFocus"
-                  class="form-select mb-3"
-                  [(ngModel)]="studyFocus"
-                  (ngModelChange)="saveStudyFocus()">
-                  <option [ngValue]="'all'">Esedékes és új kártyák</option>
-                  <option [ngValue]="'due'">Csak esedékes ismétlések</option>
-                  <option [ngValue]="'mistakes'">Esedékes, korábban hibás kártyák</option>
-                  <option [ngValue]="'new'">Csak új kártyák</option>
-                </select>
-                <button type="submit" class="btn btn-primary" [disabled]="deckChoice === null">Tanulás</button>
+                <button type="submit" class="btn btn-primary btn-lg w-100 mt-4" [disabled]="deckChoice === null">
+                  Indítás: {{ activeModeOption.label }}
+                </button>
               }
             </div>
           </form>
@@ -499,29 +541,24 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
 
         @if (studying && mode !== 'free' && card && !isLoadingCard) {
           <section class="card border-0 shadow-sm">
-            <div class="card-body p-4 p-md-5">
-              <div class="d-flex flex-wrap justify-content-between gap-3 mb-4">
-                @if (!showTermInHeader) {
-                  <div class="d-flex align-items-center gap-2">
-                    <h2 class="h1 mb-0 text-break">{{ card.targetMeanings }}</h2>
-                    <app-speak-button [text]="card.targetMeanings" lang="hu" label="A magyar jelentés" />
-                  </div>
-                } @else if (mode !== 'recognition' || isRecognitionRevealed) {
-                  <div class="d-flex align-items-center gap-2">
-                    <h2 class="h1 mb-0 text-break">{{ card.term }}</h2>
-                    <app-speak-button [text]="card.term" lang="en" label="A szó" />
-                  </div>
-                } @else {
-                  <h2 class="h3 mb-0">Körülírás</h2>
-                }
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                  <span class="badge text-bg-success">Sorozat: {{ card.streak }}</span>
-                  @if (card.isLeech) {
-                    <span class="badge text-bg-warning" title="Sokszor elrontott szó. Ha zavar, tedd félre az óra vagy a szünet gombbal.">Nehéz szó</span>
+            <div class="card-body p-3 p-sm-4 p-md-5">
+              <div class="study-card-head">
+                <div class="study-card-term">
+                  @if (!showTermInHeader) {
+                    <div class="d-flex align-items-center gap-2">
+                      <h2 class="h1 mb-0 text-break">{{ card.targetMeanings }}</h2>
+                      <app-speak-button [text]="card.targetMeanings" lang="hu" label="A magyar jelentés" />
+                    </div>
+                  } @else if (mode !== 'recognition' || isRecognitionRevealed) {
+                    <div class="d-flex align-items-center gap-2">
+                      <h2 class="h1 mb-0 text-break">{{ card.term }}</h2>
+                      <app-speak-button [text]="card.term" lang="en" label="A szó" />
+                    </div>
+                  } @else {
+                    <h2 class="h3 mb-0">Körülírás</h2>
                   }
-                  <span class="badge text-bg-danger">Hibák: {{ card.incorrectCount }}</span>
-                  <span class="badge text-bg-secondary">Időköz: {{ card.interval }} nap</span>
-                  <span class="badge text-bg-info">Könnyűség: {{ card.easeFactor | number:'1.1-1' }}</span>
+                </div>
+                <div class="study-card-tools">
                   <button
                     type="button"
                     class="btn btn-sm suspend-btn"
@@ -554,6 +591,15 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                   </button>
                 </div>
               </div>
+              <p class="study-card-stats">
+                @if (card.isLeech) {
+                  <span class="badge text-bg-warning" title="Sokszor elrontott szó. Ha zavar, tedd félre az óra vagy a szünet gombbal.">Nehéz szó</span>
+                }
+                <span>Sorozat: {{ card.streak }}</span>
+                <span>Hibák: {{ card.incorrectCount }}</span>
+                <span>Időköz: {{ card.interval }} nap</span>
+                <span>Könnyűség: {{ card.easeFactor | number:'1.1-1' }}</span>
+              </p>
 
               @if (secondsUntilAnswer > 0) {
                 <p class="text-body-secondary">Még {{ secondsUntilAnswer }} mp a válaszadásig.</p>
@@ -1082,8 +1128,6 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
   styles: [`
     .free-card-word, .free-card-definition, .free-card-example { overflow-wrap: anywhere; }
     [data-next-card] { scroll-margin-bottom: 5rem; }
-    .study-progress { height: .45rem; max-width: 22rem; }
-    .study-progress .progress-bar { background-color: var(--app-primary); }
     .free-study-shell { position: relative; max-width: 880px; margin: 0 auto; }
     .free-study-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
     .free-study-kicker { display: block; color: var(--app-muted); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
@@ -1269,32 +1313,99 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     return this.decks.length > 0 && this.decks.every(deck => (deck.cardCount ?? 0) === 0);
   }
 
-  readonly directionOptions: { value: StudyDirection; label: string }[] = [
-    { value: 'en', label: 'Angolul' },
-    { value: 'hu', label: 'Magyarul' },
+  readonly modeOptions: StudyModeOption[] = [
+    { id: 'meaning', label: 'Fordítás', description: 'Látod a szót, és beírod a jelentését.', icon: 'M7 7h13M16 3l4 4-4 4M17 17H4M8 13l-4 4 4 4' },
+    { id: 'definition', label: 'Magyarázd el angolul', description: 'Saját szavaiddal elmagyarázod, mit jelent; az MI értékeli.', icon: 'M4 6h16M4 12h11M4 18h7' },
+    { id: 'recognition', label: 'Találd ki a szót', description: 'Körülírást kapsz, és kitalálod az angol szót.', icon: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z' },
+    { id: 'free', label: 'Kártyázás', description: 'Lapozgatás: megfordítod, és jelölöd, tudod-e.', icon: 'M8 4h11a1 1 0 0 1 1 1v11M4 8h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z', note: 'Nem számít az ismétlésbe' },
+  ];
+
+  // Fordításnál a kérdés és a válasz nyelve is számít, magyarázatnál a válasz mindig angol, ezért ott csak a kérdés nyelve.
+  private readonly meaningDirectionOptions: StudyDirectionOption[] = [
+    { value: 'en', label: 'Angol → magyar' },
+    { value: 'hu', label: 'Magyar → angol' },
     { value: 'mixed', label: 'Vegyesen' },
   ];
 
-  get modeHints(): Record<StudyMode, string> {
-    const direction = this.direction;
-    return {
-      meaning: direction === 'en'
-        ? 'Látod az angol szót, és beírod a magyar jelentését.'
-        : direction === 'hu'
-          ? 'Látod a magyar jelentést, és beírod az angol szót.'
-          : 'Hol az angol szót látod és magyarul válaszolsz, hol fordítva.',
-      definition: direction === 'en'
-        ? 'Látod az angol szót, és angolul elmagyarázod, mit jelent.'
-        : direction === 'hu'
-          ? 'Látod a magyar szót, és angolul elmagyarázod, mit jelent.'
-          : 'Hol az angol, hol a magyar szót látod, és angolul elmagyarázod, mit jelent.',
-      recognition: 'Látod a körülírást, és beírod hozzá az angol szót.',
-      free: 'Kártyák lapozgatása: fordítsd meg, majd jelöld, hogy tudod-e.',
-    };
+  private readonly definitionDirectionOptions: StudyDirectionOption[] = [
+    { value: 'en', label: 'Angol szóból' },
+    { value: 'hu', label: 'Magyar szóból' },
+    { value: 'mixed', label: 'Vegyesen' },
+  ];
+
+  modePickerOpen = false;
+  draftMode: StudyMode = this.mode;
+  draftDirection: StudyDirection = this.direction;
+
+  directionOptionsFor(mode: StudyMode): StudyDirectionOption[] {
+    return mode === 'definition' ? this.definitionDirectionOptions : this.meaningDirectionOptions;
   }
 
-  get modeHint(): string {
-    return this.modeHints[this.mode];
+  modeHintFor(mode: StudyMode, direction: StudyDirection): string {
+    switch (mode) {
+      case 'meaning':
+        return direction === 'en'
+          ? 'Látod az angol szót, és beírod a magyar jelentését.'
+          : direction === 'hu'
+            ? 'Látod a magyar jelentést, és beírod az angol szót.'
+            : 'Hol az angol szót látod és magyarul válaszolsz, hol fordítva.';
+      case 'definition':
+        return direction === 'en'
+          ? 'Látod az angol szót, és angolul elmagyarázod, mit jelent.'
+          : direction === 'hu'
+            ? 'Látod a magyar szót, és angolul elmagyarázod, mit jelent.'
+            : 'Hol az angol, hol a magyar szót látod, és angolul elmagyarázod, mit jelent.';
+      case 'recognition':
+        return 'Látod a körülírást, és beírod hozzá az angol szót.';
+      case 'free':
+        return 'Kártyák lapozgatása: fordítsd meg, majd jelöld, hogy tudod-e.';
+    }
+  }
+
+  /** A csempék és az irányválasztó nyitott panelnél a vázlatot, egyébként a valódi beállítást mutatják. */
+  get tileMode(): StudyMode {
+    return this.modePickerOpen ? this.draftMode : this.mode;
+  }
+
+  get tileDirection(): StudyDirection {
+    return this.modePickerOpen ? this.draftDirection : this.direction;
+  }
+
+  get activeModeOption(): StudyModeOption {
+    return this.modeOptions.find(option => option.id === this.mode) ?? this.modeOptions[0];
+  }
+
+  get activeDirectionLabel(): string | null {
+    if (this.mode !== 'meaning' && this.mode !== 'definition') {
+      return null;
+    }
+
+    return this.directionOptionsFor(this.mode).find(option => option.value === this.direction)?.label ?? null;
+  }
+
+  get modePickerChanged(): boolean {
+    return this.draftMode !== this.mode || this.draftDirection !== this.direction;
+  }
+
+  get studyScopeDetail(): string {
+    return this.studyTag ? `${this.studyFocusLabel} · címke: ${this.studyTag}` : this.studyFocusLabel;
+  }
+
+  get sessionSummary(): string {
+    const parts: string[] = [];
+    if (this.dailyNewCardGoal !== null) {
+      parts.push(`Új szavak ma: ${this.newCardsIntroducedToday}/${this.dailyNewCardGoal}`);
+    }
+
+    if (this.studyStatus === 'ready') {
+      parts.push(`még ${this.availableCards > 0 ? this.availableCards - 1 : 0} kártya választható`);
+    }
+
+    if (this.sessionAnswered > 0) {
+      parts.push(`ebben a gyakorlásban ${this.sessionCorrect}/${this.sessionAnswered} helyes (${this.sessionPercent}%)`);
+    }
+
+    return parts.join(' · ');
   }
 
   get definitionPromptLabel(): string {
@@ -1534,19 +1645,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       return;
     }
 
-    this.mode = mode;
-    this.saveStudyMode();
-    this.syncFreeKeyListener();
-    if (!this.studying) {
-      return;
-    }
-
-    if (mode === 'free') {
-      this.loadFreeCards();
-      return;
-    }
-
-    this.loadNextCard();
+    this.applyStudyChoice(mode, this.direction);
   }
 
   setDirection(direction: StudyDirection): void {
@@ -1554,9 +1653,88 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       return;
     }
 
+    this.applyStudyChoice(this.mode, direction);
+  }
+
+  pickTile(mode: StudyMode): void {
+    if (this.modePickerOpen) {
+      this.draftMode = mode;
+      return;
+    }
+
+    this.setMode(mode);
+  }
+
+  pickDirection(direction: StudyDirection): void {
+    if (this.modePickerOpen) {
+      this.draftDirection = direction;
+      return;
+    }
+
+    this.setDirection(direction);
+  }
+
+  openModePicker(): void {
+    if (this.isInteractionLocked) {
+      return;
+    }
+
+    this.draftMode = this.mode;
+    this.draftDirection = this.direction;
+    this.modePickerOpen = true;
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.sheet .mode-tile.is-active')?.focus());
+  }
+
+  @HostListener('document:keydown.escape')
+  closeModePicker(): void {
+    if (!this.modePickerOpen) {
+      return;
+    }
+
+    this.modePickerOpen = false;
+    setTimeout(() => this.host.nativeElement.querySelector<HTMLElement>('.mode-chip')?.focus({ preventScroll: true }));
+  }
+
+  /** A panelen csak vázlat készül; az Alkalmaz egyszerre állítja át a módot és az irányt, egyetlen újratöltéssel. */
+  applyModePicker(): void {
+    const mode = this.draftMode;
+    const direction = this.draftDirection;
+    const changed = this.modePickerChanged;
+    this.closeModePicker();
+    if (changed && !this.isInteractionLocked) {
+      this.applyStudyChoice(mode, direction);
+    }
+  }
+
+  private applyStudyChoice(mode: StudyMode, direction: StudyDirection): void {
+    const modeChanged = mode !== this.mode;
+    const directionChanged = direction !== this.direction;
+    if (!modeChanged && !directionChanged) {
+      return;
+    }
+
+    this.mode = mode;
     this.direction = direction;
-    this.saveStudyDirection();
-    if (this.studying && (this.mode === 'meaning' || this.mode === 'definition')) {
+    if (modeChanged) {
+      this.saveStudyMode();
+      this.syncFreeKeyListener();
+    }
+
+    if (directionChanged) {
+      this.saveStudyDirection();
+    }
+
+    if (!this.studying) {
+      return;
+    }
+
+    if (modeChanged && mode === 'free') {
+      this.loadFreeCards();
+      return;
+    }
+
+    // Az irány csak a Fordítás és a Magyarázd el angolul módban számít, máshol a váltása nem tölt új kártyát.
+    if (modeChanged || mode === 'meaning' || mode === 'definition') {
       this.loadNextCard();
     }
   }
@@ -1739,6 +1917,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     }
 
     this.loadGeneration++;
+    this.modePickerOpen = false;
     this.studying = false;
     this.isLoadingCard = false;
     this.card = null;
@@ -3371,7 +3550,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   }
 
   private onFreeKeyDown(event: KeyboardEvent): void {
-    if (!this.studying || this.mode !== 'free' || !this.freeKeyboardEnabled || !this.freeCard || this.isSavingFreeMark || this.isClearingFreeMarks || this.isLoadingCard) {
+    // Nyitott "Mód váltása" panelnél a billentyűk ne lapozzák a háttérben lévő kártyát.
+    if (this.modePickerOpen || !this.studying || this.mode !== 'free' || !this.freeKeyboardEnabled || !this.freeCard || this.isSavingFreeMark || this.isClearingFreeMarks || this.isLoadingCard) {
       return;
     }
 

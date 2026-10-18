@@ -78,9 +78,8 @@ const MAX_TEXT_LENGTH = 500;
         }
 
         @if (phase === 'setup') {
-          <form class="card shadow-sm" (ngSubmit)="start()">
-            <div class="card-body">
-              <h2 class="h5 mb-3">Szavak</h2>
+          <form class="card border-0 shadow-sm" (ngSubmit)="start()">
+            <div class="card-body p-3 p-sm-4">
               @if (isLoadingDecks) {
                 <div class="text-center py-3" role="status"><div class="spinner-border text-primary"></div></div>
               } @else {
@@ -90,57 +89,67 @@ const MAX_TEXT_LENGTH = 500;
                     <button type="button" class="btn btn-sm btn-primary" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
                   </div>
                 }
-                <span class="form-label fw-semibold d-block" id="composition-count-label">Szavak száma feladatonként</span>
-                <div class="btn-group mb-3" role="group" aria-labelledby="composition-count-label">
+                <h2 class="setup-step">1. Szavak száma feladatonként</h2>
+                <div class="seg" role="group" aria-label="Szavak száma feladatonként">
                   @for (count of wordCounts; track count) {
                     <button
                       type="button"
-                      class="btn"
-                      [class.btn-primary]="wordCount === count"
-                      [class.btn-outline-primary]="wordCount !== count"
+                      [class.is-active]="wordCount === count"
                       [attr.aria-pressed]="wordCount === count"
-                      (click)="setWordCount(count)">{{ count }}</button>
+                      (click)="setWordCount(count)">{{ count }} szó</button>
                   }
                 </div>
-                <label class="form-label fw-semibold d-block" for="composition-deck">Pakli</label>
-                <select
-                  id="composition-deck"
-                  name="compositionDeck"
-                  class="form-select mb-3"
-                  [(ngModel)]="deckChoice"
-                  (ngModelChange)="onDeckChange()">
-                  <option [ngValue]="'all'">Összes pakli</option>
-                  @for (deck of decks; track deck.id) {
-                    <option [ngValue]="deck.id">{{ deck.name }}</option>
+
+                <h2 class="setup-step">2. Szavak</h2>
+                <div class="row g-3">
+                  <div class="col-sm-6">
+                    <label class="form-label" for="composition-deck">Pakli</label>
+                    <select
+                      id="composition-deck"
+                      name="compositionDeck"
+                      class="form-select"
+                      [(ngModel)]="deckChoice"
+                      (ngModelChange)="onDeckChange()">
+                      <option [ngValue]="'all'">Összes pakli</option>
+                      @for (deck of decks; track deck.id) {
+                        <option [ngValue]="deck.id">{{ deck.name }}</option>
+                      }
+                    </select>
+                  </div>
+                  @if (tagOptions.length > 0) {
+                    <div class="col-sm-6">
+                      <label class="form-label" for="composition-tag">Címke</label>
+                      <select
+                        id="composition-tag"
+                        name="compositionTag"
+                        class="form-select"
+                        [(ngModel)]="tag"
+                        (ngModelChange)="onTagChange()">
+                        <option [ngValue]="''">Minden címke</option>
+                        @for (option of tagOptions; track option.tag) {
+                          <option [ngValue]="option.tag">{{ option.tag }} ({{ option.count }})</option>
+                        }
+                      </select>
+                    </div>
                   }
-                </select>
-                @if (tagOptions.length > 0) {
-                  <label class="form-label fw-semibold" for="composition-tag">Címke</label>
-                  <select
-                    id="composition-tag"
-                    name="compositionTag"
-                    class="form-select mb-3"
-                    [(ngModel)]="tag"
-                    (ngModelChange)="onTagChange()">
-                    <option [ngValue]="''">Minden címke</option>
-                    @for (option of tagOptions; track option.tag) {
-                      <option [ngValue]="option.tag">{{ option.tag }} ({{ option.count }})</option>
-                    }
-                  </select>
-                }
-                <div class="form-check form-switch mb-3">
-                  <input
-                    class="form-check-input"
-                    type="checkbox"
-                    role="switch"
-                    id="composition-reviewed"
-                    name="compositionReviewed"
-                    [(ngModel)]="onlyReviewed"
-                    (ngModelChange)="onReviewedChange()">
-                  <label class="form-check-label" for="composition-reviewed">Csak a már tanult szavak</label>
-                  <div class="form-text">Csak azok a kártyák, amelyeket legalább egyszer már ismételtél.</div>
+                  <div class="col-12">
+                    <div class="form-check form-switch mb-0">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="composition-reviewed"
+                        name="compositionReviewed"
+                        [(ngModel)]="onlyReviewed"
+                        (ngModelChange)="onReviewedChange()">
+                      <label class="form-check-label" for="composition-reviewed">Csak a már tanult szavak</label>
+                      <div class="form-text">Csak azok a kártyák, amelyeket legalább egyszer már ismételtél.</div>
+                    </div>
+                  </div>
                 </div>
-                <div class="form-check form-switch mb-3">
+
+                <h2 class="setup-step">3. Visszajelzés</h2>
+                <div class="form-check form-switch mb-0">
                   <input
                     class="form-check-input"
                     type="checkbox"
@@ -152,17 +161,18 @@ const MAX_TEXT_LENGTH = 500;
                   <label class="form-check-label" for="composition-translation">A szövegem magyar jelentése az ellenőrzés után</label>
                   <div class="form-text">Közös beállítás a Nyelvtan nézettel. Nem jár külön MI-hívással.</div>
                 </div>
+
                 @if (emptySelection) {
-                  <div class="alert alert-info" role="status">Ebben a választásban nincs kártya.</div>
+                  <div class="alert alert-info mt-3 mb-0" role="status">Ebben a választásban nincs kártya.</div>
                 }
                 @if (tooFewCards !== null) {
-                  <div class="alert alert-info" role="status">Ebben a választásban csak {{ tooFewCards }} különböző szó van; válassz kevesebb szót feladatonként, vagy bővítsd a választást.</div>
+                  <div class="alert alert-info mt-3 mb-0" role="status">Ebben a választásban csak {{ tooFewCards }} különböző szó van; válassz kevesebb szót feladatonként, vagy bővítsd a választást.</div>
                 }
-                <button type="submit" class="btn btn-primary" [disabled]="isLoadingCards">
+                <button type="submit" class="btn btn-primary btn-lg w-100 mt-4" [disabled]="isLoadingCards">
                   @if (isLoadingCards) {
                     <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
                   }
-                  Kezdés
+                  Indítás
                 </button>
               }
             </div>
@@ -170,11 +180,17 @@ const MAX_TEXT_LENGTH = 500;
         }
 
         @if (phase === 'practice' && words.length > 0) {
-          <div class="d-flex justify-content-between align-items-center mb-2 small text-body-secondary">
-            <span>{{ taskNumber }}. feladat</span>
-            <span>{{ correctCount }} / {{ checkedCount }} helyes</span>
-          </div>
-          <section class="card shadow-sm">
+          <section class="session-bar" aria-label="A gyakorlás állása">
+            <div class="session-bar-top flex-wrap">
+              <span class="fw-semibold">{{ taskNumber }}. feladat</span>
+              <div class="d-flex gap-2 ms-auto">
+                <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="isBusy" (click)="finish()">Befejezés</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" [disabled]="isBusy" (click)="backToSetup()">Vissza a beállításokhoz</button>
+              </div>
+            </div>
+            <p class="session-meta">{{ words.length }} szó feladatonként · {{ checkedCount > 0 ? correctCount + ' / ' + checkedCount + ' helyes' : 'még nincs ellenőrzött szöveg' }}</p>
+          </section>
+          <section class="card border-0 shadow-sm">
             <div class="card-body">
               <p class="mb-2">Használd mind a(z) {{ words.length }} szót egy-két összefüggő mondatban:</p>
               <ul class="composition-words list-unstyled mb-3">
@@ -303,14 +319,10 @@ const MAX_TEXT_LENGTH = 500;
               }
             </div>
           </section>
-          <div class="d-flex justify-content-center flex-wrap gap-2 mt-3">
-            <button type="button" class="btn btn-link btn-sm" [disabled]="isBusy" (click)="finish()">Befejezés</button>
-            <button type="button" class="btn btn-link btn-sm" [disabled]="isBusy" (click)="backToSetup()">Vissza a beállításokhoz</button>
-          </div>
         }
 
         @if (phase === 'done') {
-          <section class="card shadow-sm text-center">
+          <section class="card border-0 shadow-sm text-center">
             <div class="card-body py-4">
               <h2 class="h5 mb-2">Kész!</h2>
               <p class="mb-3">{{ checkedCount }} ellenőrzött szövegből {{ correctCount }} lett helyes.</p>
