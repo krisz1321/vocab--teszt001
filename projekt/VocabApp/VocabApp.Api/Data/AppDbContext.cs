@@ -20,6 +20,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<SharedDeckCard> SharedDeckCards => Set<SharedDeckCard>();
     public DbSet<SharedDeckSave> SharedDeckSaves => Set<SharedDeckSave>();
     public DbSet<FreeStudyMark> FreeStudyMarks => Set<FreeStudyMark>();
+    public DbSet<GrammarAttempt> GrammarAttempts => Set<GrammarAttempt>();
     public DbSet<SavedExample> SavedExamples => Set<SavedExample>();
     public DbSet<SavedDefinition> SavedDefinitions => Set<SavedDefinition>();
 
@@ -52,6 +53,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.AiModel).IsRequired().HasMaxLength(64).HasDefaultValue(AiModels.Default);
         user.Property(u => u.TimeZoneId).IsRequired().HasMaxLength(128).HasDefaultValue(StudyClock.DefaultTimeZoneId);
         user.Property(u => u.AiFillBatchSize).HasDefaultValue(AiFillLimits.DefaultBatchSize);
+        user.Property(u => u.SelectedGrammarTenses).IsRequired().HasMaxLength(GrammarTenses.MaxStoredLength).HasDefaultValue(GrammarTenses.Default);
         user.Property(u => u.StudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.LongestStudyDayStreak).HasDefaultValue(0);
         user.Property(u => u.AiCallCount).HasDefaultValue(0);
@@ -209,6 +211,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .HasForeignKey(mark => mark.CardId)
             .IsRequired()
             .OnDelete(DeleteBehavior.Cascade);
+
+        var grammarAttempt = modelBuilder.Entity<GrammarAttempt>();
+        grammarAttempt.Property(attempt => attempt.Tense).IsRequired().HasMaxLength(GrammarTenses.MaxKeyLength);
+        grammarAttempt.HasIndex(attempt => new { attempt.UserId, attempt.Tense });
+        grammarAttempt.HasOne(attempt => attempt.User)
+            .WithMany()
+            .HasForeignKey(attempt => attempt.UserId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        grammarAttempt.HasOne(attempt => attempt.Card)
+            .WithMany()
+            .HasForeignKey(attempt => attempt.CardId)
+            .OnDelete(DeleteBehavior.SetNull);
 
         var progress = modelBuilder.Entity<CardProgress>();
         progress.HasIndex(cp => cp.CardId).IsUnique();

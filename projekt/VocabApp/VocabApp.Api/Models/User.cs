@@ -54,6 +54,10 @@ public sealed class User
 
     public int AiFillBatchSize { get; set; } = AiFillLimits.DefaultBatchSize;
 
+    // A Nyelvtan nézetben gyakorolt igeidők vesszős listája (GrammarTenses kulcsai).
+    [Required, MaxLength(GrammarTenses.MaxStoredLength)]
+    public string SelectedGrammarTenses { get; set; } = GrammarTenses.Default;
+
     public int StudyDayStreak { get; set; }
 
     public int LongestStudyDayStreak { get; set; }

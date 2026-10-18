@@ -37,6 +37,11 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
         {
             cards = cards.Where(card => card.Progress != null && card.Progress.FirstReviewedAt == null);
         }
+        else if (normalizedFocus == "reviewed")
+        {
+            // A Nyelvtan nézet "csak a már tanult szavak" szűrője: legalább egyszer ismételt kártyák.
+            cards = cards.Where(card => card.Progress != null && card.Progress.FirstReviewedAt != null);
+        }
 
         var marks = dbContext.FreeStudyMarks.Where(mark => mark.UserId == userId);
         var list = await (

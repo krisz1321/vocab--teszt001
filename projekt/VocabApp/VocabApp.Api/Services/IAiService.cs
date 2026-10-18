@@ -53,4 +53,14 @@ public interface IAiService
         int userId,
         RecognizeAmbiguityRequestDto request,
         CancellationToken cancellationToken = default);
+
+    Task<GrammarCheckResponseDto?> CheckGrammarSentenceAsync(
+        int userId,
+        GrammarCheckRequestDto request,
+        CancellationToken cancellationToken = default);
+
+    Task<GrammarExampleResponseDto?> GenerateGrammarExampleAsync(
+        int userId,
+        GrammarExampleRequestDto request,
+        CancellationToken cancellationToken = default);
 }

@@ -552,6 +552,47 @@ namespace VocabApp.Api.Migrations
                     b.ToTable("FreeStudyMarks");
                 });
 
+            modelBuilder.Entity("VocabApp.Api.Models.GrammarAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("CardId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("GrammarCorrect")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Tense")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("TenseCorrect")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("TermUsedCorrectly")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId");
+
+                    b.HasIndex("UserId", "Tense");
+
+                    b.ToTable("GrammarAttempts");
+                });
+
             modelBuilder.Entity("VocabApp.Api.Models.SavedDefinition", b =>
                 {
                     b.Property<int>("Id")
@@ -843,6 +884,13 @@ namespace VocabApp.Api.Migrations
                         .HasColumnType("TEXT")
                         .HasDefaultValue("exact");
 
+                    b.Property<string>("SelectedGrammarTenses")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(300)
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("present_simple,past_simple");
+
                     b.Property<int>("StudyDayStreak")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
@@ -1016,6 +1064,24 @@ namespace VocabApp.Api.Migrations
                         .HasForeignKey("CardId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("VocabApp.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Card");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.GrammarAttempt", b =>
+                {
+                    b.HasOne("VocabApp.Api.Models.Card", "Card")
+                        .WithMany()
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.HasOne("VocabApp.Api.Models.User", "User")
                         .WithMany()

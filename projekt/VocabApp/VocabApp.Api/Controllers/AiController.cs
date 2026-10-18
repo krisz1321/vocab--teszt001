@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using VocabApp.Api.DTOs;
+using VocabApp.Api.Models;
 using VocabApp.Api.Services;
 
 namespace VocabApp.Api.Controllers;
@@ -12,7 +13,7 @@ namespace VocabApp.Api.Controllers;
 [ApiController]
 [EnableRateLimiting("ai")]
 [Route("api/ai")]
-public sealed class AiController(IAiService aiService) : ControllerBase
+public sealed class AiController(IAiService aiService, IGrammarService grammarService) : ControllerBase
 {
     [HttpPost("generate/definition")]
     public async Task<ActionResult<GenerateDefinitionResponseDto>> GenerateDefinition(
@@ -350,6 +351,90 @@ public sealed class AiController(IAiService aiService) : ControllerBase
         {
             return MapAiException(exception);
         }
+    }
+
+    // Nyelvtan nézet: az ellenőrzött mondat eredménye a szerveren mentődik (GrammarAttempt), az SM-2-be nem számít.
+    [HttpPost("grammar/check")]
+    public async Task<ActionResult<GrammarCheckResponseDto>> CheckGrammar(
+        GrammarCheckRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        var isValid = RequireText(request.Sentence, nameof(request.Sentence));
+        isValid &= RequireTense(request.Tense, nameof(request.Tense));
+        if (!isValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            var result = await aiService.CheckGrammarSentenceAsync(userId.Value, request, cancellationToken);
+            if (result is null)
+            {
+                return NotFound(new ProblemDetails
+                {
+                    Title = "A kártya nem található.",
+                    Status = StatusCodes.Status404NotFound
+                });
+            }
+
+            await grammarService.RecordAttemptAsync(userId.Value, request.CardId, request.Tense, result, cancellationToken);
+            return Ok(result);
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
+    [HttpPost("grammar/example")]
+    public async Task<ActionResult<GrammarExampleResponseDto>> GenerateGrammarExample(
+        GrammarExampleRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var userId = GetUserId();
+        if (userId is null)
+        {
+            return Unauthorized();
+        }
+
+        if (!RequireTense(request.Tense, nameof(request.Tense)))
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        try
+        {
+            var result = await aiService.GenerateGrammarExampleAsync(userId.Value, request, cancellationToken);
+            return result is null
+                ? NotFound(new ProblemDetails
+                {
+                    Title = "A kártya nem található.",
+                    Status = StatusCodes.Status404NotFound
+                })
+                : Ok(result);
+        }
+        catch (AiServiceException exception)
+        {
+            return MapAiException(exception);
+        }
+    }
+
+    private bool RequireTense(string value, string propertyName)
+    {
+        if (GrammarTenses.IsAllowed(value))
+        {
+            return true;
+        }
+
+        ModelState.AddModelError(propertyName, "Ismeretlen igeidő.");
+        return false;
     }
 
     private int? GetUserId()

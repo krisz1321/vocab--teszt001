@@ -410,6 +410,141 @@ public sealed class AiService(
         };
     }
 
+    // Nyelvtan nézet: a tanuló mondata a kért igeidőben, a kártya szavával. A szót és a definíciót a szerver tölti be.
+    public async Task<GrammarCheckResponseDto?> CheckGrammarSentenceAsync(
+        int userId,
+        GrammarCheckRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var card = await dbContext.Cards
+            .AsNoTracking()
+            .Where(item => item.Id == request.CardId && item.Deck.UserId == userId)
+            .Select(item => new { item.Term, item.Definition })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (card is null)
+        {
+            return null;
+        }
+
+        var systemPrompt =
+            "You check a sentence written by a Hungarian learner of English who practises verb tenses. " +
+            "The learner had to write one English sentence in the requested tense that contains the supplied term " +
+            "in the meaning given by the definition. Judge three things separately. termUsedCorrectly: the sentence " +
+            "contains the term (an inflected form such as a plural noun or a conjugated verb is fine) and uses it in " +
+            "the meaning of the definition. tenseCorrect: the main verb phrase of the sentence is in the requested " +
+            "tense; when the term is a stative verb that does not normally take a continuous form, a continuous " +
+            "tense is incorrect and the feedback explains why. grammarCorrect: the sentence is grammatical English; " +
+            "ignore capitalisation and the final punctuation mark. A short or simple but correct sentence is " +
+            "acceptable; the feedback may then suggest a richer sentence. Return only a JSON object with exactly " +
+            "five properties: termUsedCorrectly (boolean), tenseCorrect (boolean), grammarCorrect (boolean), " +
+            "feedback (a non-empty Hungarian string of at most three sentences addressed to the learner), and " +
+            "correctedSentence (a corrected version of the learner's sentence in the requested tense, at most 300 " +
+            "characters, or an empty string when all three checks pass).";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            term = card.Term,
+            definition = card.Definition,
+            tense = GrammarTenses.Describe(request.Tense),
+            sentence = request.Sentence.Trim()
+        });
+
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+        var parsed = DeserializeContent<GrammarCheckContent>(content);
+        var result = new GrammarCheckResponseDto
+        {
+            TermUsedCorrectly = parsed.TermUsedCorrectly,
+            TenseCorrect = parsed.TenseCorrect,
+            GrammarCorrect = parsed.GrammarCorrect,
+            Feedback = parsed.Feedback?.Trim() ?? string.Empty,
+            CorrectedSentence = parsed.CorrectedSentence?.Trim() ?? string.Empty
+        };
+
+        // Az összesített ítéletet a szerver számolja, nem az MI-re bízza.
+        result.IsCorrect = result.TermUsedCorrectly && result.TenseCorrect && result.GrammarCorrect;
+        if (result.IsCorrect)
+        {
+            result.CorrectedSentence = string.Empty;
+        }
+
+        if (string.IsNullOrWhiteSpace(result.Feedback) ||
+            result.Feedback.Length > 500 ||
+            result.CorrectedSentence.Length > 500)
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI grammar check did not satisfy the response contract.");
+        }
+
+        return result;
+    }
+
+    // Nyelvtan nézet: mintamondat a kért igeidőben. Nem kerül a SavedExample táblába, mert ott nincs igeidő.
+    public async Task<GrammarExampleResponseDto?> GenerateGrammarExampleAsync(
+        int userId,
+        GrammarExampleRequestDto request,
+        CancellationToken cancellationToken = default)
+    {
+        var card = await dbContext.Cards
+            .AsNoTracking()
+            .Where(item => item.Id == request.CardId && item.Deck.UserId == userId)
+            .Select(item => new
+            {
+                item.Term,
+                item.Definition,
+                DeckLevel = item.Deck.ExampleLevel,
+                AccountLevel = item.Deck.User.ExampleLevel
+            })
+            .SingleOrDefaultAsync(cancellationToken);
+
+        if (card is null)
+        {
+            return null;
+        }
+
+        string level;
+        if (ExampleLevels.IsAllowed(card.DeckLevel))
+        {
+            level = card.DeckLevel;
+        }
+        else if (ExampleLevels.IsAllowed(card.AccountLevel))
+        {
+            level = card.AccountLevel;
+        }
+        else
+        {
+            level = ExampleLevels.Default;
+        }
+
+        var systemPrompt =
+            "Write one natural English example sentence in the requested tense that contains the supplied term in " +
+            "the meaning given by the definition. The term may be inflected (for example a plural noun or a " +
+            "conjugated verb). The main verb phrase must clearly be in the requested tense; include a time " +
+            "expression or context that makes the tense unambiguous. " +
+            $"The requested CEFR level is {level}; prefer that level's vocabulary. " +
+            "Return only a JSON object with exactly one string property: example.";
+        var userPrompt = JsonSerializer.Serialize(new
+        {
+            term = card.Term,
+            definition = card.Definition,
+            tense = GrammarTenses.Describe(request.Tense),
+            Level = level
+        });
+
+        var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
+        var sentence = DeserializeContent<GeneratedExampleContent>(content).Example.Trim();
+
+        // A szó jelenlétét nem ellenőrzi tokenre pontosan, mert az ige vagy a főnév ragozva szerepelhet.
+        if (string.IsNullOrWhiteSpace(sentence) || sentence.Length > 500)
+        {
+            throw new AiServiceException(
+                AiServiceErrorKind.InvalidResponse,
+                "The AI grammar example did not satisfy the response contract.");
+        }
+
+        return new GrammarExampleResponseDto { Example = sentence };
+    }
+
     public async Task<GenerateDeckFillResponseDto?> GenerateDeckFillAsync(
         int userId,
         GenerateDeckFillRequestDto request,
@@ -1080,6 +1215,19 @@ public sealed class AiService(
     private sealed class GeneratedExampleContent
     {
         public string Example { get; set; } = string.Empty;
+    }
+
+    private sealed class GrammarCheckContent
+    {
+        public bool TermUsedCorrectly { get; set; }
+
+        public bool TenseCorrect { get; set; }
+
+        public bool GrammarCorrect { get; set; }
+
+        public string? Feedback { get; set; }
+
+        public string? CorrectedSentence { get; set; }
     }
 
     private sealed class GeneratedDeckFillContent
