@@ -39,6 +39,41 @@ export interface StudyStatsCard {
   lastReviewedAt: string | null;
 }
 
+export interface StudyStatsTense { tense: string; attemptCount: number; correctCount: number; }
+export interface StudyStatsGrammar {
+  attemptCount: number;
+  correctCount: number;
+  manuallyAcceptedCount: number;
+  termErrorCount: number;
+  tenseErrorCount: number;
+  grammarErrorCount: number;
+  tenses: StudyStatsTense[];
+}
+export interface StudyStatsComposition {
+  attemptCount: number;
+  correctCount: number;
+  manuallyAcceptedCount: number;
+  wordCount: number;
+  correctWordCount: number;
+  wordErrorCount: number;
+  grammarErrorCount: number;
+  coherenceErrorCount: number;
+}
+export interface StudyStatsPracticeWord { term: string; deckName: string; useCount: number; errorCount: number; }
+export interface StudyStatsPracticeWeek {
+  weekStart: string;
+  grammarAttemptCount: number;
+  grammarCorrectCount: number;
+  compositionAttemptCount: number;
+  compositionCorrectCount: number;
+}
+export interface StudyStatsPractice {
+  grammar: StudyStatsGrammar;
+  composition: StudyStatsComposition;
+  problemWords: StudyStatsPracticeWord[];
+  weeks: StudyStatsPracticeWeek[];
+}
+
 export interface StudyStats {
   totalCards: number;
   dueCards: number;
@@ -60,6 +95,7 @@ export interface StudyStats {
   maturity: StudyStatsMaturity;
   decks: StudyStatsDeck[];
   leechCount: number;
+  practice: StudyStatsPractice;
 }
 
 export type StatsTab = 'overview' | 'progress' | 'words';
@@ -122,6 +158,41 @@ export interface CardRow extends StudyStatsCard {
   nextTime: number;
 }
 
+export interface PracticeTenseRow {
+  key: string;
+  label: string;
+  attempts: number;
+  correct: number;
+  percent: number | null;
+}
+
+export interface PracticeErrorRow { key: string; label: string; count: number; total: number; percent: number; }
+
+export interface PracticeTrendSeries { key: string; label: string; paths: string[]; points: TrendPoint[]; }
+export interface PracticeTrend {
+  width: number;
+  height: number;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  series: PracticeTrendSeries[];
+  xLabels: TrendLabel[];
+  hasData: boolean;
+  summary: string;
+}
+
+export interface PracticeView {
+  hasPractice: boolean;
+  grammarPercent: number | null;
+  compositionPercent: number | null;
+  tenses: PracticeTenseRow[];
+  weakestTense: PracticeTenseRow | null;
+  /** Csak a próbálkozással rendelkező mód (Nyelvtan, Mondatok) szerepel benne. */
+  errorGroups: { title: string; rows: PracticeErrorRow[] }[];
+  trend: PracticeTrend;
+}
+
 export interface StatsView {
   heat: HeatMap;
   trend: Trend;
@@ -142,6 +213,7 @@ export interface StatsView {
   cards: CardRow[];
   chipCounts: Record<CardFilter, number>;
   hasAnswers: boolean;
+  practice: PracticeView;
 }
 
 const DAY_MS = 86_400_000;
@@ -521,8 +593,150 @@ export function buildStatsView(stats: StudyStats, now: Date): StatsView {
     })),
     cards: rows,
     chipCounts,
+    practice: buildPracticeView(stats.practice),
     hasAnswers: stats.retention.answerCount > 0 || activity.some(day => day.answerCount > 0)
       || stats.cards.some(card => card.correctCount + card.incorrectCount > 0),
+  };
+}
+
+// A kulcsok és feliratok a grammar.component.ts TENSE_OPTIONS listájának másolata.
+const TENSE_LABELS: Record<string, string> = {
+  present_simple: 'Present simple',
+  present_continuous: 'Present continuous',
+  present_perfect: 'Present perfect',
+  present_perfect_continuous: 'Present perfect continuous',
+  past_simple: 'Past simple',
+  past_continuous: 'Past continuous',
+  past_perfect: 'Past perfect',
+  past_perfect_continuous: 'Past perfect continuous',
+  future_simple: 'Future simple (will)',
+  going_to: 'Be going to',
+  future_continuous: 'Future continuous',
+  future_perfect: 'Future perfect',
+  future_perfect_continuous: 'Future perfect continuous',
+};
+
+// A leggyengébb igeidő csak elég próbálkozás után, és csak akkor kerül kiemelésre, ha valóban gyenge.
+const WEAKEST_TENSE_MIN_ATTEMPTS = 3;
+const WEAKEST_TENSE_MAX_PERCENT = 80;
+
+function errorRows(total: number, items: { key: string; label: string; count: number }[]): PracticeErrorRow[] {
+  return total === 0
+    ? []
+    : items.map(item => ({ ...item, total, percent: percent(item.count, total) ?? 0 }));
+}
+
+function pickWeakestTense(tenses: PracticeTenseRow[]): PracticeTenseRow | null {
+  const candidates = tenses
+    .filter(row => row.attempts >= WEAKEST_TENSE_MIN_ATTEMPTS && row.percent !== null && row.percent < WEAKEST_TENSE_MAX_PERCENT)
+    .sort((a, b) => (a.percent ?? 0) - (b.percent ?? 0) || b.attempts - a.attempts);
+  return candidates[0] ?? null;
+}
+
+function buildPracticeTrend(weeks: StudyStatsPracticeWeek[]): PracticeTrend {
+  const width = 600;
+  const height = 190;
+  const left = 50;
+  const right = 26;
+  const top = 12;
+  const bottom = 28;
+  const stepX = weeks.length > 1 ? (width - left - right) / (weeks.length - 1) : 0;
+  const plotHeight = height - top - bottom;
+  const xOf = (index: number) => weeks.length > 1 ? left + stepX * index : (left + width - right) / 2;
+  const xLabels: TrendLabel[] = weeks
+    .map((week, index) => ({ index, x: xOf(index), text: shortDay.format(parseDay(week.weekStart)) }))
+    .filter(label => weeks.length < 6 || (weeks.length - 1 - label.index) % 2 === 0)
+    .map(({ x, text }) => ({ x, text }));
+
+  const buildSeries = (
+    key: string,
+    label: string,
+    pick: (week: StudyStatsPracticeWeek) => { attempts: number; correct: number }): PracticeTrendSeries => {
+    const paths: string[] = [];
+    const points: TrendPoint[] = [];
+    let current = '';
+    weeks.forEach((week, index) => {
+      const { attempts, correct } = pick(week);
+      const accuracy = percent(correct, attempts);
+      if (accuracy === null) {
+        if (current) {
+          paths.push(current);
+          current = '';
+        }
+        return;
+      }
+
+      const x = xOf(index);
+      const y = top + (1 - accuracy / 100) * plotHeight;
+      points.push({
+        x,
+        y,
+        title: `${label}, ${shortDay.format(parseDay(week.weekStart))} hete: ${accuracy}% helyes (${correct}/${attempts})`,
+      });
+      current += `${current ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    if (current) {
+      paths.push(current);
+    }
+
+    return { key, label, paths, points };
+  };
+
+  const series = [
+    buildSeries('grammar', 'Nyelvtan', week => ({ attempts: week.grammarAttemptCount, correct: week.grammarCorrectCount })),
+    buildSeries('composition', 'Mondatok', week => ({ attempts: week.compositionAttemptCount, correct: week.compositionCorrectCount })),
+  ];
+  const hasData = series.some(item => item.points.length > 0);
+  return {
+    width,
+    height,
+    left,
+    right,
+    top,
+    bottom,
+    series,
+    xLabels,
+    hasData,
+    summary: hasData
+      ? `A nyelvtan- és mondatgyakorlás heti pontossága az elmúlt ${weeks.length} hétben.`
+      : 'Még nincs elég adat a heti pontosság megjelenítéséhez.',
+  };
+}
+
+export function buildPracticeView(practice: StudyStatsPractice): PracticeView {
+  const { grammar, composition } = practice;
+  const tenses = grammar.tenses.map(tense => ({
+    key: tense.tense,
+    label: TENSE_LABELS[tense.tense] ?? tense.tense,
+    attempts: tense.attemptCount,
+    correct: tense.correctCount,
+    percent: percent(tense.correctCount, tense.attemptCount),
+  }));
+  return {
+    hasPractice: grammar.attemptCount > 0 || composition.attemptCount > 0,
+    grammarPercent: percent(grammar.correctCount, grammar.attemptCount),
+    compositionPercent: percent(composition.correctCount, composition.attemptCount),
+    tenses,
+    weakestTense: pickWeakestTense(tenses),
+    errorGroups: [
+      {
+        title: 'Nyelvtan',
+        rows: errorRows(grammar.attemptCount - grammar.manuallyAcceptedCount, [
+          { key: 'term', label: 'Szóhasználat', count: grammar.termErrorCount },
+          { key: 'tense', label: 'Igeidő', count: grammar.tenseErrorCount },
+          { key: 'grammar', label: 'Nyelvtan', count: grammar.grammarErrorCount },
+        ]),
+      },
+      {
+        title: 'Mondatok',
+        rows: errorRows(composition.attemptCount - composition.manuallyAcceptedCount, [
+          { key: 'word', label: 'Szóhasználat', count: composition.wordErrorCount },
+          { key: 'grammar', label: 'Nyelvtan', count: composition.grammarErrorCount },
+          { key: 'coherence', label: 'Összefüggés', count: composition.coherenceErrorCount },
+        ]),
+      },
+    ].filter(group => group.rows.length > 0),
+    trend: buildPracticeTrend(practice.weeks),
   };
 }
 

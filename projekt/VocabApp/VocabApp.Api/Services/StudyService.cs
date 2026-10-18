@@ -17,6 +17,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
     private const int MatureIntervalDays = 21;
     private const int MaxAnswerDurationSeconds = 600;
     private const int MaxConfusionBonus = 10;
+    private const int PracticeWeeksWindow = 12;
+    private const int PracticeProblemWordLimit = 10;
     public async Task<StudyNextResult> GetNextCardAsync(
         int userId,
         int? deckId,
@@ -269,7 +271,8 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 .ThenByDescending(card => card.IncorrectCount)
                 .ThenBy(card => card.Term, StringComparer.OrdinalIgnoreCase)
                 .ToList(),
-            Confusions = await LoadTopConfusionsAsync(userId, cancellationToken)
+            Confusions = await LoadTopConfusionsAsync(userId, cancellationToken),
+            Practice = await LoadPracticeStatsAsync(userId, today, user?.TimeZoneId, cancellationToken)
         };
     }
 
@@ -661,6 +664,169 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
                 Count = confusion.Count
             })
             .ToListAsync(cancellationToken);
+    }
+
+    private async Task<StudyStatsPracticeDto> LoadPracticeStatsAsync(
+        int userId,
+        DateTime today,
+        string? timeZoneId,
+        CancellationToken cancellationToken)
+    {
+        var grammarAttempts = await dbContext.GrammarAttempts
+            .AsNoTracking()
+            .Where(attempt => attempt.UserId == userId)
+            .Select(attempt => new
+            {
+                attempt.Tense,
+                attempt.IsCorrect,
+                attempt.ManuallyAccepted,
+                attempt.TermUsedCorrectly,
+                attempt.TenseCorrect,
+                attempt.GrammarCorrect,
+                attempt.CreatedAt
+            })
+            .ToListAsync(cancellationToken);
+
+        var compositionAttempts = await dbContext.CompositionAttempts
+            .AsNoTracking()
+            .Where(attempt => attempt.UserId == userId)
+            .Select(attempt => new
+            {
+                attempt.IsCorrect,
+                attempt.ManuallyAccepted,
+                attempt.GrammarCorrect,
+                attempt.Coherent,
+                attempt.CreatedAt,
+                HasWordError = attempt.Words.Any(word => !word.UsedCorrectly)
+            })
+            .ToListAsync(cancellationToken);
+
+        // A kézzel elfogadott próbálkozásban az MI ítélete téves volt, ezért a hibatípusokba nem számít bele.
+        var judgedGrammar = grammarAttempts.Where(attempt => !attempt.ManuallyAccepted).ToList();
+        var judgedComposition = compositionAttempts.Where(attempt => !attempt.ManuallyAccepted).ToList();
+
+        var wordCount = await dbContext.CompositionAttemptWords
+            .AsNoTracking()
+            .CountAsync(word => word.Attempt.UserId == userId, cancellationToken);
+        var correctWordCount = await dbContext.CompositionAttemptWords
+            .AsNoTracking()
+            .CountAsync(word => word.Attempt.UserId == userId && word.UsedCorrectly, cancellationToken);
+
+        var tenses = GrammarTenses.Canonical(grammarAttempts.Select(attempt => attempt.Tense).Distinct())
+            .Select(tense =>
+            {
+                var attempts = grammarAttempts.Where(attempt => attempt.Tense == tense).ToList();
+                return new StudyStatsTenseDto
+                {
+                    Tense = tense,
+                    AttemptCount = attempts.Count,
+                    CorrectCount = attempts.Count(attempt => attempt.IsCorrect)
+                };
+            })
+            .ToList();
+
+        var grammarWeeks = grammarAttempts
+            .Select(attempt => (Week: StartOfWeek(StudyClock.LocalDateFromStoredUtc(timeZoneId, attempt.CreatedAt)), attempt.IsCorrect))
+            .ToList();
+        var compositionWeeks = compositionAttempts
+            .Select(attempt => (Week: StartOfWeek(StudyClock.LocalDateFromStoredUtc(timeZoneId, attempt.CreatedAt)), attempt.IsCorrect))
+            .ToList();
+        var firstWeek = StartOfWeek(today).AddDays(-7 * (PracticeWeeksWindow - 1));
+        var weeks = Enumerable.Range(0, PracticeWeeksWindow)
+            .Select(index =>
+            {
+                var start = firstWeek.AddDays(7 * index);
+                return new StudyStatsPracticeWeekDto
+                {
+                    WeekStart = start,
+                    GrammarAttemptCount = grammarWeeks.Count(item => item.Week == start),
+                    GrammarCorrectCount = grammarWeeks.Count(item => item.Week == start && item.IsCorrect),
+                    CompositionAttemptCount = compositionWeeks.Count(item => item.Week == start),
+                    CompositionCorrectCount = compositionWeeks.Count(item => item.Week == start && item.IsCorrect)
+                };
+            })
+            .ToList();
+
+        return new StudyStatsPracticeDto
+        {
+            Grammar = new StudyStatsGrammarDto
+            {
+                AttemptCount = grammarAttempts.Count,
+                CorrectCount = grammarAttempts.Count(attempt => attempt.IsCorrect),
+                ManuallyAcceptedCount = grammarAttempts.Count(attempt => attempt.ManuallyAccepted),
+                TermErrorCount = judgedGrammar.Count(attempt => !attempt.TermUsedCorrectly),
+                TenseErrorCount = judgedGrammar.Count(attempt => !attempt.TenseCorrect),
+                GrammarErrorCount = judgedGrammar.Count(attempt => !attempt.GrammarCorrect),
+                Tenses = tenses
+            },
+            Composition = new StudyStatsCompositionDto
+            {
+                AttemptCount = compositionAttempts.Count,
+                CorrectCount = compositionAttempts.Count(attempt => attempt.IsCorrect),
+                ManuallyAcceptedCount = compositionAttempts.Count(attempt => attempt.ManuallyAccepted),
+                WordCount = wordCount,
+                CorrectWordCount = correctWordCount,
+                WordErrorCount = judgedComposition.Count(attempt => attempt.HasWordError),
+                GrammarErrorCount = judgedComposition.Count(attempt => !attempt.GrammarCorrect),
+                CoherenceErrorCount = judgedComposition.Count(attempt => !attempt.Coherent)
+            },
+            ProblemWords = await LoadPracticeProblemWordsAsync(userId, cancellationToken),
+            Weeks = weeks
+        };
+    }
+
+    // A Nyelvtan (a kártya szava) és a Mondatok (a kisorsolt szavak) szóhasználati ítéletei kártyánként összesítve.
+    // A kézzel elfogadott próbálkozás és a törölt kártya kimarad.
+    private async Task<List<StudyStatsPracticeWordDto>> LoadPracticeProblemWordsAsync(
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var grammarUses = await dbContext.GrammarAttempts
+            .AsNoTracking()
+            .Where(attempt => attempt.UserId == userId
+                && !attempt.ManuallyAccepted
+                && attempt.Card != null
+                && attempt.Card.Deck.UserId == userId)
+            .Select(attempt => new
+            {
+                CardId = attempt.CardId!.Value,
+                attempt.Card!.Term,
+                DeckName = attempt.Card.Deck.Name,
+                UsedCorrectly = attempt.TermUsedCorrectly
+            })
+            .ToListAsync(cancellationToken);
+
+        var compositionUses = await dbContext.CompositionAttemptWords
+            .AsNoTracking()
+            .Where(word => word.Attempt.UserId == userId
+                && !word.Attempt.ManuallyAccepted
+                && word.Card != null
+                && word.Card.Deck.UserId == userId)
+            .Select(word => new
+            {
+                CardId = word.CardId!.Value,
+                word.Card!.Term,
+                DeckName = word.Card.Deck.Name,
+                word.UsedCorrectly
+            })
+            .ToListAsync(cancellationToken);
+
+        return grammarUses
+            .Concat(compositionUses)
+            .GroupBy(use => use.CardId)
+            .Select(group => new StudyStatsPracticeWordDto
+            {
+                Term = group.First().Term,
+                DeckName = group.First().DeckName,
+                UseCount = group.Count(),
+                ErrorCount = group.Count(use => !use.UsedCorrectly)
+            })
+            .Where(word => word.ErrorCount > 0)
+            .OrderByDescending(word => word.ErrorCount)
+            .ThenByDescending(word => (double)word.ErrorCount / word.UseCount)
+            .ThenBy(word => word.Term, StringComparer.OrdinalIgnoreCase)
+            .Take(PracticeProblemWordLimit)
+            .ToList();
     }
 
     private async Task<string?> RecordConfusionAsync(

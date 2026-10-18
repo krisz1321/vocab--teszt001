@@ -22,6 +22,65 @@ public sealed class StudyStatsDto
     public StudyStatsMaturityDto Maturity { get; set; } = new();
     public List<StudyStatsDeckDto> Decks { get; set; } = [];
     public int LeechCount { get; set; }
+    public StudyStatsPracticeDto Practice { get; set; } = new();
+}
+
+// A Nyelvtan és a Mondatok nézet MI-vel ellenőrzött próbálkozásai. Nem része az SM-2-nek és a tanulási időnek.
+public sealed class StudyStatsPracticeDto
+{
+    public StudyStatsGrammarDto Grammar { get; set; } = new();
+    public StudyStatsCompositionDto Composition { get; set; } = new();
+    public List<StudyStatsPracticeWordDto> ProblemWords { get; set; } = [];
+    public List<StudyStatsPracticeWeekDto> Weeks { get; set; } = [];
+}
+
+// A *ErrorCount mezők a kézzel elfogadott próbálkozások nélkül számolnak (ott az MI részítélete téves volt).
+public sealed class StudyStatsGrammarDto
+{
+    public int AttemptCount { get; set; }
+    public int CorrectCount { get; set; }
+    public int ManuallyAcceptedCount { get; set; }
+    public int TermErrorCount { get; set; }
+    public int TenseErrorCount { get; set; }
+    public int GrammarErrorCount { get; set; }
+    public List<StudyStatsTenseDto> Tenses { get; set; } = [];
+}
+
+// Egy kártya szava, amelyet a Nyelvtan vagy a Mondatok nézetben legalább egyszer rosszul használt a tanuló.
+public sealed class StudyStatsPracticeWordDto
+{
+    public string Term { get; set; } = string.Empty;
+    public string DeckName { get; set; } = string.Empty;
+    public int UseCount { get; set; }
+    public int ErrorCount { get; set; }
+}
+
+public sealed class StudyStatsPracticeWeekDto
+{
+    public DateTime WeekStart { get; set; }
+    public int GrammarAttemptCount { get; set; }
+    public int GrammarCorrectCount { get; set; }
+    public int CompositionAttemptCount { get; set; }
+    public int CompositionCorrectCount { get; set; }
+}
+
+public sealed class StudyStatsTenseDto
+{
+    public string Tense { get; set; } = string.Empty;
+    public int AttemptCount { get; set; }
+    public int CorrectCount { get; set; }
+}
+
+public sealed class StudyStatsCompositionDto
+{
+    public int AttemptCount { get; set; }
+    public int CorrectCount { get; set; }
+    public int ManuallyAcceptedCount { get; set; }
+    public int WordCount { get; set; }
+    public int CorrectWordCount { get; set; }
+    public int WordErrorCount { get; set; }
+    public int GrammarErrorCount { get; set; }
+    public int CoherenceErrorCount { get; set; }
 }
 
 public sealed class StudyStatsTodayDto

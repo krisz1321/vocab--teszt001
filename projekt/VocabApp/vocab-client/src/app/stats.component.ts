@@ -231,8 +231,8 @@ const PAGE_SIZE = 25;
                       @for (tick of [0, 50, 100]; track tick) {
                         <line class="trend-grid"
                           [attr.x1]="v.trend.left" [attr.x2]="v.trend.width - v.trend.right"
-                          [attr.y1]="trendY(tick, v)" [attr.y2]="trendY(tick, v)" />
-                        <text class="trend-text" text-anchor="end" [attr.x]="v.trend.left - 6" [attr.y]="trendY(tick, v) + 4">{{ tick }}%</text>
+                          [attr.y1]="trendY(tick, v.trend)" [attr.y2]="trendY(tick, v.trend)" />
+                        <text class="trend-text" text-anchor="end" [attr.x]="v.trend.left - 6" [attr.y]="trendY(tick, v.trend) + 4">{{ tick }}%</text>
                       }
                       @for (path of v.trend.paths; track $index) {
                         <path class="trend-line" [attr.d]="path" />
@@ -304,6 +304,114 @@ const PAGE_SIZE = 25;
                   </ul>
                 </div>
               </section>
+
+              <section class="card border-0 shadow-sm mb-3" aria-labelledby="stats-practice">
+                <div class="card-body p-3 p-md-4">
+                  <h2 id="stats-practice" class="h6 fw-semibold mb-1">Nyelvtan és mondatok</h2>
+                  <p class="text-body-secondary small mb-3">Az MI-vel ellenőrzött próbálkozásaid. Nem számítanak bele az ismétlésekbe, a napi sorozatba és a tanulási időbe.</p>
+                  @if (v.practice.hasPractice) {
+                    <div class="row g-3 mb-3">
+                      <div class="col-6">
+                        <div class="text-body-secondary small">Nyelvtan</div>
+                        <div class="fs-3 fw-semibold lh-1 mt-1">{{ v.practice.grammarPercent === null ? '—' : v.practice.grammarPercent + '%' }}</div>
+                        <div class="text-body-secondary small mt-1">{{ s.practice.grammar.correctCount }} / {{ s.practice.grammar.attemptCount }} helyes</div>
+                      </div>
+                      <div class="col-6">
+                        <div class="text-body-secondary small">Mondatok</div>
+                        <div class="fs-3 fw-semibold lh-1 mt-1">{{ v.practice.compositionPercent === null ? '—' : v.practice.compositionPercent + '%' }}</div>
+                        <div class="text-body-secondary small mt-1">{{ s.practice.composition.correctCount }} / {{ s.practice.composition.attemptCount }} helyes</div>
+                      </div>
+                    </div>
+
+                    @if (v.practice.weakestTense; as weakest) {
+                      <div class="alert alert-warning py-2 px-3 small mb-3" role="note">
+                        Leggyengébb igeidő: <strong>{{ weakest.label }}</strong> ({{ weakest.correct }} / {{ weakest.attempts }}, {{ weakest.percent }}%).
+                        Érdemes a Nyelvtan menüpontban ezt gyakorolni.
+                      </div>
+                    }
+
+                    @if (v.practice.errorGroups.length > 0) {
+                      <h3 class="small fw-semibold mb-1">Miben hibázol?</h3>
+                      <p class="text-body-secondary small mb-2">A próbálkozások hány százalékában talált hibát az MI az adott szempontban. A kézzel elfogadott válaszok nem számítanak bele.</p>
+                      <div class="row g-3 mb-3">
+                        @for (group of v.practice.errorGroups; track group.title) {
+                          <div class="col-md-6">
+                            <div class="text-body-secondary small mb-1">{{ group.title }}</div>
+                            <ul class="list-unstyled mb-0">
+                              @for (row of group.rows; track row.key) {
+                                <li class="mb-2">
+                                  <div class="d-flex justify-content-between gap-2 small">
+                                    <span>{{ row.label }}</span>
+                                    <span class="text-body-secondary text-nowrap">{{ row.count }} / {{ row.total }} · {{ row.percent }}%</span>
+                                  </div>
+                                  <div class="meter mt-1" role="progressbar" [attr.aria-label]="group.title + ': hibás ' + row.label.toLowerCase()"
+                                    [attr.aria-valuenow]="row.percent" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="meter-bar meter-bad" [style.width.%]="row.percent"></div>
+                                  </div>
+                                </li>
+                              }
+                            </ul>
+                          </div>
+                        }
+                      </div>
+                    }
+
+                    <h3 class="small fw-semibold mb-1">Heti pontosság</h3>
+                    @if (v.practice.trend.hasData) {
+                      <div class="d-flex flex-wrap gap-3 small text-body-secondary mb-2" aria-hidden="true">
+                        @for (line of v.practice.trend.series; track line.key) {
+                          <span class="d-inline-flex align-items-center gap-1"><i class="trend-key" [attr.data-series]="line.key"></i>{{ line.label }}</span>
+                        }
+                      </div>
+                      <svg class="trend mb-3" [attr.viewBox]="'0 0 ' + v.practice.trend.width + ' ' + v.practice.trend.height" role="img" [attr.aria-label]="v.practice.trend.summary">
+                        @for (tick of [0, 50, 100]; track tick) {
+                          <line class="trend-grid"
+                            [attr.x1]="v.practice.trend.left" [attr.x2]="v.practice.trend.width - v.practice.trend.right"
+                            [attr.y1]="trendY(tick, v.practice.trend)" [attr.y2]="trendY(tick, v.practice.trend)" />
+                          <text class="trend-text" text-anchor="end" [attr.x]="v.practice.trend.left - 6" [attr.y]="trendY(tick, v.practice.trend) + 4">{{ tick }}%</text>
+                        }
+                        @for (line of v.practice.trend.series; track line.key) {
+                          @for (path of line.paths; track $index) {
+                            <path class="trend-line" [attr.data-series]="line.key" [attr.d]="path" />
+                          }
+                          @for (point of line.points; track $index) {
+                            <circle class="trend-dot" [attr.data-series]="line.key" r="4" [attr.cx]="point.x" [attr.cy]="point.y"><title>{{ point.title }}</title></circle>
+                          }
+                        }
+                        @for (label of v.practice.trend.xLabels; track $index) {
+                          <text class="trend-text" text-anchor="middle" [attr.x]="label.x" [attr.y]="v.practice.trend.height - 8">{{ label.text }}</text>
+                        }
+                      </svg>
+                    } @else {
+                      <p class="text-body-secondary small mb-3">{{ v.practice.trend.summary }}</p>
+                    }
+
+                    @if (v.practice.tenses.length > 0) {
+                      <h3 class="small fw-semibold mb-2">Igeidők</h3>
+                      <ul class="list-unstyled mb-3">
+                        @for (row of v.practice.tenses; track row.key) {
+                          <li class="mb-2">
+                            <div class="d-flex justify-content-between gap-2 small">
+                              <span>{{ row.label }}</span>
+                              <span class="text-body-secondary text-nowrap">{{ row.correct }} / {{ row.attempts }} · {{ row.percent }}%</span>
+                            </div>
+                            <div class="meter mt-1" role="progressbar" [attr.aria-label]="row.label + ' helyes válaszai'"
+                              [attr.aria-valuenow]="row.percent ?? 0" aria-valuemin="0" aria-valuemax="100">
+                              <div class="meter-bar" [style.width.%]="row.percent ?? 0"></div>
+                            </div>
+                          </li>
+                        }
+                      </ul>
+                    }
+
+                    <p class="small mb-0">
+                      Mondatokban {{ s.practice.composition.correctWordCount }} / {{ s.practice.composition.wordCount }} szót használtál helyesen.
+                    </p>
+                  } @else {
+                    <p class="text-body-secondary mb-0">Még nincs nyelvtan- vagy mondatgyakorlásod. A Nyelvtan és a Mondatok menüpontban ellenőrzött próbálkozásaid itt jelennek meg.</p>
+                  }
+                </div>
+              </section>
             }
 
             <!-- ============================== SZAVAK ============================== -->
@@ -348,6 +456,23 @@ const PAGE_SIZE = 25;
                     @if (v.chipCounts.leech > leechCards().length) {
                       <button type="button" class="btn btn-link btn-sm px-0 mt-2" (click)="showFilter('leech')">Mind a {{ v.chipCounts.leech }} nehéz szó</button>
                     }
+                  </div>
+                </section>
+              }
+
+              @if (s.practice.problemWords.length > 0) {
+                <section class="card border-0 shadow-sm mb-3" aria-labelledby="stats-practice-words">
+                  <div class="card-body p-3 p-md-4">
+                    <h2 id="stats-practice-words" class="h6 fw-semibold mb-1">Mondatban elrontott szavak</h2>
+                    <p class="text-body-secondary small mb-3">A Nyelvtan és a Mondatok menüpontban ezeket a szavakat használtad rosszul. Egy szó a kártyán lehet már megtanult, mondatban mégis nehéz.</p>
+                    <ul class="list-unstyled mb-0">
+                      @for (word of s.practice.problemWords; track $index) {
+                        <li class="d-flex justify-content-between gap-2 py-1 border-top">
+                          <span class="text-break"><strong>{{ word.term }}</strong> <span class="text-body-secondary small">{{ word.deckName }}</span></span>
+                          <span class="small text-nowrap">{{ word.errorCount }} hiba · {{ word.useCount - word.errorCount }} helyes</span>
+                        </li>
+                      }
+                    </ul>
                   </div>
                 </section>
               }
@@ -546,6 +671,11 @@ const PAGE_SIZE = 25;
       @media (max-width: 575.98px) { .trend-text { font-size: 19px; } }
       .trend-line { fill: none; stroke: var(--app-primary); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
       .trend-dot { fill: var(--app-surface); stroke: var(--app-primary); stroke-width: 2.5; }
+      .trend-line[data-series="composition"] { stroke: var(--app-success); stroke-dasharray: 6 4; }
+      .trend-dot[data-series="composition"] { stroke: var(--app-success); }
+      .trend-key { width: 0.9rem; height: 3px; border-radius: 2px; background: var(--app-primary); }
+      .trend-key[data-series="composition"] { background: var(--app-success); }
+      .meter-bad { background: var(--app-danger); }
 
       /* Tudásszintek */
       .maturity-bar { display: flex; height: 1.1rem; border-radius: 999px; overflow: hidden; background: var(--app-surface-2); gap: 2px; }
@@ -694,8 +824,8 @@ export class StatsComponent implements OnInit {
     }
   }
 
-  trendY(percent: number, view: StatsView): number {
-    const { top, height, bottom } = view.trend;
+  trendY(percent: number, frame: { top: number; height: number; bottom: number }): number {
+    const { top, height, bottom } = frame;
     return top + (1 - percent / 100) * (height - top - bottom);
   }
 
