@@ -1412,6 +1412,8 @@ export class DecksComponent implements OnInit, OnDestroy {
   readonly maxTagLength = 24;
   editingCardId: number | null = null;
   cardEditorOpen = false;
+  // A szerkesztő megnyitásakor, kártyaváltáskor és bezáráskor nő: a korábbi kártyához indult MI-válasz nem íródhat az új űrlapba.
+  private editorGeneration = 0;
   errorMessage: string | null = null;
   toastMessage: string | null = null;
   cardError: string | null = null;
@@ -1985,6 +1987,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   // ---------- kártyák
 
   openNewCard(): void {
+    this.editorGeneration++;
     this.detailTab = 'cards';
     this.editingCardId = null;
     this.term = '';
@@ -1998,6 +2001,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   }
 
   editCard(card: VocabCard): void {
+    this.editorGeneration++;
     this.editingCardId = card.id;
     this.term = card.term;
     this.definition = card.definition;
@@ -2011,6 +2015,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   }
 
   closeEditor(): void {
+    this.editorGeneration++;
     this.cardEditorOpen = false;
     this.cardError = null;
     this.editingCardId = null;
@@ -2276,6 +2281,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     }
 
     const deckId = this.selectedDeckId;
+    const generation = this.editorGeneration;
     this.cardError = null;
     this.isGeneratingDefinition = true;
     this.http.post<{ definition: string }>('/api/ai/generate/card-definition', { term, deckId }).pipe(
@@ -2284,9 +2290,17 @@ export class DecksComponent implements OnInit, OnDestroy {
       }),
     ).subscribe({
       next: (response) => {
+        if (generation !== this.editorGeneration) {
+          return;
+        }
+
         this.definition = (response.definition ?? '').trim();
       },
       error: (error: HttpErrorResponse) => {
+        if (generation !== this.editorGeneration) {
+          return;
+        }
+
         this.cardError = this.readAiError(error, 'Az angol definíció generálása');
       },
     });
@@ -2299,6 +2313,7 @@ export class DecksComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const generation = this.editorGeneration;
     this.cardError = null;
     this.isGeneratingTargetMeaning = true;
     this.http.post<{ meanings: string }>('/api/ai/generate/target-meaning', { term, definition }).pipe(
@@ -2307,6 +2322,10 @@ export class DecksComponent implements OnInit, OnDestroy {
       }),
     ).subscribe({
       next: (response) => {
+        if (generation !== this.editorGeneration) {
+          return;
+        }
+
         const combined = this.appendMeanings(this.targetMeanings, response.meanings ?? '');
         if (combined.length > 300) {
           this.cardError = 'A magyar jelentés legfeljebb 300 karakter lehet.';
@@ -2316,6 +2335,10 @@ export class DecksComponent implements OnInit, OnDestroy {
         this.targetMeanings = combined;
       },
       error: (error: HttpErrorResponse) => {
+        if (generation !== this.editorGeneration) {
+          return;
+        }
+
         this.cardError = this.readAiError(error, 'A magyar jelentés generálása');
       },
     });
@@ -2352,6 +2375,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     const deckId = this.selectedDeckId;
     const needDefinition = !this.definition.trim();
     const needMeaning = !this.targetMeanings.trim();
+    const generation = this.editorGeneration;
     this.cardError = null;
     this.isAutoFilling = true;
 
@@ -2367,12 +2391,20 @@ export class DecksComponent implements OnInit, OnDestroy {
         }),
       ).subscribe({
         next: (response) => {
+          if (generation !== this.editorGeneration) {
+            return;
+          }
+
           const combined = this.appendMeanings(this.targetMeanings, response.meanings ?? '');
           if (combined.length <= 300) {
             this.targetMeanings = combined;
           }
         },
         error: (error: HttpErrorResponse) => {
+          if (generation !== this.editorGeneration) {
+            return;
+          }
+
           this.cardError = this.readAiError(error, 'A magyar jelentés generálása');
         },
       });
@@ -2385,11 +2417,21 @@ export class DecksComponent implements OnInit, OnDestroy {
 
     this.http.post<{ definition: string }>('/api/ai/generate/card-definition', { term, deckId }).subscribe({
       next: (response) => {
+        // Ha közben másik kártyát nyitottak meg, a régihez tartozó magyar jelentést sem kérjük le.
+        if (generation !== this.editorGeneration) {
+          this.isAutoFilling = false;
+          return;
+        }
+
         this.definition = (response.definition ?? '').trim();
         fillMeaning(this.definition);
       },
       error: (error: HttpErrorResponse) => {
         this.isAutoFilling = false;
+        if (generation !== this.editorGeneration) {
+          return;
+        }
+
         this.cardError = this.readAiError(error, 'Az angol definíció generálása');
       },
     });
@@ -2459,13 +2501,22 @@ export class DecksComponent implements OnInit, OnDestroy {
     const deckId = this.selectedDeckId;
     const reader = new FileReader();
     reader.onload = () => {
-      const csv = typeof reader.result === 'string' ? reader.result : '';
-      this.sendImport(deckId, csv);
+      const bytes = reader.result instanceof ArrayBuffer ? reader.result : new ArrayBuffer(0);
+      this.sendImport(deckId, this.decodeCsv(bytes));
     };
     reader.onerror = () => {
       this.errorMessage = 'A CSV fájl beolvasása sikertelen.';
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
+  }
+
+  // A magyar Excel alapértelmezett CSV-mentése Windows-1250 kódolású, nem UTF-8; ilyenkor azzal olvassuk be.
+  private decodeCsv(bytes: ArrayBuffer): string {
+    try {
+      return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    } catch {
+      return new TextDecoder('windows-1250').decode(bytes);
+    }
   }
 
   private sendImport(deckId: number, csv: string): void {

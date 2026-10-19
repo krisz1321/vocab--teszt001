@@ -17,8 +17,17 @@ public static class StudyClock
 
     public static DateTime UtcStartOfLocalDate(string? timeZoneId, DateTime localDate)
     {
+        var zone = Resolve(timeZoneId);
         var local = DateTime.SpecifyKind(localDate.Date, DateTimeKind.Unspecified);
-        return TimeZoneInfo.ConvertTimeToUtc(local, Resolve(timeZoneId));
+        // Ahol a nyári időszámítás éjfélkor kezdődik (pl. America/Santiago), a helyi éjfél nem létezik, és a
+        // ConvertTimeToUtc kivételt dobna; ilyenkor a nap a rés utáni első létező percben kezdődik.
+        var guard = 0;
+        while (zone.IsInvalidTime(local) && guard++ < 24 * 60)
+        {
+            local = local.AddMinutes(1);
+        }
+
+        return TimeZoneInfo.ConvertTimeToUtc(local, zone);
     }
 
     public static string NormalizeTimeZoneId(string? timeZoneId)

@@ -22,8 +22,10 @@ public static partial class DeckCsv
     private const int MaxTermLength = 100;
     private const int MaxTextLength = 500;
     private const int MaxTargetMeaningsLength = 300;
+    // Ennyi le nem zárt idézőjelig a hibás sor kimarad; utána az egész fájl érvénytelen (minden újrakezdés a fájl végéig olvas).
+    private const int MaxUnterminatedQuotes = 10;
     private const string HeaderError =
-        "A CSV fejléce term,definition,example, term,definition,example,targetMeanings vagy term,definition,example,targetMeanings,tags legyen.";
+        "A CSV fejléce term,definition,example, term,definition,example,targetMeanings vagy term,definition,example,targetMeanings,tags legyen (vesszővel vagy pontosvesszővel tagolva).";
 
     public static string ToFileName(string deckName)
     {
@@ -81,7 +83,10 @@ public static partial class DeckCsv
             return false;
         }
 
-        var columnCount = contentRecords[0] switch
+        // A magyar területi beállítású Excel pontosvesszővel menti a CSV-t; a tagolót a fejléc dönti el.
+        var header = contentRecords[0].Trim();
+        var delimiter = header.Contains(';') && !header.Contains(',') ? ';' : ',';
+        var columnCount = header.Replace(delimiter, ',') switch
         {
             Header => 3,
             HeaderWithTargetMeanings => 4,
@@ -104,7 +109,7 @@ public static partial class DeckCsv
         // A hibás sor nem buktatja meg az egész importot: kimarad, és a hibája a skipped listába kerül.
         for (var index = 0; index < dataRecords.Count; index++)
         {
-            if (!TryParseRow(dataRecords[index], index + 1, columnCount, out var row, out var rowError))
+            if (!TryParseRow(dataRecords[index], index + 1, columnCount, delimiter, out var row, out var rowError))
             {
                 skipped.Add(rowError ?? $"CSV {index + 1}. sor: érvénytelen sor.");
                 continue;
@@ -150,67 +155,91 @@ public static partial class DeckCsv
         return text.Length > 1 && text[0] == '\'' && StartsLikeFormula(text[1..]) ? text[1..] : text;
     }
 
+    // Egy le nem zárt idézőjel csak a saját sorát rontja el: az a fizikai sor egy rekord lesz (a mezőbontásnál
+    // "érvénytelen idézőjelezés" hibával kimarad), és a bontás a következő sortöréstől folytatódik.
     private static bool TrySplitRecords(string text, out List<string> records, out string? error)
     {
         records = [];
         error = null;
-        var current = new StringBuilder();
-        var inQuotes = false;
-
-        for (var i = 0; i < text.Length; i++)
+        var start = 0;
+        for (var restarts = 0; ; restarts++)
         {
-            var character = text[i];
-            if (character == '"')
+            var current = new StringBuilder();
+            var inQuotes = false;
+            var recordStart = start;
+
+            for (var i = start; i < text.Length; i++)
             {
+                var character = text[i];
+                if (character == '"')
+                {
+                    current.Append(character);
+                    if (inQuotes && i + 1 < text.Length && text[i + 1] == '"')
+                    {
+                        current.Append('"');
+                        i++;
+                    }
+                    else
+                    {
+                        inQuotes = !inQuotes;
+                    }
+
+                    continue;
+                }
+
+                if (!inQuotes && (character == '\n' || character == '\r'))
+                {
+                    if (character == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
+                    {
+                        i++;
+                    }
+
+                    records.Add(current.ToString());
+                    current.Clear();
+                    recordStart = i + 1;
+                    continue;
+                }
+
                 current.Append(character);
-                if (inQuotes && i + 1 < text.Length && text[i + 1] == '"')
-                {
-                    current.Append('"');
-                    i++;
-                }
-                else
-                {
-                    inQuotes = !inQuotes;
-                }
-
-                continue;
             }
 
-            if (!inQuotes && (character == '\n' || character == '\r'))
+            if (!inQuotes)
             {
-                if (character == '\r' && i + 1 < text.Length && text[i + 1] == '\n')
-                {
-                    i++;
-                }
-
                 records.Add(current.ToString());
-                current.Clear();
-                continue;
+                return true;
             }
 
-            current.Append(character);
-        }
+            if (restarts >= MaxUnterminatedQuotes)
+            {
+                error = "A CSV fájl érvénytelen.";
+                records = [];
+                return false;
+            }
 
-        if (inQuotes)
-        {
-            error = "A CSV fájl érvénytelen.";
-            records = [];
-            return false;
-        }
+            var lineEnd = text.IndexOfAny(['\r', '\n'], recordStart);
+            if (lineEnd < 0)
+            {
+                records.Add(text[recordStart..]);
+                return true;
+            }
 
-        records.Add(current.ToString());
-        return true;
+            records.Add(text[recordStart..lineEnd]);
+            start = text[lineEnd] == '\r' && lineEnd + 1 < text.Length && text[lineEnd + 1] == '\n'
+                ? lineEnd + 2
+                : lineEnd + 1;
+        }
     }
 
     private static bool TryParseRow(
         string record,
         int rowNumber,
         int columnCount,
+        char delimiter,
         out DeckCsvRow row,
         out string? error)
     {
         row = default;
-        if (!TryParseFields(record, out var fields, out _))
+        if (!TryParseFields(record, delimiter, out var fields, out _))
         {
             error = $"CSV {rowNumber}. sor: érvénytelen idézőjelezés.";
             return false;
@@ -306,7 +335,7 @@ public static partial class DeckCsv
         return true;
     }
 
-    private static bool TryParseFields(string record, out List<string> fields, out string? error)
+    private static bool TryParseFields(string record, char delimiter, out List<string> fields, out string? error)
     {
         fields = [];
         error = null;
@@ -353,7 +382,7 @@ public static partial class DeckCsv
                 continue;
             }
 
-            if (character == ',')
+            if (character == delimiter)
             {
                 fields.Add(current.ToString());
                 current.Clear();

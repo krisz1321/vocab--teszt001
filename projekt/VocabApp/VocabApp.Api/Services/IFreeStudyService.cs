@@ -25,5 +25,7 @@ public interface IFreeStudyService
     Task<DeckCardResult<bool>> ClearMarksAsync(
         int userId,
         int? deckId,
+        string? focus,
+        string? tag,
         CancellationToken cancellationToken = default);
 }

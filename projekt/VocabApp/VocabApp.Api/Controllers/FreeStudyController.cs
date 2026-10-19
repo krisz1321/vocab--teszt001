@@ -93,6 +93,8 @@ public sealed class FreeStudyController(IFreeStudyService freeStudyService) : Co
     [HttpDelete("marks")]
     public async Task<IActionResult> ClearMarks(
         [FromQuery] int? deckId,
+        [FromQuery] string? focus,
+        [FromQuery] string? tag,
         CancellationToken cancellationToken)
     {
         var userId = GetUserId();
@@ -101,7 +103,7 @@ public sealed class FreeStudyController(IFreeStudyService freeStudyService) : Co
             return Unauthorized();
         }
 
-        var result = await freeStudyService.ClearMarksAsync(userId.Value, deckId, cancellationToken);
+        var result = await freeStudyService.ClearMarksAsync(userId.Value, deckId, focus, tag, cancellationToken);
         if (result.ErrorStatus is null)
         {
             return NoContent();

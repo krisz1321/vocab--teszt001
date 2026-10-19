@@ -13,6 +13,7 @@ interface StudyCard {
   definition: string;
   example: string | null;
   targetMeanings: string | null;
+  tags: string | null;
   nextReviewDate: string;
   easeFactor: number;
   interval: number;
@@ -123,6 +124,7 @@ interface FreeStudyCard {
   targetMeanings: string | null;
   definition: string;
   example: string | null;
+  tags: string | null;
   knows: boolean | null;
 }
 
@@ -228,8 +230,8 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                 aria-haspopup="dialog"
                 [attr.aria-expanded]="modePickerOpen"
                 (click)="openModePicker()"
-                [disabled]="isInteractionLocked"
-                title="Mód váltása">
+                [disabled]="!canChangeMode"
+                [title]="canChangeMode || isInteractionLocked ? 'Mód váltása' : 'Előbb fejezd be ezt a kártyát, utána válthatsz módot.'">
                 <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="activeModeOption.icon" /></svg>
                 <span class="mode-chip-label">{{ activeModeOption.label }}</span>
                 @if (activeDirectionLabel) {
@@ -1476,6 +1478,20 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       || (!this.hasUnsavedAnswer && !this.isInteractionLocked);
   }
 
+  // Mód- és irányváltás: ugyanúgy, mint a pakliváltásnál, a kiértékelt, de még el nem mentett választ előbb
+  // le kell zárni; különben az új kártya betöltése a hibás választ mentés nélkül eldobná.
+  get canChangeMode(): boolean {
+    if (this.isInteractionLocked) {
+      return false;
+    }
+
+    if (!this.studying || this.mode === 'free') {
+      return true;
+    }
+
+    return this.card === null || this.updatedProgress !== null || !this.hasUnsavedAnswer;
+  }
+
   get hasUnsavedAnswer(): boolean {
     return this.isMeaningRevealed
       || this.isRecognitionRevealed
@@ -1641,7 +1657,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   }
 
   setMode(mode: StudyMode): void {
-    if (mode === this.mode || this.isInteractionLocked) {
+    if (mode === this.mode || !this.canChangeMode) {
       return;
     }
 
@@ -1649,7 +1665,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   }
 
   setDirection(direction: StudyDirection): void {
-    if (direction === this.direction || this.isInteractionLocked) {
+    if (direction === this.direction || !this.canChangeMode) {
       return;
     }
 
@@ -1675,7 +1691,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   }
 
   openModePicker(): void {
-    if (this.isInteractionLocked) {
+    if (!this.canChangeMode) {
       return;
     }
 
@@ -1701,7 +1717,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     const direction = this.draftDirection;
     const changed = this.modePickerChanged;
     this.closeModePicker();
-    if (changed && !this.isInteractionLocked) {
+    if (changed && this.canChangeMode) {
       this.applyStudyChoice(mode, direction);
     }
   }
@@ -2302,6 +2318,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
             definition: card.definition,
             example: card.example,
             targetMeanings: meanings,
+            tags: card.tags,
           });
         }),
         finalize(() => this.isGeneratingFreeMeaning = false),
@@ -2346,6 +2363,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       definition: this.card.definition,
       example: this.card.example,
       targetMeanings: meanings,
+      tags: this.card.tags,
     })
       .pipe(finalize(() => {
         if (generation === this.loadGeneration && this.card?.id === cardId) {
@@ -2533,20 +2551,36 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       return;
     }
 
+    const generation = this.loadGeneration;
+    const cardId = this.card.id;
     this.errorMessage = null;
     this.isGeneratingDefinition = true;
     this.http.post<DefinitionResponse>(
       `${this.apiBaseUrl}/ai/generate/definition`,
-      { term: this.card.term, cardId: this.card.id },
+      { term: this.card.term, cardId },
     )
-      .pipe(finalize(() => this.isGeneratingDefinition = false))
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration && this.card?.id === cardId) {
+          this.isGeneratingDefinition = false;
+        }
+      }))
       .subscribe({
         next: response => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
           this.generatedDefinition = response.definition;
           this.generatedDefinitionFromCard = response.fromCard;
           this.generatedDefinitionReused = response.reused;
         },
-        error: (error: HttpErrorResponse) => this.setHttpError(error, 'Az MI-definíció generálása'),
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.setHttpError(error, 'Az MI-definíció generálása');
+        },
       });
   }
 
@@ -2555,20 +2589,36 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       return;
     }
 
+    const generation = this.loadGeneration;
+    const cardId = this.card.id;
     this.errorMessage = null;
     this.isGeneratingExample = true;
     this.http.post<ExampleResponse>(
       `${this.apiBaseUrl}/ai/generate/example`,
-      { term: this.card.term, definition: this.card.definition, cardId: this.card.id },
+      { term: this.card.term, definition: this.card.definition, cardId },
     )
-      .pipe(finalize(() => this.isGeneratingExample = false))
+      .pipe(finalize(() => {
+        if (generation === this.loadGeneration && this.card?.id === cardId) {
+          this.isGeneratingExample = false;
+        }
+      }))
       .subscribe({
         next: response => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
           this.generatedExample = response.example;
           this.generatedExampleParts = this.highlightTerm(response.example, this.card?.term ?? '');
           this.generatedExampleReused = response.reused;
         },
-        error: (error: HttpErrorResponse) => this.setHttpError(error, 'Az MI-példamondat generálása'),
+        error: (error: HttpErrorResponse) => {
+          if (generation !== this.loadGeneration || this.card?.id !== cardId) {
+            return;
+          }
+
+          this.setHttpError(error, 'Az MI-példamondat generálása');
+        },
       });
   }
 
@@ -3013,7 +3063,9 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
         error: (error: HttpErrorResponse) => {
           this.definitionPenaltyPending = null;
           this.continueAfterSave = false;
-          if (error.status === 400) {
+          // A szerver két 400-at ad: a túl korai válasz újrapróbálható, a lejárt válasz-azonosító nem.
+          const problem = error.error as { code?: unknown } | null;
+          if (error.status === 400 && problem?.code === 'answer-too-early') {
             this.errorMessage = 'A válasz még nem menthető. Várd meg a beállított minimum időt, majd próbáld újra.';
             this.continueAfterMeaningSubmit = false;
             if (this.pendingIncorrect) {
@@ -3029,6 +3081,14 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
               this.meaningAwaitingGrade = false;
               this.validationResult = null;
             }
+            return;
+          }
+
+          // Lejárt válasz-azonosítóval a válasz soha nem menthető: új kártya jön, az üzenet azon jelenik meg.
+          if (error.status === 400 && problem?.code === 'answer-token-invalid') {
+            this.continueAfterMeaningSubmit = false;
+            this.pendingCardNotice = 'Az előző kártya válasz-azonosítója lejárt vagy érvénytelen, ezért a válasz nem lett elmentve. Itt egy új kártya.';
+            this.loadNextCard();
             return;
           }
 
@@ -3116,6 +3176,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     this.isMeaningRevealed = false;
     this.isRecognitionRevealed = false;
     this.isLoadingPrompt = false;
+    this.isGeneratingDefinition = false;
+    this.isGeneratingExample = false;
     this.isGeneratingTargetMeaning = false;
     this.isSavingTargetMeaning = false;
     this.errorMessage = null;
@@ -3247,6 +3309,9 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       params['deckId'] = this.deckChoice;
     }
     params['focus'] = this.studyFocus;
+    if (this.studyTag) {
+      params['tag'] = this.studyTag;
+    }
 
     this.errorMessage = null;
     this.isClearingFreeMarks = true;

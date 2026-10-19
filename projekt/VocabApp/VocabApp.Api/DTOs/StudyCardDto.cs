@@ -7,6 +7,8 @@ public sealed class StudyCardDto
     public string Definition { get; set; } = string.Empty;
     public string? Example { get; set; }
     public string? TargetMeanings { get; set; }
+    // A tanulófelület a teljes kártyát küldi vissza a PUT cards/{id}-ben, ezért a címke is kell.
+    public string? Tags { get; set; }
     public DateTime NextReviewDate { get; set; }
     public float EaseFactor { get; set; }
     public int Interval { get; set; }

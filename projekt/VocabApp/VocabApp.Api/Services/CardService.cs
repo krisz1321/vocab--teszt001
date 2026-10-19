@@ -395,6 +395,12 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
         progress.MarkedKnown = false;
         progress.Streak = 0;
         progress.Interval = 0;
+        // Mint a PUT known=false: a soha meg nem válaszolt ("Ismerem"-mel jelölt) kártya újra új kártya lesz.
+        if (progress.CorrectCount == 0 && progress.IncorrectCount == 0)
+        {
+            progress.FirstReviewedAt = null;
+        }
+
         progress.NextReviewDate = DateTime.UtcNow;
         await dbContext.SaveChangesAsync(cancellationToken);
         return true;

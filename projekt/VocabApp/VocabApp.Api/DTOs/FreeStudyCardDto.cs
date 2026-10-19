@@ -12,5 +12,8 @@ public sealed class FreeStudyCardDto
 
     public string? Example { get; set; }
 
+    // A Kártyázás a teljes kártyát küldi vissza a PUT cards/{id}-ben, ezért a címke is kell.
+    public string? Tags { get; set; }
+
     public bool? Knows { get; set; }
 }

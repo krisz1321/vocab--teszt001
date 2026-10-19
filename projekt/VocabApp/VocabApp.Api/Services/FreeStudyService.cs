@@ -21,28 +21,7 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
                 "A pakli nem található.");
         }
 
-        var cards = UserCards(userId, deckId, CardTags.NormalizeFilter(tag));
-        var normalizedFocus = focus?.Trim().ToLowerInvariant();
-        if (normalizedFocus == "due")
-        {
-            cards = cards.Where(card => card.Progress != null
-                && card.Progress.FirstReviewedAt != null
-                && card.Progress.NextReviewDate <= DateTime.UtcNow);
-        }
-        else if (normalizedFocus == "mistakes")
-        {
-            cards = cards.Where(card => card.Progress != null && card.Progress.IncorrectCount > 0);
-        }
-        else if (normalizedFocus == "new")
-        {
-            cards = cards.Where(card => card.Progress != null && card.Progress.FirstReviewedAt == null);
-        }
-        else if (normalizedFocus == "reviewed")
-        {
-            // A Nyelvtan nézet "csak a már tanult szavak" szűrője: legalább egyszer ismételt kártyák.
-            cards = cards.Where(card => card.Progress != null && card.Progress.FirstReviewedAt != null);
-        }
-
+        var cards = ApplyFocus(UserCards(userId, deckId, CardTags.NormalizeFilter(tag)), focus);
         var marks = dbContext.FreeStudyMarks.Where(mark => mark.UserId == userId);
         var list = await (
             from card in cards
@@ -56,6 +35,7 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
                 TargetMeanings = card.TargetMeanings,
                 Definition = card.Definition,
                 Example = card.Example,
+                Tags = card.Tags,
                 Knows = mark == null ? null : mark.Knows
             }).ToListAsync(cancellationToken);
 
@@ -112,9 +92,12 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
         return DeckCardResult<bool>.Success(true);
     }
 
+    // Az újrakezdés csak a GetCardsAsync-szel azonos szűrésű (pakli, címke, fókusz) kártyák jelöléseit törli.
     public async Task<DeckCardResult<bool>> ClearMarksAsync(
         int userId,
         int? deckId,
+        string? focus,
+        string? tag,
         CancellationToken cancellationToken = default)
     {
         if (deckId is int selectedDeckId && !await OwnsDeckAsync(userId, selectedDeckId, cancellationToken))
@@ -122,17 +105,42 @@ public sealed class FreeStudyService(AppDbContext dbContext) : IFreeStudyService
             return DeckCardResult<bool>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
         }
 
-        var marks = dbContext.FreeStudyMarks.Where(mark => mark.UserId == userId);
-        if (deckId is int selectedId)
+        var cardIds = ApplyFocus(UserCards(userId, deckId, CardTags.NormalizeFilter(tag)), focus)
+            .Select(card => card.Id);
+        await dbContext.FreeStudyMarks
+            .Where(mark => mark.UserId == userId && cardIds.Contains(mark.CardId))
+            .ExecuteDeleteAsync(cancellationToken);
+        return DeckCardResult<bool>.Success(true);
+    }
+
+    private static IQueryable<Card> ApplyFocus(IQueryable<Card> cards, string? focus)
+    {
+        var normalizedFocus = focus?.Trim().ToLowerInvariant();
+        if (normalizedFocus == "due")
         {
-            var cardIds = dbContext.Cards
-                .Where(card => card.DeckId == selectedId)
-                .Select(card => card.Id);
-            marks = marks.Where(mark => cardIds.Contains(mark.CardId));
+            var now = DateTime.UtcNow;
+            return cards.Where(card => card.Progress != null
+                && card.Progress.FirstReviewedAt != null
+                && card.Progress.NextReviewDate <= now);
         }
 
-        await marks.ExecuteDeleteAsync(cancellationToken);
-        return DeckCardResult<bool>.Success(true);
+        if (normalizedFocus == "mistakes")
+        {
+            return cards.Where(card => card.Progress != null && card.Progress.IncorrectCount > 0);
+        }
+
+        if (normalizedFocus == "new")
+        {
+            return cards.Where(card => card.Progress != null && card.Progress.FirstReviewedAt == null);
+        }
+
+        if (normalizedFocus == "reviewed")
+        {
+            // A Nyelvtan nézet "csak a már tanult szavak" szűrője: legalább egyszer ismételt kártyák.
+            return cards.Where(card => card.Progress != null && card.Progress.FirstReviewedAt != null);
+        }
+
+        return cards;
     }
 
     private IQueryable<Card> UserCards(int userId, int? deckId, string? tag)

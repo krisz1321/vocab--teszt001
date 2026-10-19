@@ -453,12 +453,15 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
 
         if (evaluation.Status == StudyAnswerTokenStatus.Invalid)
         {
-            return StudySubmitResult.Fail(StatusCodes.Status400BadRequest, "Érvénytelen válasz-azonosító, töltsd be újra a kártyát.");
+            return StudySubmitResult.Fail(
+                StatusCodes.Status400BadRequest,
+                "Érvénytelen válasz-azonosító, töltsd be újra a kártyát.",
+                "answer-token-invalid");
         }
 
         if (evaluation.Status == StudyAnswerTokenStatus.TooEarly)
         {
-            return StudySubmitResult.Fail(StatusCodes.Status400BadRequest, "A választ túl korán küldted be.");
+            return StudySubmitResult.Fail(StatusCodes.Status400BadRequest, "A választ túl korán küldted be.", "answer-too-early");
         }
 
         if (progress.FirstReviewedAt is null)
@@ -555,6 +558,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             Definition = progress.Card.Definition,
             Example = progress.Card.Example,
             TargetMeanings = progress.Card.TargetMeanings,
+            Tags = progress.Card.Tags,
             NextReviewDate = progress.NextReviewDate,
             EaseFactor = progress.EaseFactor,
             Interval = progress.Interval,
@@ -711,9 +715,13 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         var wordCount = await dbContext.CompositionAttemptWords
             .AsNoTracking()
             .CountAsync(word => word.Attempt.UserId == userId, cancellationToken);
+        // A kézzel elfogadott ("Márpedig jó volt") szöveg minden szava helyesnek számít, mint a pontosságban;
+        // a tárolt UsedCorrectly az MI eredeti ítélete marad.
         var correctWordCount = await dbContext.CompositionAttemptWords
             .AsNoTracking()
-            .CountAsync(word => word.Attempt.UserId == userId && word.UsedCorrectly, cancellationToken);
+            .CountAsync(
+                word => word.Attempt.UserId == userId && (word.UsedCorrectly || word.Attempt.ManuallyAccepted),
+                cancellationToken);
 
         var tenses = GrammarTenses.Canonical(grammarAttempts.Select(attempt => attempt.Tense).Distinct())
             .Select(tense =>

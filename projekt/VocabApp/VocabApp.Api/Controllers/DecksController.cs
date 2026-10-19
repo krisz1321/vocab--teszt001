@@ -180,7 +180,9 @@ public sealed class DecksController(IDeckService deckService) : ControllerBase
                 });
         }
 
-        return File(Encoding.UTF8.GetBytes(result.Value.Content), "text/csv; charset=utf-8", result.Value.FileName);
+        // BOM-mal, mert az Excel enélkül nem UTF-8-ként nyitja meg, és elrontja az ékezeteket (az import a BOM-ot elfogadja).
+        var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(result.Value.Content)).ToArray();
+        return File(bytes, "text/csv; charset=utf-8", result.Value.FileName);
     }
 
     [HttpPost("{id:int}/import")]

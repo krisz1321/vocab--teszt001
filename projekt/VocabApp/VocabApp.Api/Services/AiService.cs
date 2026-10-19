@@ -107,7 +107,7 @@ public sealed class AiService(
 
         if (string.IsNullOrWhiteSpace(definition) ||
             definition.Length > 500 ||
-            ContainsForbiddenTermOrStem(definition, request.Term))
+            !DefinitionAvoidsTerm(definition, request.Term))
         {
             throw new AiServiceException(
                 AiServiceErrorKind.InvalidResponse,
@@ -192,7 +192,7 @@ public sealed class AiService(
 
         if (string.IsNullOrWhiteSpace(definition) ||
             definition.Length > 500 ||
-            ContainsForbiddenTermOrStem(definition, request.Term))
+            !DefinitionAvoidsTerm(definition, request.Term))
         {
             throw new AiServiceException(
                 AiServiceErrorKind.InvalidResponse,
@@ -395,7 +395,7 @@ public sealed class AiService(
 
         if (string.IsNullOrWhiteSpace(sentence) ||
             sentence.Length > 500 ||
-            !ContainsTokenSequence(sentence, request.Term))
+            !ExampleContainsTerm(sentence, request.Term))
         {
             throw new AiServiceException(
                 AiServiceErrorKind.InvalidResponse,
@@ -2074,7 +2074,7 @@ public sealed class AiService(
     {
         return !string.IsNullOrWhiteSpace(definition) &&
                definition.Length <= 500 &&
-               !ContainsForbiddenTermOrStem(definition, term) &&
+               DefinitionAvoidsTerm(definition, term) &&
                DiffersEnough(definition, avoidDefinition);
     }
 
@@ -2086,8 +2086,8 @@ public sealed class AiService(
     {
         return !string.IsNullOrWhiteSpace(definition) &&
                definition.Length <= 500 &&
-               !ContainsForbiddenTermOrStem(definition, term) &&
-               !ContainsForbiddenTermOrStem(definition, guess) &&
+               DefinitionAvoidsTerm(definition, term) &&
+               DefinitionAvoidsTerm(definition, guess) &&
                DiffersEnough(definition, visibleDefinition);
     }
 

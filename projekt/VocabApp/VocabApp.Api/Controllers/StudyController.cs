@@ -127,13 +127,17 @@ public sealed class StudyController(IStudyService studyService) : ControllerBase
             return Ok(result.Progress);
         }
 
-        return StatusCode(
-            result.ErrorStatus ?? StatusCodes.Status400BadRequest,
-            new ProblemDetails
-            {
-                Title = result.ErrorTitle,
-                Status = result.ErrorStatus
-            });
+        var problem = new ProblemDetails
+        {
+            Title = result.ErrorTitle,
+            Status = result.ErrorStatus
+        };
+        if (result.ErrorCode is not null)
+        {
+            problem.Extensions["code"] = result.ErrorCode;
+        }
+
+        return StatusCode(result.ErrorStatus ?? StatusCodes.Status400BadRequest, problem);
     }
 
     private int? GetUserId()
