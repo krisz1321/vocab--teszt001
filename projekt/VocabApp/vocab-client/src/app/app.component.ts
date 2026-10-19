@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, HostListener, inject, OnInit } from '@angular/core';
+import { Component, effect, HostListener, inject, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
@@ -87,6 +87,9 @@ interface AiModelOption {
               <button type="button" [class.is-active]="mode === 'login'" (click)="setMode('login')">Bejelentkezés</button>
               <button type="button" [class.is-active]="mode === 'register'" (click)="setMode('register')">Regisztráció</button>
             </div>
+            @if (session.expired()) {
+              <div class="alert alert-warning" role="status">A bejelentkezésed lejárt vagy érvénytelenné vált. Kérlek, jelentkezz be újra.</div>
+            }
             <form (ngSubmit)="submit()">
               <div class="mb-3">
                 <label class="form-label" for="email">Email</label>
@@ -204,7 +207,7 @@ interface AiModelOption {
               type="button"
               class="sidebar-user-main"
               [attr.aria-current]="view === 'profile' ? 'page' : null"
-              (click)="openProfile()"
+              (click)="goTo('profile')"
               title="Profil">
               @if (hasAvatar && avatarUrl) {
                 <img [src]="avatarUrl" alt="" class="avatar-sm" (error)="hasAvatar = false">
@@ -313,6 +316,17 @@ interface AiModelOption {
           </section>
           <form class="mb-4" (ngSubmit)="saveStudySettings()">
             <h2 class="h5 mb-3">Tanulási beállítások</h2>
+            @if (!studySettingsLoaded) {
+              <div class="alert alert-info d-flex flex-wrap align-items-center gap-2" role="status">
+                @if (isLoadingStudySettings) {
+                  <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                  A beállítások betöltése…
+                } @else {
+                  A beállítások nem töltődtek be, ezért most nem menthetők.
+                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="loadStudySettings()">Újrapróbálás</button>
+                }
+              </div>
+            }
             <div class="mb-3">
               <label class="form-label" for="dailyNewCardGoal">Napi új szavak</label>
               <input
@@ -519,7 +533,7 @@ interface AiModelOption {
             </div>
               </div>
             </details>
-            <button type="submit" class="btn btn-primary" [disabled]="isSavingStudySettings">Mentés</button>
+            <button type="submit" class="btn btn-primary" [disabled]="isSavingStudySettings || !studySettingsLoaded">Mentés</button>
           </form>
         </main>
       } @else {
@@ -774,7 +788,22 @@ export class AppComponent implements OnInit {
   aiModel = 'google/gemini-3.6-flash';
   timeZoneId = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Budapest';
   isSavingStudySettings = false;
+  // A PUT /api/study/settings teljes csere: csak a szerverről sikeresen betöltött értékek menthetők vissza,
+  // különben az alapértékek vagy egy korábbi fiók értékei írnák felül a beállításokat.
+  studySettingsLoaded = false;
+  isLoadingStudySettings = false;
+  private studySettingsRequest = 0;
   private userId: number | null = null;
+  @ViewChild(DecksComponent) private decksView?: DecksComponent;
+
+  constructor() {
+    // A 401 miatti kijelentkezés (interceptor) is takarítsa a profilt és a nézetet, ne csak a Kijelentkezés gomb.
+    effect(() => {
+      if (!this.session.isLoggedIn()) {
+        this.clearProfile();
+      }
+    });
+  }
 
   ngOnInit(): void {
     if (this.session.isLoggedIn()) {
@@ -914,6 +943,10 @@ export class AppComponent implements OnInit {
   }
 
   logout(): void {
+    if (!this.confirmLeaveDecks()) {
+      return;
+    }
+
     this.password = '';
     this.passwordConfirm = '';
     this.errorMessage = null;
@@ -924,8 +957,24 @@ export class AppComponent implements OnInit {
   studyDeckId: number | null = null;
 
   studyDeck(deckId: number): void {
+    if (!this.confirmLeaveDecks()) {
+      return;
+    }
+
     this.studyDeckId = deckId;
     this.view = 'study';
+  }
+
+  // A beillesztéses import sorai és a futó MI-kitöltése a Paklik komponensben élnek, ezért a nézet elhagyásakor
+  // elvesznek: ilyenkor előbb rákérdez.
+  private confirmLeaveDecks(): boolean {
+    if (this.view !== 'decks' || !this.decksView?.hasUnsavedPaste) {
+      return true;
+    }
+
+    return confirm(
+      'A beillesztett, még nem mentett sorok elvesznek, és a futó MI-kitöltés megszakad. Biztosan elhagyod a Paklik nézetet?',
+    );
   }
 
   toggleAccountMenu(): void {
@@ -939,6 +988,10 @@ export class AppComponent implements OnInit {
 
   goTo(view: AppView): void {
     this.accountMenuOpen = false;
+    if (view !== 'decks' && !this.confirmLeaveDecks()) {
+      return;
+    }
+
     this.studyDeckId = null;
     if (view === 'profile') {
       this.openProfile();
@@ -1071,6 +1124,10 @@ export class AppComponent implements OnInit {
   }
 
   saveStudySettings(): void {
+    if (!this.studySettingsLoaded || this.isSavingStudySettings) {
+      return;
+    }
+
     this.profileError = null;
     this.profileMessage = null;
     const goal = Number(this.dailyNewCardGoal);
@@ -1225,9 +1282,23 @@ export class AppComponent implements OnInit {
     this.savedLevelPolicy = 'all';
   }
 
-  private loadStudySettings(): void {
-    this.http.get<StudySettings>('/api/study/settings').subscribe({
+  loadStudySettings(): void {
+    const request = ++this.studySettingsRequest;
+    this.studySettingsLoaded = false;
+    this.isLoadingStudySettings = true;
+    this.http.get<StudySettings>('/api/study/settings').pipe(
+      finalize(() => {
+        if (request === this.studySettingsRequest) {
+          this.isLoadingStudySettings = false;
+        }
+      }),
+    ).subscribe({
       next: (settings) => {
+        if (request !== this.studySettingsRequest) {
+          return;
+        }
+
+        this.studySettingsLoaded = true;
         this.dailyNewCardGoal = settings.dailyNewCardGoal;
         this.minimumAnswerSeconds = settings.minimumAnswerSeconds;
         this.automaticAiCheck = settings.automaticAiCheck;
@@ -1246,7 +1317,9 @@ export class AppComponent implements OnInit {
         this.timeZoneId = settings.timeZoneId || this.timeZoneId;
       },
       error: (error: HttpErrorResponse) => {
-        this.profileError = this.readProblem(error, 'A tanulási beállítások betöltése sikertelen.');
+        if (request === this.studySettingsRequest) {
+          this.profileError = this.readProblem(error, 'A tanulási beállítások betöltése sikertelen.');
+        }
       },
     });
   }
@@ -1291,6 +1364,11 @@ export class AppComponent implements OnInit {
     this.deleteSlide = 0;
     this.dailyNewCardGoal = 20;
     this.minimumAnswerSeconds = 0;
+    // Az előző fiók tanulási beállításai ne legyenek menthetők; a Beállítások nézet újra betölti őket.
+    this.studySettingsRequest++;
+    this.studySettingsLoaded = false;
+    this.isLoadingStudySettings = false;
+    this.accountMenuOpen = false;
     this.userId = null;
   }
 

@@ -767,6 +767,13 @@ export class StatsComponent implements OnInit {
       .subscribe({
         next: stats => this.stats.set(stats),
         error: (error: HttpErrorResponse) => {
+          // A szerver magyar ProblemDetails-címe pontosabb, mint a státuszkódból kikövetkeztetett szöveg.
+          const title = (error.error as { title?: unknown } | null)?.title;
+          if (typeof title === 'string' && title.trim()) {
+            this.errorMessage.set(`A statisztika betöltése sikertelen. ${title.trim()}`);
+            return;
+          }
+
           this.errorMessage.set(error.status === 404
             ? 'A statisztika betöltése sikertelen: a kért adat nem található.'
             : 'A statisztika betöltése sikertelen. Kérlek, próbáld újra.');

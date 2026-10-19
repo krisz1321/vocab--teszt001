@@ -7,6 +7,8 @@ const emailKey = 'vocabapp.email';
 export class AuthSessionService {
   readonly email = signal<string | null>(sessionStorage.getItem(emailKey));
   readonly isLoggedIn = signal(sessionStorage.getItem(tokenKey) !== null);
+  // Igaz, ha a munkamenetet a szerver 401-es válasza zárta le (lejárt token vagy törölt fiók); a belépési képernyő jelzi.
+  readonly expired = signal(false);
 
   token(): string | null {
     return sessionStorage.getItem(tokenKey);
@@ -16,13 +18,15 @@ export class AuthSessionService {
     sessionStorage.setItem(tokenKey, token);
     sessionStorage.setItem(emailKey, email);
     this.email.set(email);
+    this.expired.set(false);
     this.isLoggedIn.set(true);
   }
 
-  clear(): void {
+  clear(expired = false): void {
     sessionStorage.removeItem(tokenKey);
     sessionStorage.removeItem(emailKey);
     this.email.set(null);
+    this.expired.set(expired);
     this.isLoggedIn.set(false);
   }
 }

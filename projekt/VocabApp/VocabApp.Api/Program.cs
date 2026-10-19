@@ -79,6 +79,24 @@ public class Program
                     ValidAudience = jwtAudience,
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
                 };
+                // A törölt fiók még érvényes tokenje ne érje el a végpontokat (különben pl. a CardService SingleAsync-je
+                // 500-at adna): a token csak akkor fogadható el, ha a "sub" felhasználó létezik. Ez 401-et ad, amire a
+                // kliens kijelentkeztet.
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async context =>
+                    {
+                        var sub = context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                        var dbContext = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
+                        if (!int.TryParse(sub, out var userId) ||
+                            !await dbContext.Users
+                                .AsNoTracking()
+                                .AnyAsync(user => user.Id == userId, context.HttpContext.RequestAborted))
+                        {
+                            context.Fail("A felhasználó nem létezik.");
+                        }
+                    }
+                };
             });
         builder.Services.AddAuthorization();
 

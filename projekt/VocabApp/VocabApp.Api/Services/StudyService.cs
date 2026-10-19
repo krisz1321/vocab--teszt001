@@ -501,12 +501,30 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             ? ClampAnswerSeconds(shownAt, now)
             : 0;
         ApplyStudyDayStreak(user, today);
-        await RecordStudyDayAsync(userId, today, studiedSeconds, request.IsCorrect, cancellationToken);
+        var studyDay = await RecordStudyDayAsync(userId, today, studiedSeconds, request.IsCorrect, cancellationToken);
         var confusedWithTerm = request.IsCorrect
             ? null
             : await RecordConfusionAsync(userId, progress.CardId, request.TypedAnswer, now, cancellationToken);
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException) when (dbContext.Entry(studyDay).State == EntityState.Added)
+        {
+            // A nap első két, egyidejű válaszánál a másik kérés közben létrehozta a napi sort (egyedi index):
+            // a sajátunkat leválasztjuk, a meglévőt növeljük, és a többi (megtartott) módosítással együtt újra mentünk.
+            dbContext.Entry(studyDay).State = EntityState.Detached;
+            var existing = await dbContext.UserStudyDays
+                .SingleOrDefaultAsync(item => item.UserId == userId && item.DayUtc == today, cancellationToken);
+            if (existing is null)
+            {
+                throw;
+            }
+
+            ApplyStudyDayCounts(existing, studiedSeconds, request.IsCorrect);
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
 
         return StudySubmitResult.Success(new CardProgressDto
         {
@@ -911,7 +929,7 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
         return string.Join(' ', parts).ToLowerInvariant();
     }
 
-    private async Task RecordStudyDayAsync(
+    private async Task<UserStudyDay> RecordStudyDayAsync(
         int userId,
         DateTime today,
         int studiedSeconds,
@@ -933,6 +951,12 @@ public sealed class StudyService(AppDbContext dbContext, StudyAnswerToken answer
             dbContext.UserStudyDays.Add(day);
         }
 
+        ApplyStudyDayCounts(day, studiedSeconds, isCorrect);
+        return day;
+    }
+
+    private static void ApplyStudyDayCounts(UserStudyDay day, int studiedSeconds, bool isCorrect)
+    {
         day.SecondsStudied = SaturatingAdd(day.SecondsStudied, studiedSeconds);
         day.AnswerCount = SaturatingIncrement(day.AnswerCount);
         if (isCorrect)

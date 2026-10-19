@@ -639,7 +639,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                                   <span class="chip chip-ok">Megtanult</span>
                                 }
                                 @if (card.isLeech) {
-                                  <span class="chip chip-leech" title="Sokszor elrontott szó. A küszöböt a Profil haladó beállításaiban állíthatod.">Nehéz szó</span>
+                                  <span class="chip chip-leech" title="Sokszor elrontott szó. A küszöböt a Beállítások → Tanulási beállítások alatt állíthatod („Nehéz szó küszöbe”).">Nehéz szó</span>
                                 }
                                 @if (card.suspension === 'suspended') {
                                   <span class="chip chip-paused">Felfüggesztve</span>
@@ -1574,6 +1574,12 @@ export class DecksComponent implements OnInit, OnDestroy {
       && this.pasteRows.every(row => this.rowIssue(row) === null)
       && !this.pasteAiRunning
       && !this.pasteSaving;
+  }
+
+  /** Az AppComponent kérdezi a nézet elhagyása előtt: a beillesztett szöveg, a még nem mentett sorok és a futó MI-kitöltés itt élnek. */
+  get hasUnsavedPaste(): boolean {
+    return this.pasteOpen
+      && (this.pasteAiRunning || this.pasteRows.length > 0 || this.pasteText.trim().length > 0);
   }
 
   @HostListener('document:keydown.escape')
@@ -3209,6 +3215,12 @@ export class DecksComponent implements OnInit, OnDestroy {
   }
 
   private readAiError(error: HttpErrorResponse, context: string): string {
+    // A szerver magyar ProblemDetails-címe pontosabb, mint a státuszkódból kikövetkeztetett szöveg.
+    const title = (error.error as ProblemDetails | null)?.title;
+    if (typeof title === 'string' && title.trim()) {
+      return `${context} sikertelen. ${title.trim()}`;
+    }
+
     if (error.status === 503) {
       return `${context} sikertelen: az MI-szolgáltatás nincs konfigurálva.`;
     }

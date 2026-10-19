@@ -937,6 +937,13 @@ export class GrammarComponent implements OnInit {
   }
 
   private setHttpError(error: HttpErrorResponse, context: string): void {
+    // A szerver magyar ProblemDetails-címe pontosabb, mint a státuszkódból kikövetkeztetett szöveg.
+    const title = (error.error as { title?: unknown } | null)?.title;
+    if (typeof title === 'string' && title.trim()) {
+      this.errorMessage = `${context} sikertelen. ${title.trim()}`;
+      return;
+    }
+
     if (error.status === 503) {
       this.errorMessage = `${context} sikertelen: az MI-szolgáltatás nincs konfigurálva.`;
     } else if (error.status === 502) {

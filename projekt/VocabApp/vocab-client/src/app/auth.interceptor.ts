@@ -18,8 +18,9 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
         && error.status === 401
         && isApi
         && !isCredentialRequest(req.url)
+        && session.isLoggedIn()
       ) {
-        session.clear();
+        session.clear(true);
       }
 
       return throwError(() => error);
