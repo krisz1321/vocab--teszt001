@@ -1221,9 +1221,13 @@ public sealed class AiService(
         }
         else
         {
-            var parsed = DeserializeContent<MeaningValidationContent>(content);
+            // A DeserializeContent minden tulajdonságot megkövetel, ezért a szinonima jelzője külön osztályból jön:
+            // az angol → magyar ág promptja csak isCorrect-et és feedback-et kér.
+            var parsed = request.ToEnglish
+                ? DeserializeContent<SynonymValidationContent>(content)
+                : DeserializeContent<MeaningValidationContent>(content);
             // A szinonima elfogadásáról a felhasználó beállítása dönt, nem az MI.
-            var isSynonym = request.ToEnglish && parsed.IsSynonym && !parsed.IsCorrect;
+            var isSynonym = parsed is SynonymValidationContent { IsSynonym: true } && !parsed.IsCorrect;
             result = new ValidateAnswerResponseDto
             {
                 IsCorrect = parsed.IsCorrect || (isSynonym && acceptSynonyms),
@@ -1509,11 +1513,14 @@ public sealed class AiService(
         return null;
     }
 
-    private sealed class MeaningValidationContent
+    private sealed class SynonymValidationContent : MeaningValidationContent
+    {
+        public bool IsSynonym { get; set; }
+    }
+
+    private class MeaningValidationContent
     {
         public bool IsCorrect { get; set; }
-
-        public bool IsSynonym { get; set; }
 
         public string? Feedback { get; set; }
     }
