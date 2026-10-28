@@ -70,7 +70,7 @@ const MAX_TEXT_LENGTH = 500;
       <div class="mx-auto page-wrap">
         <header class="text-center mb-4">
           <h1 class="h3 mb-1">Mondatalkotás szavakból</h1>
-          <p class="text-body-secondary mb-0">Írj egy-két összefüggő mondatot, amelyben az összes kapott szó szerepel. Az eredmény nem számít bele az ismétlésbe.</p>
+          <p class="text-body-secondary mb-0">Írj egy-két összefüggő mondatot a kapott szavakkal. Nem számít bele az ismétlésbe.</p>
         </header>
 
         @if (errorMessage) {
@@ -85,7 +85,7 @@ const MAX_TEXT_LENGTH = 500;
               } @else {
                 @if (decks.length === 0) {
                   <div class="alert alert-warning" role="status">
-                    <p class="mb-2">Még nincs paklid, így nincsenek szavak a gyakorláshoz.</p>
+                    <p class="mb-2">Még nincs paklid, nincs mit gyakorolni.</p>
                     <button type="button" class="btn btn-sm btn-primary" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
                   </div>
                 }
@@ -143,7 +143,7 @@ const MAX_TEXT_LENGTH = 500;
                         [(ngModel)]="onlyReviewed"
                         (ngModelChange)="onReviewedChange()">
                       <label class="form-check-label" for="composition-reviewed">Csak a már tanult szavak</label>
-                      <div class="form-text">Csak azok a kártyák, amelyeket legalább egyszer már ismételtél.</div>
+                      <div class="form-text">Csak, amit már legalább egyszer gyakoroltál.</div>
                     </div>
                   </div>
                 </div>
@@ -159,14 +159,14 @@ const MAX_TEXT_LENGTH = 500;
                     [disabled]="isSavingTranslation"
                     (change)="toggleTranslation()">
                   <label class="form-check-label" for="composition-translation">A szövegem magyar jelentése az ellenőrzés után</label>
-                  <div class="form-text">Közös beállítás a Nyelvtan nézettel. Nem jár külön MI-hívással.</div>
+                  <div class="form-text">Ugyanez a beállítás a Nyelvtanban is. Nem kér külön MI-hívást.</div>
                 </div>
 
                 @if (emptySelection) {
                   <div class="alert alert-info mt-3 mb-0" role="status">Ebben a választásban nincs kártya.</div>
                 }
                 @if (tooFewCards !== null) {
-                  <div class="alert alert-info mt-3 mb-0" role="status">Ebben a választásban csak {{ tooFewCards }} különböző szó van; válassz kevesebb szót feladatonként, vagy bővítsd a választást.</div>
+                  <div class="alert alert-info mt-3 mb-0" role="status">Ebben a választásban csak {{ tooFewCards }} különböző szó van. Válassz kevesebb szót feladatonként, vagy bővítsd a választást.</div>
                 }
                 <button type="submit" class="btn btn-primary btn-lg w-100 mt-4" [disabled]="isLoadingCards">
                   @if (isLoadingCards) {
@@ -192,7 +192,7 @@ const MAX_TEXT_LENGTH = 500;
           </section>
           <section class="card border-0 shadow-sm">
             <div class="card-body">
-              <p class="mb-2">Használd mind a(z) {{ words.length }} szót egy-két összefüggő mondatban:</p>
+              <p class="mb-2">Használd mind a(z) {{ words.length }} szót egy-két mondatban:</p>
               <ul class="composition-words list-unstyled mb-3">
                 @for (word of words; track word.id; let i = $index) {
                   <li class="composition-word" [class.is-found]="isMentioned(word)">
@@ -205,7 +205,7 @@ const MAX_TEXT_LENGTH = 500;
                           type="button"
                           class="btn btn-link btn-sm ms-auto"
                           [disabled]="isBusy || !canSwap"
-                          [title]="canSwap ? 'Másik szót kérek helyette' : 'Nincs több szó a választásban'"
+                          [title]="canSwap ? 'Másik szó ide' : 'Nincs több szó a választásban'"
                           (click)="swapWord(i)">Csere</button>
                       }
                     </div>
@@ -232,7 +232,7 @@ const MAX_TEXT_LENGTH = 500;
 
               @if (missingTerms.length > 0) {
                 <div class="alert alert-warning py-2" role="status">
-                  Nem találom a szövegben: {{ missingTerms.join(', ') }}. Ha rendhagyó alakban használtad (pl. go → went), nyugodtan küldd el.
+                  Ezt nem látom a szövegben: {{ missingTerms.join(', ') }}. Ha más alakban írtad (pl. go → went), küldd el nyugodtan.
                   <button type="button" class="btn btn-sm btn-outline-secondary ms-2" (click)="check(true)">Mégis elküldöm</button>
                 </div>
               }
@@ -424,7 +424,7 @@ export class CompositionComponent implements OnInit {
         next: response => this.showTranslation = response.enabled,
         error: () => {
           this.showTranslation = previous;
-          this.errorMessage = 'A beállítás mentése sikertelen. Kérlek, próbáld újra.';
+          this.errorMessage = 'A beállítás mentése sikertelen. Próbáld újra.';
         },
       });
   }
@@ -497,7 +497,7 @@ export class CompositionComponent implements OnInit {
           this.pool = pool;
           this.beginRound();
         },
-        error: () => this.errorMessage = 'A kártyák betöltése sikertelen. Kérlek, próbáld újra.',
+        error: () => this.errorMessage = 'A kártyák betöltése sikertelen. Próbáld újra.',
       });
   }
 
@@ -701,7 +701,7 @@ export class CompositionComponent implements OnInit {
         },
         error: () => {
           if (generation === this.loadGeneration) {
-            this.errorMessage = 'A kézi elfogadás mentése sikertelen. Kérlek, próbáld újra.';
+            this.errorMessage = 'A kézi elfogadás mentése sikertelen. Próbáld újra.';
           }
         },
       });
@@ -795,7 +795,7 @@ export class CompositionComponent implements OnInit {
 
           this.refreshTagOptions();
         },
-        error: () => this.errorMessage = 'A paklik betöltése sikertelen. Kérlek, frissítsd az oldalt.',
+        error: () => this.errorMessage = 'A paklik betöltése sikertelen. Frissítsd az oldalt.',
       });
   }
 
@@ -891,15 +891,15 @@ export class CompositionComponent implements OnInit {
     }
 
     if (error.status === 503) {
-      this.errorMessage = `${context} sikertelen: az MI-szolgáltatás nincs konfigurálva.`;
+      this.errorMessage = `${context} sikertelen: az MI nincs beállítva.`;
     } else if (error.status === 502) {
-      this.errorMessage = `${context} sikertelen: az MI-szolgáltató nem adott megfelelő választ.`;
+      this.errorMessage = `${context} sikertelen: az MI nem adott használható választ.`;
     } else if (error.status === 404) {
       this.errorMessage = `${context} sikertelen: a kért adat nem található.`;
     } else if (error.status === 429) {
       this.errorMessage = `${context} sikertelen: az MI-keret elfogyott.`;
     } else {
-      this.errorMessage = `${context} sikertelen. Kérlek, próbáld újra.`;
+      this.errorMessage = `${context} sikertelen. Próbáld újra.`;
     }
   }
 }

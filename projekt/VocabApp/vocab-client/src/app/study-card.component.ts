@@ -161,7 +161,7 @@ type FreeBack = 'bilingual' | 'definition';
 const hungarianAccents = 'áéíóöőúüű';
 const hungarianPlain = 'aeiooouuu';
 
-const emptyAnswerMessage = 'A válasz nem lehet üres.';
+const emptyAnswerMessage = 'Írj be valamit.';
 
 @Component({
   selector: 'app-study-card',
@@ -216,7 +216,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
         @if (!studying) {
           <header class="text-center mb-4">
             <h1 class="h3 mb-1">Tanulás</h1>
-            <p class="text-body-secondary mb-0">Válaszd ki, hogyan és mit gyakorolsz.</p>
+            <p class="text-body-secondary mb-0">Válassz módot és paklit.</p>
           </header>
         } @else {
           <h1 class="visually-hidden">Tanulás</h1>
@@ -229,7 +229,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                 [attr.aria-expanded]="modePickerOpen"
                 (click)="openModePicker()"
                 [disabled]="!canChangeMode"
-                [title]="canChangeMode || isInteractionLocked ? 'Mód váltása' : 'Előbb fejezd be ezt a kártyát, utána válthatsz módot.'">
+                [title]="canChangeMode || isInteractionLocked ? 'Mód váltása' : 'Előbb fejezd be ezt a kártyát.'">
                 <span class="mode-chip-label">{{ activeModeOption.label }}</span>
                 @if (activeDirectionLabel) {
                   <span class="mode-chip-sub">· {{ activeDirectionLabel }}</span>
@@ -295,7 +295,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
               @if (showStudyGuide) {
                 <div class="alert alert-info" role="note">
                   <h2 class="h6">Így működik a tanulás</h2>
-                  <p class="mb-2">Válassz paklit és gyakorlási típust. Az esedékes ismétlések elsőbbséget kapnak, a hibás kártyákat pedig külön is gyakorolhatod.</p>
+                  <p class="mb-2">Válassz paklit és gyakorlási típust. Az esedékes ismétlések mennek előre, a hibás kártyákat külön is gyakorolhatod.</p>
                   <button type="button" class="btn btn-sm btn-outline-primary" (click)="dismissStudyGuide()">Értem</button>
                 </div>
               }
@@ -307,7 +307,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
               } @else {
                 @if (hasNoCards) {
                   <div class="alert alert-warning" role="status">
-                    <p class="mb-2">Még nincs egyetlen kártyád sem, így nincs mit gyakorolni. Vegyél fel kártyákat a saját paklidba, vagy másolj le egy kész közös paklit.</p>
+                    <p class="mb-2">Még nincs kártyád. Vegyél fel újakat a saját paklidba, vagy másolj le egy közös paklit.</p>
                     <button type="button" class="btn btn-sm btn-primary" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
                   </div>
                 }
@@ -393,12 +393,12 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
         }
 
         @if (studying && mode !== 'free' && studyStatus === 'empty' && !isLoadingCard) {
-          <div class="alert alert-info">Jelenleg nincs tanulható kártya.</div>
+          <div class="alert alert-info">Most nincs tanulható kártya.</div>
         }
 
         @if (studying && mode !== 'free' && studyStatus === 'dailyLimitReached' && !isLoadingCard) {
           <div class="alert alert-info">
-            A mai új szavak elfogytak, és nincs esedékes ismétlés. Holnap folytathatod, vagy a Beállításokban emelheted a napi célt.
+            Mára elfogytak az új szavak, és nincs esedékes ismétlés. Holnap folytathatod, vagy emeld a napi célt a Beállításokban.
           </div>
         }
 
@@ -430,10 +430,10 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                   <strong>Tanulási nézet</strong>
                   <button type="button" class="btn-close" aria-label="Bezárás" (click)="freeSettingsOpen = false"></button>
                 </div>
-                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowStats" (ngModelChange)="saveFreeSetting('stats', $event)"> <span>Statisztikák megjelenítése</span></label>
-                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowAudio" (ngModelChange)="saveFreeSetting('audio', $event)"> <span>Kiejtés gomb megjelenítése</span></label>
-                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeKeyboardEnabled" (ngModelChange)="saveFreeSetting('keyboard', $event)"> <span>Billentyűparancsok engedélyezése</span></label>
-                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowExample" (ngModelChange)="saveFreeSetting('example', $event)"> <span>Példamondat megjelenítése</span></label>
+                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowStats" (ngModelChange)="saveFreeSetting('stats', $event)"> <span>Statisztika mutatása</span></label>
+                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowAudio" (ngModelChange)="saveFreeSetting('audio', $event)"> <span>Kiejtés gomb</span></label>
+                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeKeyboardEnabled" (ngModelChange)="saveFreeSetting('keyboard', $event)"> <span>Billentyűparancsok</span></label>
+                <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowExample" (ngModelChange)="saveFreeSetting('example', $event)"> <span>Példamondat mutatása</span></label>
                 <div class="row g-2 mt-2">
                   <div class="col-6"><label class="small text-body-secondary" for="free-front">Elöl</label><select id="free-front" name="freeFront" class="form-select form-select-sm" [(ngModel)]="freeFront"><option [ngValue]="'term'">Angol szó</option><option [ngValue]="'other'">A másik oldal</option></select></div>
                   <div class="col-6"><label class="small text-body-secondary" for="free-back">Hátul</label><select id="free-back" name="freeBack" class="form-select form-select-sm" [(ngModel)]="freeBack"><option [ngValue]="'bilingual'">Angol–magyar</option><option [ngValue]="'definition'">Definícióval</option></select></div>
@@ -454,7 +454,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                 (pointercancel)="onFreePointerCancel($event)"
                 role="button"
                 tabindex="0"
-                [attr.aria-label]="freeShowingTerm ? 'A kártya eleje, fordításhoz kattints vagy használd a Space billentyűt' : 'A kártya hátulja'">
+                [attr.aria-label]="freeShowingTerm ? 'A kártya eleje, a megfordításhoz kattints vagy nyomj Space-t' : 'A kártya hátulja'">
                 <div class="card-body d-flex flex-column justify-content-center align-items-center text-center p-4 p-md-5">
                   <span class="free-card-hint">{{ freeShowingTerm ? 'Fordítsd meg a kártyát' : 'Megoldás' }}</span>
                   @if (freeShowingTerm) {
@@ -502,7 +502,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                       }
                     }
                   }
-                  <span class="free-card-hint free-card-hint-bottom">Space a fordításhoz</span>
+                  <span class="free-card-hint free-card-hint-bottom">Space: megfordítás</span>
                 </div>
               </div>
             </div>
@@ -565,7 +565,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                     (click)="toggleAutomaticAiCheck()"
                     [attr.aria-pressed]="automaticAiCheck"
                     [attr.aria-label]="automaticAiCheck ? 'Automatikus MI-ellenőrzés kikapcsolása' : 'Automatikus MI-ellenőrzés bekapcsolása'"
-                    [attr.title]="automaticAiCheck ? 'Automatikus MI-ellenőrzés: bekapcsolva (kattints a kikapcsoláshoz)' : 'Automatikus MI-ellenőrzés: kikapcsolva (kattints a bekapcsoláshoz)'">
+                    [attr.title]="automaticAiCheck ? 'Automatikus MI-ellenőrzés: be (kattints a kikapcsoláshoz)' : 'Automatikus MI-ellenőrzés: ki (kattints a bekapcsoláshoz)'">
                     MI-ellenőrzés
                   </button>
                   <button
@@ -574,7 +574,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                     [disabled]="isSuspendBusy"
                     (click)="suspendCurrentCard('buried')"
                     aria-label="Elnapolás holnapig"
-                    title="Elnapolás holnapig: a kártya holnapig nem jelenik meg">
+                    title="Holnapig nem jön elő">
                     Elnapolás
                   </button>
                   <button
@@ -583,14 +583,14 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                     [disabled]="isSuspendBusy"
                     (click)="suspendCurrentCard('suspended')"
                     aria-label="Felfüggesztés"
-                    title="Felfüggesztés: a kártya addig nem jelenik meg, amíg a pakli kártyalistájában vissza nem kapcsolod">
+                    title="Nem jön elő, amíg a pakli kártyalistájában vissza nem kapcsolod">
                     Felfüggesztés
                   </button>
                 </div>
               </div>
               <p class="study-card-stats">
                 @if (card.isLeech) {
-                  <span class="badge text-bg-warning" title="Sokszor elrontott szó. Ha zavar, tedd félre az óra vagy a szünet gombbal.">Nehéz szó</span>
+                  <span class="badge text-bg-warning" title="Sokszor elrontott szó. Ha zavar, tedd félre.">Nehéz szó</span>
                 }
                 <span>Sorozat: {{ card.streak }}</span>
                 <span>Hibák: {{ card.incorrectCount }}</span>
@@ -605,11 +605,11 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
               @if (mode === 'meaning') {
                 @if (hasTargetMeanings) {
                   @if (!isReversed) {
-                    <p class="text-body-secondary">Ehhez a szóhoz már van célnyelvi jelentés.</p>
+                    <p class="text-body-secondary">Ehhez a szóhoz van magyar jelentés.</p>
                   }
                   @if (isRetry) {
                     <div class="alert alert-info py-2" role="status">
-                      Gyakorló kör: írd be még egyszer. Ez nem számít bele a statisztikába.
+                      Gyakorló kör: írd be még egyszer. Nem számít bele a statisztikába.
                     </div>
                   }
                   <label for="meaning-answer" class="form-label fw-semibold">{{ isReversed ? 'Írd be az angol szót.' : 'Írd be a magyar jelentést.' }}</label>
@@ -650,7 +650,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
 
                   @if (isMeaningRevealed) {
                     <div class="mt-4 p-3 bg-body-tertiary rounded">
-                      <h3 class="h6">Célnyelvi jelentés</h3>
+                      <h3 class="h6">Magyar jelentés</h3>
                       <div class="speak-row mb-2">
                         <p class="mb-0">{{ card.targetMeanings }}</p>
                         <app-speak-button [text]="card.targetMeanings" lang="hu" label="A magyar jelentés" />
@@ -703,7 +703,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                   }
                 } @else {
                   <div class="alert alert-warning" role="status">
-                    Ehhez a szóhoz még nincs célnyelvi jelentés. Amit ide írsz, azt a Mentés rögzíti elfogadott alakként. A felelés csak a mentés után indul.
+                    Ehhez a szóhoz még nincs magyar jelentés. Írd be ide és mentsd el, utána indulhat a felelés.
                   </div>
                   <label for="target-meanings" class="form-label fw-semibold">Elfogadott alakok</label>
                   <textarea
@@ -714,7 +714,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                     [(ngModel)]="targetMeaningsDraft"
                     [disabled]="isGeneratingTargetMeaning || isSavingTargetMeaning"
                     placeholder="étel, kaja"></textarea>
-                  <div class="form-text">Most magyar. Elfogadott alakok vesszővel: étel, kaja</div>
+                  <div class="form-text">Magyarul, több elfogadott alakot vesszővel válassz el: étel, kaja</div>
                   <div class="d-grid d-sm-flex gap-2 mt-3">
                     <button
                       type="button"
@@ -833,7 +833,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                     @if (recognitionHint) {
                       <p class="small text-body-secondary">{{ recognitionHint }}</p>
                     }
-                    <p class="small text-body-secondary">Ez a definíció a beírt szóra is illik. Írd be újra a szót.</p>
+                    <p class="small text-body-secondary">Ez a definíció a beírt szóra is illik. Próbáld újra.</p>
                   } @else {
                     @if (extraDefinition) {
                       <p class="small text-body-secondary">{{ extraDefinition }}</p>
@@ -932,7 +932,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                       <strong>{{ recognitionCorrect ? 'Helyes válasz.' : 'Még nem pontos.' }}</strong>
                       @if (!recognitionCorrect) {
                         @if (updatedProgress?.confusedWithTerm; as confusedWithTerm) {
-                          <span> Ezt a szót a(z) „{{ confusedWithTerm }}” szóval keverted.</span>
+                          <span> Összekevested ezzel: „{{ confusedWithTerm }}”.</span>
                         }
                       }
                     </div>
@@ -1098,11 +1098,11 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
               @if (updatedProgress) {
                 <div class="border-top mt-4 pt-4">
                   @if (isRetry) {
-                    <p class="mb-3">Gyakorló kör: nem számít bele a statisztikába és az ismétlési ütemezésbe.</p>
+                    <p class="mb-3">Gyakorló kör: nem számít bele a statisztikába.</p>
                   } @else {
                     <p class="mb-3">
-                      Mentve: {{ updatedProgress.streak }} helyes válasz sorban,
-                      következő időköz {{ updatedProgress.interval }} nap,
+                      Mentve. Sorozat: {{ updatedProgress.streak }},
+                      következő ismétlés {{ updatedProgress.interval }} nap múlva,
                       könnyűség {{ updatedProgress.easeFactor | number:'1.1-1' }}.
                     </p>
                   }
@@ -1274,9 +1274,9 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
   readonly modeOptions: StudyModeOption[] = [
     { id: 'meaning', label: 'Fordítás', description: 'Látod a szót, és beírod a jelentését.' },
-    { id: 'definition', label: 'Magyarázd el angolul', description: 'Saját szavaiddal elmagyarázod, mit jelent; az MI értékeli.' },
-    { id: 'recognition', label: 'Találd ki a szót', description: 'Körülírást kapsz, és kitalálod az angol szót.' },
-    { id: 'free', label: 'Kártyázás', description: 'Lapozgatás: megfordítod, és jelölöd, tudod-e.', note: 'Nem számít az ismétlésbe' },
+    { id: 'definition', label: 'Magyarázd el angolul', description: 'Angolul elmagyarázod a szót, az MI értékeli.' },
+    { id: 'recognition', label: 'Találd ki a szót', description: 'Leírásból kitalálod az angol szót.' },
+    { id: 'free', label: 'Kártyázás', description: 'Lapozgatsz, és jelölöd, tudod-e.', note: 'Nem számít az ismétlésbe' },
   ];
 
   // Fordításnál a kérdés és a válasz nyelve is számít, magyarázatnál a válasz mindig angol, ezért ott csak a kérdés nyelve.
@@ -1304,20 +1304,20 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     switch (mode) {
       case 'meaning':
         return direction === 'en'
-          ? 'Látod az angol szót, és beírod a magyar jelentését.'
+          ? 'Angol szót látsz, magyarul válaszolsz.'
           : direction === 'hu'
-            ? 'Látod a magyar jelentést, és beírod az angol szót.'
-            : 'Hol az angol szót látod és magyarul válaszolsz, hol fordítva.';
+            ? 'Magyar szót látsz, angolul válaszolsz.'
+            : 'Hol angol, hol magyar szót látsz, és a másik nyelven válaszolsz.';
       case 'definition':
         return direction === 'en'
-          ? 'Látod az angol szót, és angolul elmagyarázod, mit jelent.'
+          ? 'Angol szót látsz, és angolul elmagyarázod.'
           : direction === 'hu'
-            ? 'Látod a magyar szót, és angolul elmagyarázod, mit jelent.'
-            : 'Hol az angol, hol a magyar szót látod, és angolul elmagyarázod, mit jelent.';
+            ? 'Magyar szót látsz, és angolul elmagyarázod.'
+            : 'Hol angol, hol magyar szót látsz, és angolul elmagyarázod.';
       case 'recognition':
-        return 'Látod a körülírást, és beírod hozzá az angol szót.';
+        return 'Leírást látsz, és megadod hozzá az angol szót.';
       case 'free':
-        return 'Kártyák lapozgatása: fordítsd meg, majd jelöld, hogy tudod-e.';
+        return 'Megfordítod a kártyát, és jelölöd, hogy tudod-e.';
     }
   }
 
@@ -2224,7 +2224,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
           const combined = this.appendMeanings(this.targetMeaningsDraft, response.meanings ?? '');
           if (combined.length > 300) {
-            this.errorMessage = 'A célnyelvi jelentés legfeljebb 300 karakter.';
+            this.errorMessage = 'A magyar jelentés legfeljebb 300 karakter lehet.';
             return;
           }
 
@@ -2235,7 +2235,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
             return;
           }
 
-          this.setHttpError(error, 'A célnyelvi jelentés generálása');
+          this.setHttpError(error, 'A magyar jelentés generálása');
         },
       });
   }
@@ -2281,7 +2281,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
         },
         error: (error: unknown) => {
           if (error instanceof HttpErrorResponse) {
-            this.setHttpError(error, 'A célnyelvi jelentés generálása');
+            this.setHttpError(error, 'A magyar jelentés generálása');
           } else {
             this.errorMessage = error instanceof Error && error.message === 'too-long'
               ? 'A generált jelentés hosszabb a megengedett 300 karakternél.'
@@ -2302,7 +2302,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     }
 
     if (meanings.length > 300) {
-      this.errorMessage = 'A célnyelvi jelentés legfeljebb 300 karakter.';
+      this.errorMessage = 'A magyar jelentés legfeljebb 300 karakter lehet.';
       return;
     }
 
@@ -2335,7 +2335,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
             return;
           }
 
-          this.setHttpError(error, 'A célnyelvi jelentés mentése');
+          this.setHttpError(error, 'A magyar jelentés mentése');
         },
       });
   }
@@ -2367,8 +2367,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
           if (!response.available || !response.definition) {
             this.extraDefinitionMessage = response.reason === 'alternateDisabled'
-              ? 'A váltakozó definíció ki van kapcsolva, ezért nincs második, eltérő definíció.'
-              : 'Nem sikerült a látható definíciótól legalább 30 százalékban eltérő szöveget kapni.';
+              ? 'A váltakozó definíció ki van kapcsolva, ezért nincs másik definíció.'
+              : 'Nem sikerült a mostanitól elég különböző definíciót kapni.';
             if (response.reason === 'alternateDisabled') {
               this.extraDefinition = null;
             }
@@ -3018,7 +3018,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           // A szerver két 400-at ad: a túl korai válasz újrapróbálható, a lejárt válasz-azonosító nem.
           const problem = error.error as { code?: unknown } | null;
           if (error.status === 400 && problem?.code === 'answer-too-early') {
-            this.errorMessage = 'A válasz még nem menthető. Várd meg a beállított minimum időt, majd próbáld újra.';
+            this.errorMessage = 'Még nem küldheted el a választ. Várd meg a minimum időt, és próbáld újra.';
             this.continueAfterMeaningSubmit = false;
             if (this.pendingIncorrect) {
               return;
@@ -3039,7 +3039,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           // Lejárt válasz-azonosítóval a válasz soha nem menthető: új kártya jön, az üzenet azon jelenik meg.
           if (error.status === 400 && problem?.code === 'answer-token-invalid') {
             this.continueAfterMeaningSubmit = false;
-            this.pendingCardNotice = 'Az előző kártya válasz-azonosítója lejárt vagy érvénytelen, ezért a válasz nem lett elmentve. Itt egy új kártya.';
+            this.pendingCardNotice = 'Az előző kártya válaszazonosítója lejárt, ezért a válaszod nem mentődött el. Itt egy új kártya.';
             this.loadNextCard();
             return;
           }
@@ -3612,15 +3612,15 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     }
 
     if (error.status === 503) {
-      this.errorMessage = `${context} sikertelen: az MI-szolgáltatás nincs konfigurálva.`;
+      this.errorMessage = `${context} sikertelen: az MI nincs beállítva.`;
     } else if (error.status === 502) {
-      this.errorMessage = `${context} sikertelen: az MI-szolgáltató nem adott megfelelő választ.`;
+      this.errorMessage = `${context} sikertelen: az MI nem adott használható választ.`;
     } else if (error.status === 404) {
       this.errorMessage = `${context} sikertelen: a kért adat nem található.`;
     } else if (error.status === 429) {
       this.errorMessage = `${context} sikertelen: az MI-keret elfogyott.`;
     } else {
-      this.errorMessage = `${context} sikertelen. Kérlek, próbáld újra.`;
+      this.errorMessage = `${context} sikertelen. Próbáld újra.`;
     }
   }
 }

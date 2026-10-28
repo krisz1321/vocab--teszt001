@@ -94,7 +94,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
       <div class="mx-auto page-wrap">
         <header class="text-center mb-4">
           <h1 class="h3 mb-1">Nyelvtan</h1>
-          <p class="text-body-secondary mb-0">Mondatalkotás a választott igeidőkben. Az eredmény nem számít bele az ismétlésbe.</p>
+          <p class="text-body-secondary mb-0">Írj mondatokat a választott igeidőkben. Nem számít bele az ismétlésbe.</p>
         </header>
 
         @if (errorMessage) {
@@ -105,7 +105,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
           <section class="card shadow-sm mb-3">
             <div class="card-body">
               <h2 class="h5 mb-1">Igeidők</h2>
-              <p class="text-body-secondary small mb-3">Minden kártyánál a program véletlenszerűen választ egyet a bejelöltek közül. A választás a fiókodban mentődik.</p>
+              <p class="text-body-secondary small mb-3">Minden szónál véletlenszerűen kapsz egyet a bejelölt igeidők közül. A választásod mentődik.</p>
               @if (isLoadingTenses) {
                 <div class="text-center py-3" role="status"><div class="spinner-border text-primary"></div></div>
               } @else {
@@ -136,7 +136,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                   }
                 </div>
                 @if (selectedTenses.length === 0) {
-                  <div class="alert alert-warning mt-3 mb-0" role="status">Válassz ki legalább egy igeidőt a gyakorláshoz.</div>
+                  <div class="alert alert-warning mt-3 mb-0" role="status">Jelölj be legalább egy igeidőt.</div>
                 }
                 <div class="form-check form-switch mt-3 mb-0">
                   <input
@@ -148,7 +148,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                     [disabled]="isSavingTranslation"
                     (change)="toggleTranslation()">
                   <label class="form-check-label" for="grammar-translation">A mondatom magyar jelentése az ellenőrzés után</label>
-                  <div class="form-text">Az MI azt fordítja le, amit valóban írtál, hibás mondatnál is. Nem jár külön MI-hívással.</div>
+                  <div class="form-text">Azt fordítja le, amit írtál, hibás mondatnál is. Nem kér külön MI-hívást.</div>
                 </div>
               }
             </div>
@@ -162,7 +162,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
               } @else {
                 @if (decks.length === 0) {
                   <div class="alert alert-warning" role="status">
-                    <p class="mb-2">Még nincs paklid, így nincsenek szavak a gyakorláshoz.</p>
+                    <p class="mb-2">Még nincs paklid, nincs mit gyakorolni.</p>
                     <button type="button" class="btn btn-sm btn-primary" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
                   </div>
                 }
@@ -202,7 +202,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                     [(ngModel)]="onlyReviewed"
                     (ngModelChange)="onReviewedChange()">
                   <label class="form-check-label" for="grammar-reviewed">Csak a már tanult szavak</label>
-                  <div class="form-text">Csak azok a kártyák, amelyeket legalább egyszer már ismételtél.</div>
+                  <div class="form-text">Csak, amit már legalább egyszer gyakoroltál.</div>
                 </div>
                 @if (emptySelection) {
                   <div class="alert alert-info" role="status">Ebben a választásban nincs kártya.</div>
@@ -249,7 +249,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
               <p class="text-body-secondary mb-3">{{ card.definition }}</p>
 
               <div class="grammar-task mb-3">
-                <div>Írj egy mondatot <strong>{{ tenseLabel(currentTense) }}</strong> igeidőben, amelyben szerepel a <strong>{{ card.term }}</strong> szó.</div>
+                <div>Írj egy <strong>{{ tenseLabel(currentTense) }}</strong> mondatot a(z) <strong>{{ card.term }}</strong> szóval.</div>
                 <div class="small text-body-secondary">Képzés: {{ tenseHint(currentTense) }}</div>
               </div>
 
@@ -270,7 +270,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
 
               @if (confirmMissingTerm) {
                 <div class="alert alert-warning py-2" role="status">
-                  Nem találom a mondatban a(z) „{{ card.term }}” szót. Ha rendhagyó alakban használtad (pl. go → went), nyugodtan küldd el.
+                  Nem látom a mondatban ezt: „{{ card.term }}”. Ha más alakban írtad (pl. go → went), küldd el nyugodtan.
                   <button type="button" class="btn btn-sm btn-outline-secondary ms-2" (click)="check(true)">Mégis elküldöm</button>
                 </div>
               }
@@ -462,7 +462,7 @@ export class GrammarComponent implements OnInit {
         next: response => this.showTranslation = response.enabled,
         error: () => {
           this.showTranslation = previous;
-          this.errorMessage = 'A beállítás mentése sikertelen. Kérlek, próbáld újra.';
+          this.errorMessage = 'A beállítás mentése sikertelen. Próbáld újra.';
         },
       });
   }
@@ -546,7 +546,7 @@ export class GrammarComponent implements OnInit {
           this.cards = this.shuffle(cards.map(card => ({ id: card.id, term: card.term, definition: card.definition })));
           this.beginRound();
         },
-        error: () => this.errorMessage = 'A kártyák betöltése sikertelen. Kérlek, próbáld újra.',
+        error: () => this.errorMessage = 'A kártyák betöltése sikertelen. Próbáld újra.',
       });
   }
 
@@ -698,7 +698,7 @@ export class GrammarComponent implements OnInit {
             return;
           }
 
-          this.errorMessage = 'A kézi elfogadás mentése sikertelen. Kérlek, próbáld újra.';
+          this.errorMessage = 'A kézi elfogadás mentése sikertelen. Próbáld újra.';
         },
       });
   }
@@ -818,7 +818,7 @@ export class GrammarComponent implements OnInit {
         next: response => this.selectedTenses = response.tenses,
         error: () => {
           this.selectedTenses = previous;
-          this.errorMessage = 'Az igeidők mentése sikertelen. Kérlek, próbáld újra.';
+          this.errorMessage = 'Az igeidők mentése sikertelen. Próbáld újra.';
         },
       });
   }
@@ -829,7 +829,7 @@ export class GrammarComponent implements OnInit {
       .pipe(finalize(() => this.isLoadingTenses = false))
       .subscribe({
         next: response => this.selectedTenses = response.tenses,
-        error: () => this.errorMessage = 'Az igeidők betöltése sikertelen. Kérlek, frissítsd az oldalt.',
+        error: () => this.errorMessage = 'Az igeidők betöltése sikertelen. Frissítsd az oldalt.',
       });
   }
 
@@ -853,7 +853,7 @@ export class GrammarComponent implements OnInit {
 
           this.refreshTagOptions();
         },
-        error: () => this.errorMessage = 'A paklik betöltése sikertelen. Kérlek, frissítsd az oldalt.',
+        error: () => this.errorMessage = 'A paklik betöltése sikertelen. Frissítsd az oldalt.',
       });
   }
 
@@ -939,15 +939,15 @@ export class GrammarComponent implements OnInit {
     }
 
     if (error.status === 503) {
-      this.errorMessage = `${context} sikertelen: az MI-szolgáltatás nincs konfigurálva.`;
+      this.errorMessage = `${context} sikertelen: az MI nincs beállítva.`;
     } else if (error.status === 502) {
-      this.errorMessage = `${context} sikertelen: az MI-szolgáltató nem adott megfelelő választ.`;
+      this.errorMessage = `${context} sikertelen: az MI nem adott használható választ.`;
     } else if (error.status === 404) {
       this.errorMessage = `${context} sikertelen: a kért adat nem található.`;
     } else if (error.status === 429) {
       this.errorMessage = `${context} sikertelen: az MI-keret elfogyott.`;
     } else {
-      this.errorMessage = `${context} sikertelen. Kérlek, próbáld újra.`;
+      this.errorMessage = `${context} sikertelen. Próbáld újra.`;
     }
   }
 }

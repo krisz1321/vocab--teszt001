@@ -27,7 +27,7 @@ const PAGE_SIZE = 25;
       <div class="mx-auto page-wrap">
         <header class="mb-3">
           <h1 class="h3 mb-1">Statisztika</h1>
-          <p class="text-body-secondary mb-0">Mit értél el, hol tartasz, és mit érdemes még gyakorolnod.</p>
+          <p class="text-body-secondary mb-0">Hol tartasz, és mit érdemes még gyakorolnod.</p>
         </header>
 
         @if (isLoading()) {
@@ -48,7 +48,7 @@ const PAGE_SIZE = 25;
           @if (vm(); as v) {
             @if (s.totalCards === 0) {
               <div class="alert alert-info" role="status">
-                Még nincs egyetlen kártyád sem. A Paklik menüben hozhatsz létre új paklit vagy importálhatsz szavakat, a statisztika a tanulással kezd el kitöltődni.
+                Még nincs kártyád. A Paklik menüben hozhatsz létre paklit vagy importálhatsz szavakat, a statisztika tanulás közben kezd kitöltődni.
               </div>
             }
 
@@ -225,7 +225,7 @@ const PAGE_SIZE = 25;
               <section class="card border-0 shadow-sm mb-3" aria-labelledby="stats-trend">
                 <div class="card-body p-3 p-md-4">
                   <h2 id="stats-trend" class="h6 fw-semibold mb-1">Heti pontosság</h2>
-                  <p class="text-body-secondary small mb-3">A helyes válaszok aránya hetente. Az emelkedő vonal azt jelenti, hogy egyre jobban megjegyzed a szavakat.</p>
+                  <p class="text-body-secondary small mb-3">A helyes válaszok aránya hetente. Ha emelkedik a vonal, egyre jobban megjegyzed a szavakat.</p>
                   @if (v.trend.hasData) {
                     <svg class="trend" [attr.viewBox]="'0 0 ' + v.trend.width + ' ' + v.trend.height" role="img" [attr.aria-label]="v.trend.summary">
                       @for (tick of [0, 50, 100]; track tick) {
@@ -260,7 +260,7 @@ const PAGE_SIZE = 25;
                       <button type="button" class="btn btn-outline-secondary" [class.active]="learnedRange() === 'weeks'" (click)="learnedRange.set('weeks')">12 hét</button>
                     </div>
                   </div>
-                  <p class="text-body-secondary small mb-3">Összesen {{ s.learnedCards }} megtanult szó. Egy szó akkor számít megtanultnak, ha háromszor egymás után jól válaszoltál rá.</p>
+                  <p class="text-body-secondary small mb-3">Összesen {{ s.learnedCards }} megtanult szó. Megtanult az a szó, amire háromszor egymás után jól válaszoltál.</p>
                   <ng-container *ngTemplateOutlet="barChart; context: { items: learnedBars(v), label: 'Újonnan megtanult szavak', dense: learnedRange() === '30' }" />
                 </div>
               </section>
@@ -282,7 +282,7 @@ const PAGE_SIZE = 25;
               <section class="card border-0 shadow-sm mb-3" aria-labelledby="stats-maturity">
                 <div class="card-body p-3 p-md-4">
                   <h2 id="stats-maturity" class="h6 fw-semibold mb-1">Tudásszintek</h2>
-                  <p class="text-body-secondary small mb-3">Minél hosszabb az ismétlési köz, annál biztosabban tudod a szót. A sáv csak a már gyakorolt kártyákat mutatja.</p>
+                  <p class="text-body-secondary small mb-3">Minél hosszabb az ismétlési köz, annál biztosabban tudod a szót. Csak a már gyakorolt kártyák számítanak.</p>
                   <div class="maturity-bar mb-3" role="img" [attr.aria-label]="maturitySummary(v)">
                     @for (segment of v.maturity; track segment.key) {
                       @if (segment.count > 0 && segment.key !== 'new') {
@@ -308,7 +308,7 @@ const PAGE_SIZE = 25;
               <section class="card border-0 shadow-sm mb-3" aria-labelledby="stats-practice">
                 <div class="card-body p-3 p-md-4">
                   <h2 id="stats-practice" class="h6 fw-semibold mb-1">Nyelvtan és mondatok</h2>
-                  <p class="text-body-secondary small mb-3">Az MI-vel ellenőrzött próbálkozásaid. Nem számítanak bele az ismétlésekbe, a napi sorozatba és a tanulási időbe.</p>
+                  <p class="text-body-secondary small mb-3">Az MI-vel ellenőrzött próbálkozásaid. Nem számítanak az ismétlésbe, a napi sorozatba és a tanulási időbe.</p>
                   @if (v.practice.hasPractice) {
                     <div class="row g-3 mb-3">
                       <div class="col-6">
@@ -326,13 +326,13 @@ const PAGE_SIZE = 25;
                     @if (v.practice.weakestTense; as weakest) {
                       <div class="alert alert-warning py-2 px-3 small mb-3" role="note">
                         Leggyengébb igeidő: <strong>{{ weakest.label }}</strong> ({{ weakest.correct }} / {{ weakest.attempts }}, {{ weakest.percent }}%).
-                        Érdemes a Nyelvtan menüpontban ezt gyakorolni.
+                        Ezt érdemes gyakorolni a Nyelvtanban.
                       </div>
                     }
 
                     @if (v.practice.errorGroups.length > 0) {
                       <h3 class="small fw-semibold mb-1">Miben hibázol?</h3>
-                      <p class="text-body-secondary small mb-2">A próbálkozások hány százalékában talált hibát az MI az adott szempontban. A kézzel elfogadott válaszok nem számítanak bele.</p>
+                      <p class="text-body-secondary small mb-2">A próbálkozások hány százalékában talált hibát az MI. A kézzel elfogadott válaszok nem számítanak.</p>
                       <div class="row g-3 mb-3">
                         @for (group of v.practice.errorGroups; track group.title) {
                           <div class="col-md-6">
@@ -408,7 +408,7 @@ const PAGE_SIZE = 25;
                       Mondatokban {{ s.practice.composition.correctWordCount }} / {{ s.practice.composition.wordCount }} szót használtál helyesen.
                     </p>
                   } @else {
-                    <p class="text-body-secondary mb-0">Még nincs nyelvtan- vagy mondatgyakorlásod. A Nyelvtan és a Mondatok menüpontban ellenőrzött próbálkozásaid itt jelennek meg.</p>
+                    <p class="text-body-secondary mb-0">Még nem gyakoroltál nyelvtant vagy mondatokat. Az ellenőrzött próbálkozásaid itt jelennek meg.</p>
                   }
                 </div>
               </section>
@@ -444,7 +444,7 @@ const PAGE_SIZE = 25;
                 <section class="card border-0 shadow-sm mb-3 leech-card" aria-labelledby="stats-leech">
                   <div class="card-body p-3 p-md-4">
                     <h2 id="stats-leech" class="h6 fw-semibold mb-1">Nehéz szavak</h2>
-                    <p class="text-body-secondary small mb-3">Ezekre sokszor hibásan válaszoltál. Érdemes külön figyelmet szentelni nekik, például példamondatot írni hozzájuk.</p>
+                    <p class="text-body-secondary small mb-3">Ezekre sokszor hibásan válaszoltál. Érdemes külön gyakorolni őket, például példamondatot írni hozzájuk.</p>
                     <ul class="list-unstyled mb-0">
                       @for (card of leechCards(); track card.term) {
                         <li class="d-flex justify-content-between gap-2 py-1 border-top">
@@ -464,7 +464,7 @@ const PAGE_SIZE = 25;
                 <section class="card border-0 shadow-sm mb-3" aria-labelledby="stats-practice-words">
                   <div class="card-body p-3 p-md-4">
                     <h2 id="stats-practice-words" class="h6 fw-semibold mb-1">Mondatban elrontott szavak</h2>
-                    <p class="text-body-secondary small mb-3">A Nyelvtan és a Mondatok menüpontban ezeket a szavakat használtad rosszul. Egy szó a kártyán lehet már megtanult, mondatban mégis nehéz.</p>
+                    <p class="text-body-secondary small mb-3">Ezeket a szavakat használtad rosszul a Nyelvtanban és a Mondatokban. Egy szó lehet megtanult, mondatban mégis nehéz.</p>
                     <ul class="list-unstyled mb-0">
                       @for (word of s.practice.problemWords; track $index) {
                         <li class="d-flex justify-content-between gap-2 py-1 border-top">
@@ -652,7 +652,7 @@ export class StatsComponent implements OnInit {
 
           this.errorMessage.set(error.status === 404
             ? 'A statisztika betöltése sikertelen: a kért adat nem található.'
-            : 'A statisztika betöltése sikertelen. Kérlek, próbáld újra.');
+            : 'A statisztika betöltése sikertelen. Próbáld újra.');
         },
       });
   }

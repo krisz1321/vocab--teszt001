@@ -79,13 +79,13 @@ interface AiModelOption {
         <main class="container d-flex pb-5">
           <div class="auth-card">
             <h1 class="h3 mb-1">{{ mode === 'login' ? 'Üdv újra!' : 'Fiók létrehozása' }}</h1>
-            <p class="text-body-secondary mb-4">MI-támogatott angol szókártyák, ismétléssel.</p>
+            <p class="text-body-secondary mb-4">Angol szókártyák MI-segítséggel.</p>
             <div class="seg mb-4" role="group" aria-label="Belépés módja">
               <button type="button" [class.is-active]="mode === 'login'" (click)="setMode('login')">Bejelentkezés</button>
               <button type="button" [class.is-active]="mode === 'register'" (click)="setMode('register')">Regisztráció</button>
             </div>
             @if (session.expired()) {
-              <div class="alert alert-warning" role="status">A bejelentkezésed lejárt vagy érvénytelenné vált. Kérlek, jelentkezz be újra.</div>
+              <div class="alert alert-warning" role="status">Lejárt a bejelentkezésed, lépj be újra.</div>
             }
             <form (ngSubmit)="submit()">
               <div class="mb-3">
@@ -102,7 +102,7 @@ interface AiModelOption {
                   (ngModelChange)="onRegisterFieldChange()"
                   [disabled]="isSubmitting">
                 @if (mode === 'register' && emailTaken) {
-                  <div class="invalid-feedback d-block">Ez az email cím már regisztrálva van.</div>
+                  <div class="invalid-feedback d-block">Ezzel az email címmel már van fiók.</div>
                 }
               </div>
               @if (mode === 'register') {
@@ -244,7 +244,7 @@ interface AiModelOption {
           }
           <section class="mb-4">
             <h2 class="h5 mb-3">Hang és felolvasás</h2>
-            <p class="text-body-secondary">A tanulás közben a kártyák angol és magyar szövegei felolvashatók a hangszóró gombbal. Itt állíthatod be, mit és milyen hangon olvasson fel.</p>
+            <p class="text-body-secondary">A kártyák szövegét a hangszóró gombbal felolvastathatod. Itt állíthatod be, mit és milyen hangon olvasson.</p>
             <app-speech-settings />
           </section>
           <form class="mb-4" (ngSubmit)="saveStudySettings()">
@@ -255,7 +255,7 @@ interface AiModelOption {
                   <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
                   A beállítások betöltése…
                 } @else {
-                  A beállítások nem töltődtek be, ezért most nem menthetők.
+                  Nem sikerült betölteni a beállításokat, ezért most nem tudsz menteni.
                   <button type="button" class="btn btn-sm btn-outline-secondary" (click)="loadStudySettings()">Újrapróbálás</button>
                 }
               </div>
@@ -272,7 +272,7 @@ interface AiModelOption {
                 step="1"
                 [(ngModel)]="dailyNewCardGoal"
                 [disabled]="isSavingStudySettings">
-              <div class="form-text">Hány még soha meg nem válaszolt szót kaphatsz egy napon (0–100). Az esedékes ismétlések ettől függetlenül jönnek.</div>
+              <div class="form-text">Naponta ennyi új szót kapsz (0–100). Az esedékes ismétlések ezen felül jönnek.</div>
             </div>
             <div class="mb-3">
               <label class="form-label" for="minimumAnswerSeconds">Minimum idő másodpercben</label>
@@ -286,7 +286,7 @@ interface AiModelOption {
                 step="1"
                 [(ngModel)]="minimumAnswerSeconds"
                 [disabled]="isSavingStudySettings">
-              <div class="form-text">Ennyi másodpercig kell a kártyának látszania, mielőtt a válasz menthető (0–120).</div>
+              <div class="form-text">Ennyi másodperc után válaszolhatsz a kártyára (0–120).</div>
             </div>
             <div class="mb-3">
               <label class="form-label" for="exampleLevel">Mondatszint</label>
@@ -300,10 +300,10 @@ interface AiModelOption {
                   <option [value]="level">{{ level }}</option>
                 }
               </select>
-              <div class="form-text">Ez a fiók szintje, a pakli saját szintje felülírja.</div>
+              <div class="form-text">Ez a fiókod szintje. Ha a paklinak saját szintje van, az számít.</div>
             </div>
             <details class="advanced-settings mb-4">
-              <summary class="fw-semibold">Haladó beállítások (MI, példamondatok és nehéz szavak)</summary>
+              <summary class="fw-semibold">Haladó beállítások</summary>
               <div class="pt-3">
             <div class="mb-3">
               <label class="form-label" for="aiModel">MI-modell</label>
@@ -317,7 +317,7 @@ interface AiModelOption {
                   <option [value]="model.id">{{ model.label }}</option>
                 }
               </select>
-              <div class="form-text">Minden modell a meglévő OpenRouter-kulcsot használja.</div>
+              <div class="form-text">Mindegyik ugyanazt az OpenRouter-kulcsot használja.</div>
             </div>
             <div class="form-check mb-3">
               <input
@@ -328,7 +328,7 @@ interface AiModelOption {
                 [(ngModel)]="automaticAiCheck"
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="automaticAiCheck">Automatikus MI-ellenőrzés</label>
-              <div class="form-text">Ha a beírt jelentés nem egyezik a mentett alakkal, az MI automatikusan kiértékeli. Kikapcsolva ez csak a hibás válasznál, kézzel indítható.</div>
+              <div class="form-text">Ha a válaszod nem egyezik a mentett jelentéssel, az MI megnézi. Kikapcsolva ezt hibás válasz után te indíthatod el.</div>
             </div>
             <div class="form-check mb-3">
               <input
@@ -339,7 +339,7 @@ interface AiModelOption {
                 [(ngModel)]="acceptPartialMeaningMatch"
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="acceptPartialMeaningMatch">Részleges egyezés elfogadása</label>
-              <div class="form-text">Bekapcsolva a válasz akkor is helyes, ha a vesszővel elválasztott részei közül legalább egy egyezik a mentett jelentések valamelyikével. Kikapcsolva a teljes válasznak egyeznie kell egy jelentéssel.</div>
+              <div class="form-text">Elég, ha a vesszővel elválasztott részek közül egy egyezik a mentett jelentéssel. Kikapcsolva a teljes válasznak egyeznie kell.</div>
             </div>
             <div class="form-check mb-3">
               <input
@@ -350,7 +350,7 @@ interface AiModelOption {
                 [(ngModel)]="acceptEnglishSynonyms"
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="acceptEnglishSynonyms">Angol szinonima elfogadása</label>
-              <div class="form-text">Magyar → angol fordításnál, ha a kártya szava helyett egy azonos jelentésű másik angol szót írsz, az MI sárgával jelzi. Bekapcsolva ez helyes válaszként számít, kikapcsolva hibásként (a Mégis helyes volt gombbal felülbírálhatod).</div>
+              <div class="form-text">Magyarról angolra fordításnál, ha a kártya szava helyett egy azonos jelentésű másik angol szót írsz, az MI sárgán jelzi. Bekapcsolva ez jó válasz, kikapcsolva hibás (a Mégis helyes volt gombbal vitathatod).</div>
             </div>
             <div class="form-check mb-3">
               <input
@@ -361,7 +361,7 @@ interface AiModelOption {
                 [(ngModel)]="repeatMistakes"
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="repeatMistakes">Hibás válasz után azonnali gyakorló ismétlés</label>
-              <div class="form-text">Bekapcsolva a hibásan megválaszolt kártya rögtön még egyszer visszajön, hogy újra beírd. Ha ekkor is hibázol, a következő kártya már másik lesz. Ezek a gyakorló körök nem számítanak bele a statisztikába és az ismétlési ütemezésbe. Csak a Fordítás módban működik.</div>
+              <div class="form-text">Az elrontott kártya rögtön visszajön, hogy begyakorold. Ha másodszor is hibázol, jön a következő. Ezek a körök nem számítanak a statisztikába és az ütemezésbe. Csak Fordítás módban működik.</div>
             </div>
             <div class="form-check mb-3">
               <input
@@ -372,7 +372,7 @@ interface AiModelOption {
                 [(ngModel)]="acceptHungarianParaphrase"
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="acceptHungarianParaphrase">Magyar körülírás elfogadása</label>
-              <div class="form-text">Bekapcsolva a helyes magyar mondat is elfogadható, és az MI angolul visszaírja. Kikapcsolva a körülírást angolul kell megadni.</div>
+              <div class="form-text">Magyarul is elmagyarázhatod a szót, az MI angolra írja át. Kikapcsolva csak angolul lehet.</div>
             </div>
             <div class="form-check mb-3">
               <input
@@ -383,7 +383,7 @@ interface AiModelOption {
                 [(ngModel)]="requireAppealReason"
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="requireAppealReason">A hibás válasz megvédéséhez indoklás kell.</label>
-              <div class="form-text">Bekapcsolva a Mégis helyes volt gomb indoklást kér, és az MI dönt. Kikapcsolva a Márpedig ez jó válasz volt gomb indoklás nélkül helyesként ment.</div>
+              <div class="form-text">Bekapcsolva a Mégis helyes volt gomb indoklást kér, és az MI dönt. Kikapcsolva a Márpedig ez jó válasz volt gomb indoklás nélkül helyesnek veszi.</div>
             </div>
             <div class="form-check mb-3">
               <input
@@ -394,7 +394,7 @@ interface AiModelOption {
                 [(ngModel)]="reuseSavedExamples"
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="reuseSavedExamples">Mentett definíciók és példamondatok újrafelhasználása</label>
-              <div class="form-text">Bekapcsolva, ha már van mentett mondat vagy definíció, kettőből egyszer egy korábbit ad vissza, API-hívás nélkül. Kikapcsolva minden kérés új mondatot vagy definíciót kér.</div>
+              <div class="form-text">Ha van már mentett példamondat vagy definíció, kb. minden második alkalommal azt kapod, MI-hívás nélkül. Kikapcsolva mindig újat kérünk az MI-től.</div>
             </div>
             <div class="mb-3">
               <div class="form-check">
@@ -419,7 +419,7 @@ interface AiModelOption {
                   }
                 </select>
               }
-              <div class="form-text">Ez csak a már elmentett példamondatokra és definíciókra vonatkozik. Az új MI-kérés továbbra is a pakli vagy a fiók szintjét kéri, és azon a szinten kerül mentésre.</div>
+              <div class="form-text">Csak a már mentett példákra és definíciókra vonatkozik. Új MI-kérésnél továbbra is a pakli vagy a fiók szintje számít, és azon a szinten mentődik.</div>
             </div>
             <div class="form-check mb-3">
               <input
@@ -430,7 +430,7 @@ interface AiModelOption {
                 [(ngModel)]="generateAlternateDefinitions"
                 [disabled]="isSavingStudySettings">
               <label class="form-check-label" for="generateAlternateDefinitions">Váltakozó definíció</label>
-              <div class="form-text">Bekapcsolva új angol definíció készül a mondatszint szerint. Kikapcsolva mindig a kártyán tárolt definíció jelenik meg.</div>
+              <div class="form-text">Mindig új angol definíció készül a mondatszintednek megfelelően. Kikapcsolva a kártyára írt definíciót kapod.</div>
             </div>
             <div class="mb-3">
               <label class="form-label" for="leechThreshold">Nehéz szó küszöbe (hibák száma)</label>
@@ -444,7 +444,7 @@ interface AiModelOption {
                 step="1"
                 [(ngModel)]="leechThreshold"
                 [disabled]="isSavingStudySettings">
-              <div class="form-text">Ennyi hiba után számít nehéznek egy szó, ha több a hibás válasza, mint a helyes. A nehéz szót a tanulásban és a kártyalistában jelöljük, hogy félretehesd.</div>
+              <div class="form-text">Ennyi hiba után számít nehéznek egy szó, ha többször rontottad el, mint ahányszor eltaláltad. A nehéz szavakat megjelöljük, hogy félretehesd őket.</div>
             </div>
             <div class="mb-3">
               <label class="form-label" for="aiFillBatchSize">MI-kitöltés csomagmérete (szó / hívás)</label>
@@ -458,10 +458,10 @@ interface AiModelOption {
                 step="1"
                 [(ngModel)]="aiFillBatchSize"
                 [disabled]="isSavingStudySettings">
-              <div class="form-text">Szöveges importnál ennyi szót dolgoz fel egyetlen MI-hívás (1–10). Nagyobb csomag gyorsabb, de egy hibás válasz több szót érint.</div>
+              <div class="form-text">Szöveges importnál ennyi szót dolgoz fel egy MI-hívás (1–10). A nagyobb csomag gyorsabb, de egy hiba több szót érint.</div>
               <div class="form-text">
-                Mai MI-kitöltés: {{ aiFillDailyLimit - aiFillRemainingToday }} / {{ aiFillDailyLimit }} felhasználva, hátralévő: {{ aiFillRemainingToday }}.
-                A napi keret jelenleg nincs érvényben, ezért negatív is lehet.
+                Mai MI-kitöltés: {{ aiFillDailyLimit - aiFillRemainingToday }} / {{ aiFillDailyLimit }}, hátra: {{ aiFillRemainingToday }}.
+                A napi keret most nincs érvényben, ezért negatív is lehet.
               </div>
             </div>
               </div>
@@ -539,7 +539,7 @@ interface AiModelOption {
                 [disabled]="isSavingUsername">
               <button type="submit" class="btn btn-primary" [disabled]="isSavingUsername || !username.trim() || username.trim() === savedUsername">Mentés</button>
             </div>
-            <div class="form-text">Egyedi név (3–30 karakter: angol betű, szám, pont, kötőjel, aláhúzás). A megosztott paklijaid mellett ez látszik.</div>
+            <div class="form-text">3–30 karakter: angol betű, szám, pont, kötőjel, aláhúzás. A megosztott paklijaid mellett ez látszik.</div>
           </form>
           <form class="mb-4" (ngSubmit)="saveDisplayName()">
             <label class="form-label" for="displayName">Megjelenített név</label>
@@ -577,14 +577,14 @@ interface AiModelOption {
                 autocomplete="new-password"
                 [(ngModel)]="newPassword"
                 [disabled]="isChangingPassword">
-              <div class="form-text">Legalább 8 karakter, legalább egy betűvel és egy számmal.</div>
+              <div class="form-text">Legalább 8 karakter, benne betű és szám.</div>
             </div>
             <button type="submit" class="btn btn-primary" [disabled]="isChangingPassword">Jelszócsere</button>
           </form>
           <section class="mt-4 pt-4 border-top">
             <h2 class="h5 mb-2">Fiók törlése</h2>
-            <p class="mb-3">A fiók, a profilkép, a saját paklik és a tanulási adatok véglegesen törlődnek. Ez a művelet nem vonható vissza.</p>
-            <label class="form-label" for="deleteAccountSlide">Húzd jobbra a csúszkát a törlés feloldásához</label>
+            <p class="mb-3">A fiókod, a profilképed, a paklijaid és a tanulási adataid véglegesen törlődnek. Ezt nem lehet visszacsinálni.</p>
+            <label class="form-label" for="deleteAccountSlide">A törléshez húzd jobbra a csúszkát</label>
             <input
               id="deleteAccountSlide"
               type="range"
@@ -784,23 +784,23 @@ export class AppComponent implements OnInit {
     const email = this.email.trim();
     const password = this.password;
     if (!email || !password) {
-      this.errorMessage = 'Az email és a jelszó megadása kötelező.';
+      this.errorMessage = 'Add meg az emailt és a jelszót.';
       return;
     }
 
     if (this.mode === 'register' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      this.errorMessage = 'Az email cím formátuma érvénytelen.';
+      this.errorMessage = 'Ez nem tűnik érvényes email címnek.';
       return;
     }
 
     if (this.mode === 'register' && password.length < 8) {
-      this.errorMessage = 'A jelszónak legalább 8 karakter hosszúnak kell lennie.';
+      this.errorMessage = 'A jelszó legalább 8 karakter legyen.';
       return;
     }
 
     const username = this.registerUsername.trim();
     if (this.mode === 'register' && !/^[A-Za-z0-9_.-]{3,30}$/.test(username)) {
-      this.errorMessage = 'A felhasználónév 3–30 karakter lehet, és csak angol betűt, számot, pontot, kötőjelet és aláhúzást tartalmazhat.';
+      this.errorMessage = 'A felhasználónév 3–30 karakter, angol betű, szám, pont, kötőjel és aláhúzás lehet.';
       return;
     }
 
@@ -810,7 +810,7 @@ export class AppComponent implements OnInit {
     }
 
     if (this.mode === 'register' && this.emailTaken) {
-      this.errorMessage = 'Ez az email cím már regisztrálva van.';
+      this.errorMessage = 'Ezzel az email címmel már van fiók.';
       return;
     }
 
@@ -876,7 +876,7 @@ export class AppComponent implements OnInit {
     }
 
     return confirm(
-      'A beillesztett, még nem mentett sorok elvesznek, és a futó MI-kitöltés megszakad. Biztosan elhagyod a Paklik nézetet?',
+      'A be nem mentett sorok elvesznek, és a futó MI-kitöltés megszakad. Biztosan kilépsz?',
     );
   }
 
@@ -928,7 +928,7 @@ export class AppComponent implements OnInit {
     const username = this.username.trim();
     if (!/^[A-Za-z0-9_.-]{3,30}$/.test(username)) {
       this.profileMessage = null;
-      this.profileError = 'A felhasználónév 3–30 karakter lehet, és csak angol betűt, számot, pontot, kötőjelet és aláhúzást tartalmazhat.';
+      this.profileError = 'A felhasználónév 3–30 karakter, angol betű, szám, pont, kötőjel és aláhúzás lehet.';
       return;
     }
 
@@ -1027,13 +1027,13 @@ export class AppComponent implements OnInit {
     const seconds = Number(this.minimumAnswerSeconds);
     if (!Number.isInteger(goal) || goal < 0 || goal > 100
       || !Number.isInteger(seconds) || seconds < 0 || seconds > 120) {
-      this.profileError = 'A napi új szavak 0 és 100, a minimum idő 0 és 120 másodperc között lehet.';
+      this.profileError = 'Napi új szó: 0–100, minimum idő: 0–120 másodperc.';
       return;
     }
 
     const leechThreshold = Number(this.leechThreshold);
     if (!Number.isInteger(leechThreshold) || leechThreshold < 2 || leechThreshold > 50) {
-      this.profileError = 'A nehéz szó küszöbe 2 és 50 hiba között lehet.';
+      this.profileError = 'A nehéz szó küszöbe 2–50 hiba lehet.';
       return;
     }
 
@@ -1049,13 +1049,13 @@ export class AppComponent implements OnInit {
     }
 
     if (!this.aiModels.some((model) => model.id === this.aiModel)) {
-      this.profileError = 'Az MI-modell a felsorolt négy közül választható.';
+      this.profileError = 'Válassz a listában szereplő modellek közül.';
       return;
     }
 
     const savedLevelPolicy = this.allowOtherSavedLevels ? this.savedLevelPolicy : 'exact';
     if (this.allowOtherSavedLevels && !this.savedLevelPolicies.some((policy) => policy.id === savedLevelPolicy)) {
-      this.profileError = 'Az eltérő szintű mentett válaszok csak a felsorolt három lehetőség egyike lehet.';
+      this.profileError = 'Válassz a három lehetőség közül.';
       return;
     }
 
@@ -1132,7 +1132,7 @@ export class AppComponent implements OnInit {
 
   deleteAccount(): void {
     const confirmed = confirm(
-      'Biztosan törlöd a fiókodat?\n\nA fiók, a profilkép, a saját paklik és a tanulási adatok véglegesen törlődnek. Ez a művelet nem vonható vissza. A mások által elmentett másolatok megmaradnak.',
+      'Biztosan törlöd a fiókodat?\n\nA fiókod, a profilképed, a paklijaid és a tanulási adataid véglegesen törlődnek. Ezt nem lehet visszacsinálni. A mások által elmentett másolatok megmaradnak.',
     );
     if (!confirmed) {
       this.deleteSlide = 0;
@@ -1297,6 +1297,6 @@ export class AppComponent implements OnInit {
       return title;
     }
 
-    return 'A kérés sikertelen. Kérlek, próbáld újra.';
+    return 'Nem sikerült, próbáld újra.';
   }
 }

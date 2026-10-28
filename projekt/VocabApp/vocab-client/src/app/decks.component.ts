@@ -261,7 +261,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                       <option [value]="level">{{ level }}{{ level === accountLevel ? ' (fiók szintje)' : '' }}</option>
                     }
                   </select>
-                  <div class="form-text">Az MI ilyen nehézségű definíciókat és példamondatokat készít ehhez a paklihoz. Később a pakli beállításaiban módosítható.</div>
+                  <div class="form-text">Az MI ilyen nehézségű definíciókat és példamondatokat készít a paklihoz. Később a pakli beállításaiban átállíthatod.</div>
                   <div class="d-flex gap-2 mt-2">
                     <button type="submit" class="btn btn-primary btn-sm" [disabled]="isSavingDeck || !newDeckName.trim()">
                       @if (isSavingDeck) {
@@ -304,7 +304,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             @if (deck.isPublic && deck.share; as share) {
                               <span class="chip chip-shared" title="Ez a pakli megosztva van">Megosztva · v{{ share.version }}</span>
                               @if (share.hasUnpublishedChanges) {
-                                <span class="chip chip-pending" title="A pakli a legutóbbi megosztás óta módosult. Frissítsd a megosztást a Beállítások és megosztás fülön.">Frissítésre vár</span>
+                                <span class="chip chip-pending" title="A legutóbbi megosztás óta módosult. Frissítsd a Beállítások és megosztás fülön.">Frissítésre vár</span>
                               }
                             }
                             @if (deck.updateAvailable) {
@@ -376,7 +376,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                 } @else if (learnedCards.length === 0) {
                   <div class="empty-box">
                     <p class="fw-semibold mb-1">Még nincs megtanult szavad</p>
-                    <p class="text-body-secondary small mb-0">Egy kártya akkor kerül ide, ha tanulás közben elég sokszor jól válaszoltál rá, vagy a paklidban „Ismerem”-nek jelölted.</p>
+                    <p class="text-body-secondary small mb-0">Ide kerül az a kártya, amire tanulás közben elég sokszor jól válaszoltál, vagy „Ismerem”-nek jelöltél.</p>
                   </div>
                 } @else if (visibleLearned.length === 0) {
                   <div class="empty-box"><p class="mb-0">Nincs a keresésnek megfelelő szó.</p></div>
@@ -639,7 +639,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                                   <span class="chip chip-ok">Megtanult</span>
                                 }
                                 @if (card.isLeech) {
-                                  <span class="chip chip-leech" title="Sokszor elrontott szó. A küszöböt a Beállítások → Tanulási beállítások alatt állíthatod („Nehéz szó küszöbe”).">Nehéz szó</span>
+                                  <span class="chip chip-leech" title="Sokszor elrontott szó. A küszöböt a Beállításokban állíthatod („Nehéz szó küszöbe”).">Nehéz szó</span>
                                 }
                                 @if (card.suspension === 'suspended') {
                                   <span class="chip chip-paused">Felfüggesztve</span>
@@ -663,7 +663,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                               }
                             </div>
                             <div class="card-actions">
-                              <div class="form-check form-switch mb-0" [attr.title]="card.isLearned ? 'Megtanult szó. Kikapcsolva újra a tanulandó kártyák közé kerül.' : 'Jelöld meg, ha már ismered, és nem akarod tanulni'">
+                              <div class="form-check form-switch mb-0" [attr.title]="card.isLearned ? 'Megtanult szó. Kikapcsolva újra tanulandó lesz.' : 'Jelöld, ha már ismered, és nem akarod tanulni'">
                                 <input
                                   class="form-check-input"
                                   type="checkbox"
@@ -747,7 +747,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
 
                     <section class="setting-block">
                       <h3 class="h6">Leírás</h3>
-                      <p class="text-body-secondary small mb-2">Rövid leírás a paklihoz. Megosztáskor a közös paklik között is látszik, és a keresés is figyelembe veszi.</p>
+                      <p class="text-body-secondary small mb-2">Rövid leírás a paklihoz. Megosztáskor a Közös paklik között is látszik, és a keresés is használja.</p>
                       <form class="d-flex flex-column gap-2" (ngSubmit)="saveDescription(deck)">
                         <textarea
                           id="deck-description"
@@ -772,7 +772,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
 
                     <section class="setting-block">
                       <h3 class="h6">Példamondatok szintje</h3>
-                      <p class="text-body-secondary small mb-2">Az MI ilyen nehézségű példamondatokat és definíciókat készít ehhez a paklihoz. Ha nem választasz, a fiókod szintje ({{ accountLevel }}) érvényes.</p>
+                      <p class="text-body-secondary small mb-2">Az MI ilyen nehézségű példamondatokat és definíciókat készít a paklihoz. Ha nem választasz, a fiókod szintje ({{ accountLevel }}) számít.</p>
                       <div class="d-flex flex-wrap gap-2 align-items-center">
                         <select
                           class="form-select"
@@ -797,7 +797,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                       @if (deck.isPublic && deck.share; as share) {
                         <p class="small mb-2">
                           <span class="chip chip-shared">Megosztva · v{{ share.version }}</span>
-                          A pakli látható a <strong>Közös paklik</strong> között ({{ deck.exampleLevel ?? accountLevel }} szinttel). Mások megnézhetik és lemásolhatják, de a te paklidat nem módosíthatják.
+                          A pakli látszik a <strong>Közös paklik</strong> között ({{ deck.exampleLevel ?? accountLevel }} szinttel). Mások megnézhetik és lemásolhatják, de a tiédet nem módosíthatják.
                         </p>
                         <dl class="share-stats small">
                           <div><dt>Verzió</dt><dd>v{{ share.version }}</dd></div>
@@ -807,7 +807,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         </dl>
                         @if (share.hasUnpublishedChanges) {
                           <div class="alert alert-warning small py-2" role="status">
-                            A legutóbbi megosztás óta módosítottad a paklit (a nevét, leírását, szintjét vagy a kártyáit). A Közös paklik között még a v{{ share.version }} látszik.
+                            A legutóbbi megosztás óta módosítottad a paklit. A Közös paklik között még a v{{ share.version }} látszik.
                           </div>
                           <button
                             type="button"
@@ -830,7 +830,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         </button>
                       } @else {
                         <p class="text-body-secondary small mb-2">
-                          Megosztva a pakli bekerül a <strong>Közös paklik</strong> közé: mások megnézhetik és lemásolhatják, de nem módosíthatják az eredetit. A felhasználóneved a pakli mellett látszik. A megosztás a pakli akkori állapotát teszi közzé: a későbbi módosításokat a „Megosztás frissítése" gombbal teheted közzé új verzióként. A megosztást bármikor visszavonhatod.
+                          Megosztva a pakli bekerül a <strong>Közös paklik</strong> közé: mások megnézhetik és lemásolhatják, de az eredetit nem módosíthatják. A felhasználóneved is látszik mellette. A megosztás a pakli mostani állapotát teszi közzé, a későbbi módosításokat a „Megosztás frissítése" gombbal publikálhatod új verzióként. Bármikor visszavonhatod.
                         </p>
                         @if (deck.share; as past) {
                           <p class="text-body-secondary small mb-2">
@@ -873,7 +873,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     <section class="setting-block">
                       <h3 class="h6">Import és export</h3>
                       <p class="text-body-secondary small mb-2">
-                        CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code> és <code>,tags</code> oszloppal), legfeljebb {{ maxImportRows }} sorral. A hibás sorok kimaradnak, a többi bekerül. Szöveget (például Quizletből) beillesztve is importálhatsz, ilyenkor az MI ki tudja tölteni a definíciót és a példamondatot.
+                        CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code> és <code>,tags</code> oszloppal), legfeljebb {{ maxImportRows }} sorral. A hibás sorok kimaradnak, a többi bekerül. Beillesztett szöveget (pl. Quizletből) is importálhatsz, ilyenkor az MI kitöltheti a definíciót és a példamondatot.
                       </p>
                       <div class="d-flex flex-wrap gap-2">
                         <button type="button" class="btn btn-primary" [disabled]="isImporting" (click)="openPasteImport()">Beillesztés szövegből</button>
@@ -896,7 +896,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
 
                     <section class="setting-block danger-zone">
                       <h3 class="h6 text-danger">Veszélyes terület</h3>
-                      <p class="text-body-secondary small mb-2">A pakli törlésekor a benne lévő kártyák és a hozzájuk tartozó tanulási adatok is véglegesen törlődnek.</p>
+                      <p class="text-body-secondary small mb-2">A pakli törlésével a kártyái és a hozzájuk tartozó tanulási adatok is véglegesen törlődnek.</p>
                       <button type="button" class="btn btn-outline-danger" [disabled]="deletingDeckId === deck.id" (click)="deleteDeck(deck)">
                         Pakli törlése
                       </button>
@@ -906,7 +906,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
               } @else if (!isLoadingDecks) {
                 <div class="empty-box empty-box-lg">
                   <p class="h5 mb-2">Válassz egy paklit</p>
-                  <p class="text-body-secondary mb-3">A bal oldali listából kiválaszthatsz egy paklit a kártyák szerkesztéséhez, vagy létrehozhatsz egy újat.</p>
+                  <p class="text-body-secondary mb-3">Válassz paklit a bal oldali listából a kártyák szerkesztéséhez, vagy hozz létre egy újat.</p>
                   <button type="button" class="btn btn-primary" (click)="creating = true">+ Új pakli</button>
                 </div>
               }
@@ -1056,8 +1056,8 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
             <button type="button" class="btn-close" aria-label="Bezárás" (click)="requestClosePaste()"></button>
           </div>
           <p class="text-body-secondary small mb-3">
-            Másold be a szavakat soronként egy szóval. Ha már megvan a magyar jelentés (például Quizlet exportból), írd a szó után az elválasztó jel mögé: az lesz a <strong>magyar jelentés</strong>.
-            Ha <strong>csak angol szavaid vannak</strong>, az is jó: kapcsold be lent a „Magyar jelentés készítése MI-vel” opciót, és az MI megírja a magyar jelentést is.
+            Soronként egy szót másolj be. Ha megvan már a magyar jelentés (például Quizlet exportból), írd a szó után az elválasztó jel mögé: az lesz a <strong>magyar jelentés</strong>.
+            Ha <strong>csak angol szavaid vannak</strong>, az is jó: kapcsold be lent a „Magyar jelentés készítése MI-vel” opciót.
             Az angol definíciót és a példamondatot is kitöltetheted MI-vel.
           </p>
 
@@ -1115,9 +1115,9 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
           </div>
           <p class="small text-body-secondary mb-2">
             @if (pasteSimplify) {
-              Bekapcsolva: ha egy sorban <strong>nincs magyar jelentés</strong>, az MI megírja (2–4 rövid, gyakori jelentés). Ha van, a hosszú jelentéslistát rövidíti le (az eredeti csak támpont). A kitöltés után a táblában bármit átírhatsz.
+              Ha egy sorban <strong>nincs magyar jelentés</strong>, az MI megírja (2–4 rövid, gyakori jelentés). Ha van, a hosszú listát lerövidíti. A kitöltés után a táblában bármit átírhatsz.
             } @else {
-              Kapcsold be, ha csak angol szavakat írtál be, és az MI-vel szeretnél hozzájuk magyar jelentést. Ha már van jelentés, ezzel rövidebbé, jobban tanulhatóvá is teheted.
+              Kapcsold be, ha csak angol szavaid vannak, és az MI-vel írnál hozzájuk magyar jelentést. Ha már van jelentés, így rövidebbé teheted.
             }
           </p>
           <p class="small text-body-secondary mb-3">
@@ -1142,11 +1142,11 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
           }
           @if (pasteRows.length > slowImportRows) {
             <div class="alert alert-warning py-2" role="status">
-              {{ pasteRows.length }} sort készülsz importálni. {{ slowImportRows }} sor fölött a beolvasás, az MI-kitöltés és a mentés is lassú lehet, és a napi MI-keret is hamar elfogyhat. Nagyobb listát érdemes több részletben importálni.
+              {{ pasteRows.length }} sort importálnál. {{ slowImportRows }} sor fölött lassú lehet a beolvasás, az MI-kitöltés és a mentés, és a napi MI-keret is hamar elfogyhat. Érdemes több részletben importálni.
             </div>
           }
           @if (pasteTrimmedCount > 0) {
-            <div class="alert alert-info py-2" role="status">{{ pasteTrimmedCount }} sor szövege hosszabb volt a megengedettnél, ezért levágtam (a szó 100, a magyar jelentés 300 karakterig).</div>
+            <div class="alert alert-info py-2" role="status">{{ pasteTrimmedCount }} sor szövege túl hosszú volt, ezért le lett vágva (a szó 100, a magyar jelentés 300 karakterig).</div>
           }
 
           @if (pasteRows.length > 0) {
@@ -1988,7 +1988,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     }
 
     if (!definition) {
-      return 'Az angol definíció megadása kötelező. Használhatod a Generálás vagy a Kitöltés MI-vel gombot is.';
+      return 'Add meg az angol definíciót. Használhatod a Generálás vagy a Kitöltés MI-vel gombot is.';
     }
 
     if (definition.length > 500) {
@@ -2486,7 +2486,7 @@ export class DecksComponent implements OnInit, OnDestroy {
 
     this.pendingConfirm = {
       title: 'Bezárod a beillesztést?',
-      message: 'A beolvasott sorok és a kitöltött mezők elvesznek, ha nem mented őket.',
+      message: 'Ha nem mented el, a beolvasott sorok és a kitöltött mezők elvesznek.',
       confirmLabel: 'Bezárás',
       danger: true,
       action: () => this.closePaste(),
@@ -2659,7 +2659,7 @@ export class DecksComponent implements OnInit, OnDestroy {
     }
 
     if (row.definition.trim().length > 500) {
-      return 'Az MI nem tölti ki: a definíció hosszabb 500 karakternél.';
+      return 'Az MI nem tölti ki: a definíció 500 karakternél hosszabb.';
     }
 
     return null;
@@ -2695,7 +2695,7 @@ export class DecksComponent implements OnInit, OnDestroy {
       this.pasteAiSub = null;
       const failed = this.pasteRows.filter(row => row.aiError).length;
       if (failed > 0) {
-        this.pasteError = `${failed} sort nem sikerült kitölteni az MI-vel: töltsd ki kézzel, vagy próbáld újra.`;
+        this.pasteError = `${failed} sort nem sikerült kitölteni az MI-vel. Töltsd ki kézzel, vagy próbáld újra.`;
       }
 
       return;
@@ -3122,14 +3122,14 @@ export class DecksComponent implements OnInit, OnDestroy {
     }
 
     if (error.status === 503) {
-      return `${context} sikertelen: az MI-szolgáltatás nincs konfigurálva.`;
+      return `${context} sikertelen: az MI nincs beállítva.`;
     }
 
     if (error.status === 502) {
-      return `${context} sikertelen: az MI-szolgáltató nem adott megfelelő választ.`;
+      return `${context} sikertelen: az MI nem adott használható választ.`;
     }
 
-    return `${context} sikertelen. Kérlek, próbáld újra.`;
+    return `${context} sikertelen. Próbáld újra.`;
   }
 
   private readError(error: HttpErrorResponse, fallback: string): string {
