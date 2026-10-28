@@ -607,10 +607,26 @@ textarea.answer-input { min-height: 56px; font-size: 19px; padding: 12px 16px; r
 }
 
 /* ---------- Nyelvtan és Mondatok ---------- */
-.tense-cols { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
-@container main (min-width: 760px) { .tense-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+/* Keskeny nézetben a kártyás lista (.tense-cols), szélesben a táblázat. */
+.tense-cols { display: flex; flex-direction: column; gap: 16px; }
 .tense-group { display: flex; flex-direction: column; gap: 8px; }
 .tense-group h3 { font-family: var(--f-body); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.tense-table-wrap { display: none; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); }
+@container main (min-width: 760px) {
+  .tense-cols { display: none; }
+  .tense-table-wrap { display: block; }
+}
+.tense-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.tense-table th { padding: 10px 14px; text-align: left; font-family: var(--f-body); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; border-bottom: 1px solid var(--border); }
+.tense-table th + th, .tense-table td + td { border-left: 1px solid var(--border); }
+.tense-table td { padding: 0; }
+.tense-table tbody tr + tr td { border-top: 1px solid var(--border); }
+.tense-cell { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border: 0; background: transparent; color: var(--text); text-align: left; cursor: pointer; font: inherit; }
+.tense-cell:hover { background: var(--hover, rgba(127, 127, 127, .1)); }
+.tense-cell:disabled { opacity: .6; cursor: not-allowed; }
+.tense-cell .cbox { margin-top: 0; }
+.tense-cell.is-on { font-weight: 600; }
+.tense-cell.is-on .cbox { background: var(--active-bg); border-color: var(--active-bg); color: var(--active-ink); }
 .check-row { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); cursor: pointer; color: var(--text); }
 .check-row:hover { border-color: var(--muted); }
 .check-row:disabled { opacity: .6; cursor: not-allowed; }

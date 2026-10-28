@@ -144,6 +144,44 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                 </div>
               }
             </div>
+            <div class="tense-table-wrap">
+              <table class="tense-table">
+                <thead>
+                  <tr>
+                    @for (group of groups; track group.id) {
+                      <th scope="col">{{ group.label }}</th>
+                    }
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (row of tenseRows; track row) {
+                    <tr>
+                      @for (group of groups; track group.id) {
+                        <td>
+                          @if (tensesOf(group.id)[row]; as tense) {
+                            <button
+                              type="button"
+                              class="tense-cell"
+                              [class.is-on]="isSelected(tense.key)"
+                              [attr.aria-pressed]="isSelected(tense.key)"
+                              [attr.title]="tense.hint"
+                              [disabled]="isSavingTenses"
+                              (click)="toggleTense(tense.key)">
+                              <span class="cbox">
+                                @if (isSelected(tense.key)) {
+                                  <app-icon name="check" />
+                                }
+                              </span>
+                              {{ tense.label }}
+                            </button>
+                          }
+                        </td>
+                      }
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
             @if (selectedTenses.length === 0) {
               <div class="notice" role="status"><app-icon name="warn" /><div>Jelölj be legalább egy igeidőt.</div></div>
             }
@@ -441,6 +479,7 @@ export class GrammarComponent implements OnInit {
   private readonly apiBaseUrl = '/api';
 
   readonly groups = TENSE_GROUPS;
+  readonly tenseRows = [0, 1, 2, 3, 4];
 
   selectedTenses: string[] = [];
   isLoadingTenses = false;
