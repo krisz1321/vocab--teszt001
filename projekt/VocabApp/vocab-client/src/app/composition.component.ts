@@ -4,6 +4,7 @@ import { Component, ElementRef, EventEmitter, OnInit, Output, ViewChild, inject 
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
+import { IconComponent } from './icon.component';
 import { SpeakButtonComponent } from './speak-button.component';
 import { SpeechService } from './speech.service';
 
@@ -64,45 +65,57 @@ const MAX_TEXT_LENGTH = 500;
 @Component({
   selector: 'app-composition',
   standalone: true,
-  imports: [CommonModule, FormsModule, SpeakButtonComponent],
+  imports: [CommonModule, FormsModule, SpeakButtonComponent, IconComponent],
   template: `
-    <main>
-      <div class="page-wrap">
-        <header>
-          <h1>Mondatalkotás szavakból</h1>
-          <p>Írj egy-két összefüggő mondatot a kapott szavakkal. Nem számít bele az ismétlésbe.</p>
+    <div class="page">
+      @if (phase === 'setup') {
+        <header class="page-head">
+          <div class="ph-text">
+            <h1 class="h1">Mondatok</h1>
+            <p class="lead">Írj egy-két összefüggő mondatot a kapott szavakkal. Nem számít bele az ismétlésbe.</p>
+          </div>
         </header>
+      } @else {
+        <h1 class="sr-only">Mondatok</h1>
+      }
 
-        @if (errorMessage) {
-          <div role="alert">{{ errorMessage }}</div>
-        }
+      @if (errorMessage) {
+        <div class="notice notice-bad" role="alert"><app-icon name="warn" /><div>{{ errorMessage }}</div></div>
+      }
 
-        @if (phase === 'setup') {
-          <form (ngSubmit)="start()">
-            <div>
-              @if (isLoadingDecks) {
-                <div class="loading" role="status"><div class="spinner"></div></div>
-              } @else {
-                @if (decks.length === 0) {
-                  <div role="status">
-                    <p>Még nincs paklid, nincs mit gyakorolni.</p>
-                    <button type="button" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
-                  </div>
-                }
-                <h2 class="setup-step">1. Szavak száma feladatonként</h2>
-                <div class="seg" role="group" aria-label="Szavak száma feladatonként">
-                  @for (count of wordCounts; track count) {
-                    <button
-                      type="button"
-                      [class.is-active]="wordCount === count"
-                      [attr.aria-pressed]="wordCount === count"
-                      (click)="setWordCount(count)">{{ count }} szó</button>
-                  }
-                </div>
-
-                <h2 class="setup-step">2. Szavak</h2>
+      @if (phase === 'setup') {
+        <form class="start-form" (ngSubmit)="start()">
+          @if (isLoadingDecks) {
+            <div class="loading" role="status"><div class="spinner"></div></div>
+          } @else {
+            @if (decks.length === 0) {
+              <div class="notice" role="status">
+                <app-icon name="info" />
                 <div>
-                  <div>
+                  <span>Még nincs paklid, nincs mit gyakorolni.</span>
+                  <span><button type="button" class="btn btn-sm btn-primary" (click)="openDecks.emit()">Ugrás a paklikhoz</button></span>
+                </div>
+              </div>
+            }
+            <section class="step">
+              <h2 class="step-title"><span class="step-no">1</span>Szavak száma feladatonként</h2>
+              <div class="count-tiles" role="group" aria-label="Szavak száma feladatonként">
+                @for (count of wordCounts; track count) {
+                  <button
+                    type="button"
+                    class="count-tile"
+                    [class.is-on]="wordCount === count"
+                    [attr.aria-pressed]="wordCount === count"
+                    (click)="setWordCount(count)"><strong>{{ count }}</strong><span>szó</span></button>
+                }
+              </div>
+            </section>
+
+            <section class="step">
+              <h2 class="step-title"><span class="step-no">2</span>Szavak</h2>
+              <div class="panel form-panel">
+                <div class="form-grid">
+                  <div class="field">
                     <label for="composition-deck">Pakli</label>
                     <select
                       id="composition-deck"
@@ -116,7 +129,7 @@ const MAX_TEXT_LENGTH = 500;
                     </select>
                   </div>
                   @if (tagOptions.length > 0) {
-                    <div>
+                    <div class="field">
                       <label for="composition-tag">Címke</label>
                       <select
                         id="composition-tag"
@@ -130,205 +143,243 @@ const MAX_TEXT_LENGTH = 500;
                       </select>
                     </div>
                   }
-                  <div>
-                    <div>
-                      <input
-                        type="checkbox"
-                        role="switch"
-                        id="composition-reviewed"
-                        name="compositionReviewed"
-                        [(ngModel)]="onlyReviewed"
-                        (ngModelChange)="onReviewedChange()">
-                      <label for="composition-reviewed">Csak a már tanult szavak</label>
-                      <div>Csak, amit már legalább egyszer gyakoroltál.</div>
-                    </div>
+                </div>
+                <label class="row-toggle" for="composition-reviewed">
+                  <span class="t"><span>Csak a már tanult szavak</span><small>Csak, amit már legalább egyszer gyakoroltál.</small></span>
+                  <span class="switch">
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      id="composition-reviewed"
+                      name="compositionReviewed"
+                      [(ngModel)]="onlyReviewed"
+                      (ngModelChange)="onReviewedChange()"><span></span>
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            <section class="step">
+              <h2 class="step-title"><span class="step-no">3</span>Visszajelzés</h2>
+              <div class="panel form-panel">
+                <label class="row-toggle" for="composition-translation">
+                  <span class="t"><span>A szövegem magyar jelentése az ellenőrzés után</span><small>Ugyanez a beállítás a Nyelvtanban is. Nem kér külön MI-hívást.</small></span>
+                  <span class="switch">
+                    <input
+                      type="checkbox"
+                      role="switch"
+                      id="composition-translation"
+                      [checked]="showTranslation"
+                      [disabled]="isSavingTranslation"
+                      (change)="toggleTranslation()"><span></span>
+                  </span>
+                </label>
+              </div>
+            </section>
+
+            @if (emptySelection) {
+              <div class="notice" role="status"><app-icon name="info" /><div>Ebben a választásban nincs kártya.</div></div>
+            }
+            @if (tooFewCards !== null) {
+              <div class="notice" role="status"><app-icon name="warn" /><div>Ebben a választásban csak {{ tooFewCards }} különböző szó van. Válassz kevesebb szót feladatonként, vagy bővítsd a választást.</div></div>
+            }
+            <div class="start-row">
+              <button type="submit" class="btn btn-primary btn-lg" [disabled]="isLoadingCards">
+                @if (isLoadingCards) {
+                  <span class="spinner spinner-sm" aria-hidden="true"></span>
+                } @else {
+                  <app-icon name="play" />
+                }
+                Indítás
+              </button>
+              <span class="muted">{{ wordCount }} szó feladatonként</span>
+            </div>
+          }
+        </form>
+      }
+
+      @if (phase === 'practice' && words.length > 0) {
+        <section class="session-bar" aria-label="A gyakorlás állása">
+          <button type="button" class="mode-btn" [disabled]="isBusy" (click)="backToSetup()" title="Vissza a beállításokhoz">
+            <app-icon name="text" />
+            <span>Mondatok · {{ words.length }} szó</span>
+            <app-icon name="chev" />
+          </button>
+          <span class="counts"><span><strong>{{ taskNumber }}.</strong> feladat</span><span>{{ checkedCount > 0 ? correctCount + ' / ' + checkedCount + ' helyes' : 'még nincs ellenőrzött szöveg' }}</span></span>
+          <span class="spacer"></span>
+          <button type="button" class="btn btn-ghost btn-sm" [disabled]="isBusy" (click)="finish()">Befejezés</button>
+        </section>
+        <article class="panel task-card">
+          <h2 class="task-title">Használd mind a(z) {{ words.length }} szót egy-két mondatban</h2>
+          <div class="word-cards">
+            @for (word of words; track word.id; let i = $index) {
+              <div class="word-card" [class.is-found]="isMentioned(word)">
+                <div>
+                  <strong class="wc-term">
+                    @if (isMentioned(word)) {
+                      <span class="wc-found" title="Szerepel a szövegben"><app-icon name="check" /></span>
+                    }
+                    {{ word.term }}
+                  </strong>
+                  <span class="muted">{{ word.definition }}</span>
+                </div>
+                <app-speak-button [text]="word.term" lang="en" label="A szó" />
+                @if (result === null) {
+                  <button
+                    type="button"
+                    class="icon-btn"
+                    [disabled]="isBusy || !canSwap"
+                    [title]="canSwap ? 'Másik szó ide' : 'Nincs több szó a választásban'"
+                    [attr.aria-label]="word.term + ' cseréje'"
+                    (click)="swapWord(i)"><app-icon name="refresh" /></button>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="field">
+            <label for="composition-text">A szöveged</label>
+            <textarea
+              #textInput
+              id="composition-text"
+              name="compositionText"
+              rows="4"
+              [attr.maxlength]="maxTextLength"
+              autocomplete="off"
+              spellcheck="false"
+              placeholder="Írd ide az angol szöveget…"
+              [(ngModel)]="text"
+              (ngModelChange)="missingTerms = []"
+              [readonly]="result !== null || isChecking"
+              (keydown.enter)="onEnter($event)"></textarea>
+            <span class="counter">{{ text.length }} / {{ maxTextLength }}</span>
+          </div>
+
+          @if (missingTerms.length > 0) {
+            <div class="notice" role="status">
+              <app-icon name="warn" />
+              <div>
+                <span>Ezt nem látom a szövegben: {{ missingTerms.join(', ') }}. Ha más alakban írtad (pl. go → went), küldd el nyugodtan.</span>
+                <span><button type="button" class="btn btn-sm" (click)="check(true)">Mégis elküldöm</button></span>
+              </div>
+            </div>
+          }
+
+          @if (hint) {
+            <div class="example-box">
+              <span class="ai-tag"><app-icon name="bulb" /> Tipp – fordítsd le angolra</span>
+              <div class="speak-row">
+                <p>{{ hint }}</p>
+                <app-speak-button [text]="hint" lang="hu" label="A magyar szöveg" />
+              </div>
+            </div>
+          }
+
+          @if (result === null) {
+            <div class="actions">
+              <button type="button" class="btn btn-primary btn-lg" [disabled]="!text.trim() || isBusy" (click)="check()">
+                @if (isChecking) {
+                  <span class="spinner spinner-sm" aria-hidden="true"></span>
+                } @else {
+                  <app-icon name="sparkle" />
+                }
+                Ellenőrzés
+              </button>
+              <button type="button" class="btn btn-lg" [disabled]="isBusy" (click)="loadHint()" title="Magyar szöveg, amit lefordíthatsz angolra">
+                @if (isLoadingHint) {
+                  <span class="spinner spinner-sm" aria-hidden="true"></span>
+                } @else {
+                  <app-icon name="bulb" />
+                }
+                {{ hint ? 'Másik tipp' : 'Tipp kérése' }}
+              </button>
+              <button type="button" class="btn btn-ghost btn-lg" [disabled]="isBusy" (click)="next()">Kihagyás</button>
+            </div>
+          }
+
+          @if (result) {
+            <div class="feedback" [class.ok]="result.isCorrect || manuallyAccepted" [class.neutral]="!result.isCorrect && !manuallyAccepted" role="status">
+              <div class="fb-title">
+                <app-icon [name]="result.isCorrect || manuallyAccepted ? 'check' : 'warn'" />
+                {{ manuallyAccepted ? 'Elfogadva helyesnek.' : result.isCorrect ? 'Helyes!' : 'Nem egészen.' }}
+              </div>
+              <ul class="check-list">
+                @for (word of result.words; track word.cardId) {
+                  <li><span class="check-ic" [class.ok]="word.usedCorrectly" [class.bad]="!word.usedCorrectly"><app-icon [name]="word.usedCorrectly ? 'check' : 'x'" /></span><strong>{{ word.term }}</strong></li>
+                }
+                <li><span class="check-ic" [class.ok]="result.grammarCorrect" [class.warn]="!result.grammarCorrect"><app-icon [name]="result.grammarCorrect ? 'check' : 'warn'" /></span><strong>Nyelvtan</strong></li>
+                <li><span class="check-ic" [class.ok]="result.coherent" [class.warn]="!result.coherent"><app-icon [name]="result.coherent ? 'check' : 'warn'" /></span><strong>Összefüggés</strong></li>
+              </ul>
+              @if (result.feedback) {
+                <div class="ai-note">
+                  <span class="ai-tag"><app-icon name="sparkle" /> MI-visszajelzés</span>
+                  <p>{{ result.feedback }}</p>
+                </div>
+              }
+              @if (result.correctedText) {
+                <div class="ai-note">
+                  <span class="ai-tag"><app-icon name="check" /> Javított szöveg</span>
+                  <div class="speak-row">
+                    <p class="example">{{ result.correctedText }}</p>
+                    <app-speak-button [text]="result.correctedText" lang="en" label="A javított szöveg" />
                   </div>
                 </div>
-
-                <h2 class="setup-step">3. Visszajelzés</h2>
-                <div>
-                  <input
-                    type="checkbox"
-                    role="switch"
-                    id="composition-translation"
-                    [checked]="showTranslation"
-                    [disabled]="isSavingTranslation"
-                    (change)="toggleTranslation()">
-                  <label for="composition-translation">A szövegem magyar jelentése az ellenőrzés után</label>
-                  <div>Ugyanez a beállítás a Nyelvtanban is. Nem kér külön MI-hívást.</div>
+              }
+              @if (result.hungarianTranslation) {
+                <div class="translation speak-row">
+                  <p><span class="muted">A szöveged magyarul:</span> {{ result.hungarianTranslation }}</p>
+                  <app-speak-button [text]="result.hungarianTranslation" lang="hu" label="A magyar jelentés" />
                 </div>
-
-                @if (emptySelection) {
-                  <div role="status">Ebben a választásban nincs kártya.</div>
-                }
-                @if (tooFewCards !== null) {
-                  <div role="status">Ebben a választásban csak {{ tooFewCards }} különböző szó van. Válassz kevesebb szót feladatonként, vagy bővítsd a választást.</div>
-                }
-                <button type="submit" [disabled]="isLoadingCards">
-                  @if (isLoadingCards) {
+              }
+            </div>
+            @if (example) {
+              <div class="example-box">
+                <span class="ai-tag"><app-icon name="bulb" /> Példa</span>
+                <div class="speak-row">
+                  <p class="example">{{ example }}</p>
+                  <app-speak-button [text]="example" lang="en" label="A példa" />
+                </div>
+              </div>
+            }
+            <div class="actions">
+              <button #nextButton type="button" class="btn btn-primary btn-lg" [disabled]="isBusy" (click)="next()">Következő feladat <app-icon name="arrowR" /></button>
+              @if (example === null) {
+                <button type="button" class="btn btn-lg" [disabled]="isBusy" (click)="loadExample()">
+                  @if (isLoadingExample) {
                     <span class="spinner spinner-sm" aria-hidden="true"></span>
+                  } @else {
+                    <app-icon name="bulb" />
                   }
-                  Indítás
+                  Mutass egy példát
+                </button>
+              }
+              @if (!result.isCorrect) {
+                <button type="button" class="btn btn-lg" [disabled]="isBusy" (click)="acceptManually()">
+                  @if (isAccepting) {
+                    <span class="spinner spinner-sm" aria-hidden="true"></span>
+                  } @else {
+                    <app-icon name="check" />
+                  }
+                  Márpedig jó volt
                 </button>
               }
             </div>
-          </form>
-        }
+          }
+        </article>
+      }
 
-        @if (phase === 'practice' && words.length > 0) {
-          <section class="session-bar" aria-label="A gyakorlás állása">
-            <div class="session-bar-top">
-              <span>{{ taskNumber }}. feladat</span>
-              <div>
-                <button type="button" [disabled]="isBusy" (click)="finish()">Befejezés</button>
-                <button type="button" [disabled]="isBusy" (click)="backToSetup()">Vissza a beállításokhoz</button>
-              </div>
-            </div>
-            <p class="session-meta">{{ words.length }} szó feladatonként · {{ checkedCount > 0 ? correctCount + ' / ' + checkedCount + ' helyes' : 'még nincs ellenőrzött szöveg' }}</p>
-          </section>
-          <section>
-            <div>
-              <p>Használd mind a(z) {{ words.length }} szót egy-két mondatban:</p>
-              <ul class="composition-words">
-                @for (word of words; track word.id; let i = $index) {
-                  <li class="composition-word" [class.is-found]="isMentioned(word)">
-                    <div>
-                      <span class="composition-mark" aria-hidden="true">{{ isMentioned(word) ? '✓' : '•' }}</span>
-                      <span>{{ word.term }}</span>
-                      <app-speak-button [text]="word.term" lang="en" label="A szó" />
-                      @if (result === null) {
-                        <button
-                          type="button"
-                          [disabled]="isBusy || !canSwap"
-                          [title]="canSwap ? 'Másik szó ide' : 'Nincs több szó a választásban'"
-                          (click)="swapWord(i)">Csere</button>
-                      }
-                    </div>
-                    <div>{{ word.definition }}</div>
-                  </li>
-                }
-              </ul>
-
-              <label for="composition-text">A szöveged</label>
-              <textarea
-                #textInput
-                id="composition-text"
-                name="compositionText"
-                rows="3"
-                [attr.maxlength]="maxTextLength"
-                autocomplete="off"
-                spellcheck="false"
-                [(ngModel)]="text"
-                (ngModelChange)="missingTerms = []"
-                [readonly]="result !== null || isChecking"
-                (keydown.enter)="onEnter($event)"></textarea>
-              <div>{{ text.length }} / {{ maxTextLength }}</div>
-
-              @if (missingTerms.length > 0) {
-                <div role="status">
-                  Ezt nem látom a szövegben: {{ missingTerms.join(', ') }}. Ha más alakban írtad (pl. go → went), küldd el nyugodtan.
-                  <button type="button" (click)="check(true)">Mégis elküldöm</button>
-                </div>
-              }
-
-              @if (result === null) {
-                <div>
-                  <button type="button" [disabled]="!text.trim() || isBusy" (click)="check()">
-                    @if (isChecking) {
-                      <span class="spinner spinner-sm" aria-hidden="true"></span>
-                    }
-                    Ellenőrzés
-                  </button>
-                  <button type="button" [disabled]="isBusy" (click)="loadHint()" title="Magyar szöveg, amit lefordíthatsz angolra">
-                    @if (isLoadingHint) {
-                      <span class="spinner spinner-sm" aria-hidden="true"></span>
-                    }
-                    {{ hint ? 'Másik tipp' : 'Tipp' }}
-                  </button>
-                  <button type="button" [disabled]="isBusy" (click)="next()">Kihagyás</button>
-                </div>
-              }
-
-              @if (hint) {
-                <div class="composition-note">
-                  <span>Tipp – fordítsd le angolra</span>
-                  <span>{{ hint }}</span>
-                  <app-speak-button [text]="hint" lang="hu" label="A magyar szöveg" />
-                </div>
-              }
-
-              @if (result) {
-                <div role="status">
-                  <div>
-                    <strong>{{ manuallyAccepted ? 'Elfogadva kézzel.' : result.isCorrect ? 'Helyes!' : 'Nem egészen.' }}</strong> {{ result.feedback }}
-                  </div>
-                  <div>
-                    @for (word of result.words; track word.cardId) {
-                      <span>{{ word.usedCorrectly ? '✓' : '✗' }} {{ word.term }}</span>
-                    }
-                    <span>{{ result.grammarCorrect ? '✓' : '✗' }} Nyelvtan</span>
-                    <span>{{ result.coherent ? '✓' : '✗' }} Összefüggés</span>
-                  </div>
-                  @if (result.hungarianTranslation) {
-                    <div class="composition-note">
-                      <span>A szöveged jelentése magyarul</span>
-                      <span>{{ result.hungarianTranslation }}</span>
-                      <app-speak-button [text]="result.hungarianTranslation" lang="hu" label="A magyar jelentés" />
-                    </div>
-                  }
-                  @if (result.correctedText) {
-                    <div class="composition-note">
-                      <span>Javított szöveg</span>
-                      <span>{{ result.correctedText }}</span>
-                      <app-speak-button [text]="result.correctedText" lang="en" label="A javított szöveg" />
-                    </div>
-                  }
-                  @if (example) {
-                    <div class="composition-note">
-                      <span>Példa</span>
-                      <span>{{ example }}</span>
-                      <app-speak-button [text]="example" lang="en" label="A példa" />
-                    </div>
-                  }
-                  <div>
-                    <button #nextButton type="button" [disabled]="isBusy" (click)="next()">Következő</button>
-                    @if (example === null) {
-                      <button type="button" [disabled]="isBusy" (click)="loadExample()">
-                        @if (isLoadingExample) {
-                          <span class="spinner spinner-sm" aria-hidden="true"></span>
-                        }
-                        Mutass egy példát
-                      </button>
-                    }
-                    @if (!result.isCorrect) {
-                      <button type="button" [disabled]="isBusy" (click)="acceptManually()">
-                        @if (isAccepting) {
-                          <span class="spinner spinner-sm" aria-hidden="true"></span>
-                        }
-                        Márpedig jó volt
-                      </button>
-                    }
-                  </div>
-                </div>
-              }
-            </div>
-          </section>
-        }
-
-        @if (phase === 'done') {
-          <section>
-            <div>
-              <h2>Kész!</h2>
-              <p>{{ checkedCount }} ellenőrzött szövegből {{ correctCount }} lett helyes.</p>
-              <div>
-                <button type="button" (click)="restart()">Újrakezdés</button>
-                <button type="button" (click)="backToSetup()">Vissza a beállításokhoz</button>
-              </div>
-            </div>
-          </section>
-        }
-      </div>
-    </main>
+      @if (phase === 'done') {
+        <section class="panel empty">
+          <span class="empty-ic"><app-icon name="check" /></span>
+          <h2 class="h1">Kész!</h2>
+          <p class="lead">{{ checkedCount }} ellenőrzött szövegből {{ correctCount }} lett helyes.</p>
+          <div class="actions center">
+            <button type="button" class="btn btn-primary" (click)="restart()"><app-icon name="refresh" /> Újrakezdés</button>
+            <button type="button" class="btn" (click)="backToSetup()">Vissza a beállításokhoz</button>
+          </div>
+        </section>
+      }
+    </div>
   `,
 })
 export class CompositionComponent implements OnInit {
