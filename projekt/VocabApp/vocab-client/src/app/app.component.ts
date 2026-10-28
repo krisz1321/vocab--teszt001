@@ -280,351 +280,340 @@ interface AiModelOption {
       } @else if (view === 'decks') {
         <app-decks (studyDeck)="studyDeck($event)" />
       } @else if (view === 'settings') {
-        <main class="page-wrap">
-          <h1>Beállítások</h1>
-          @if (profileError) {
-            <div role="alert">{{ profileError }}</div>
-          }
-          @if (profileMessage) {
-            <div role="alert">{{ profileMessage }}</div>
-          }
-          <section>
-            <h2>Hang és felolvasás</h2>
-            <p>A kártyák szövegét a hangszóró gombbal felolvastathatod. Itt állíthatod be, mit és milyen hangon olvasson.</p>
+        <main class="page page-narrow">
+          <header class="page-head">
+            <div class="ph-text">
+              <h1 class="h1">Beállítások</h1>
+              <p class="lead">A tanulási beállítások a Mentés gombbal lépnek életbe.</p>
+            </div>
+          </header>
+          <section class="panel set-group">
+            <h2 class="h2">Megjelenés</h2>
+            <div class="set-row">
+              <span>Téma</span>
+              <div class="seg" role="group" aria-label="Téma">
+                <button type="button" [class.is-on]="theme.choice() === 'light'" [attr.aria-pressed]="theme.choice() === 'light'" (click)="theme.setChoice('light')">Világos</button>
+                <button type="button" [class.is-on]="theme.choice() === 'dark'" [attr.aria-pressed]="theme.choice() === 'dark'" (click)="theme.setChoice('dark')">Sötét</button>
+                <button type="button" [class.is-on]="theme.choice() === 'system'" [attr.aria-pressed]="theme.choice() === 'system'" (click)="theme.setChoice('system')">Rendszer</button>
+              </div>
+            </div>
+          </section>
+          <section class="panel set-group">
+            <div class="ph-text">
+              <h2 class="h2">Hang és felolvasás</h2>
+              <p class="help">A kártyák szövegét a hangszóró gombbal felolvastathatod. Itt állíthatod be, mit és milyen hangon olvasson.</p>
+            </div>
             <app-speech-settings />
           </section>
-          <form (ngSubmit)="saveStudySettings()">
-            <h2>Tanulási beállítások</h2>
+          <form class="panel set-group" (ngSubmit)="saveStudySettings()">
+            <h2 class="h2">Tanulási beállítások</h2>
             @if (!studySettingsLoaded) {
-              <div role="status">
+              <div class="notice" role="status">
                 @if (isLoadingStudySettings) {
                   <span class="spinner spinner-sm" aria-hidden="true"></span>
-                  A beállítások betöltése…
+                  <div>A beállítások betöltése…</div>
                 } @else {
-                  Nem sikerült betölteni a beállításokat, ezért most nem tudsz menteni.
-                  <button type="button" (click)="loadStudySettings()">Újrapróbálás</button>
+                  <app-icon name="warn" />
+                  <div>
+                    <span>Nem sikerült betölteni a beállításokat, ezért most nem tudsz menteni.</span>
+                    <span><button type="button" class="btn btn-sm" (click)="loadStudySettings()">Újrapróbálás</button></span>
+                  </div>
                 }
               </div>
             }
-            <div>
-              <label for="dailyNewCardGoal">Napi új szavak</label>
-              <input
-                id="dailyNewCardGoal"
-                name="dailyNewCardGoal"
-                type="number"
-                min="0"
-                max="100"
-                step="1"
-                [(ngModel)]="dailyNewCardGoal"
-                [disabled]="isSavingStudySettings">
-              <div>Naponta ennyi új szót kapsz (0–100). Az esedékes ismétlések ezen felül jönnek.</div>
-            </div>
-            <div>
-              <label for="minimumAnswerSeconds">Minimum idő másodpercben</label>
-              <input
-                id="minimumAnswerSeconds"
-                name="minimumAnswerSeconds"
-                type="number"
-                min="0"
-                max="120"
-                step="1"
-                [(ngModel)]="minimumAnswerSeconds"
-                [disabled]="isSavingStudySettings">
-              <div>Ennyi másodperc után válaszolhatsz a kártyára (0–120).</div>
-            </div>
-            <div>
-              <label for="exampleLevel">Mondatszint</label>
-              <select
-                id="exampleLevel"
-                name="exampleLevel"
-                [(ngModel)]="exampleLevel"
-                [disabled]="isSavingStudySettings">
-                @for (level of exampleLevels; track level) {
-                  <option [value]="level">{{ level }}</option>
-                }
-              </select>
-              <div>Ez a fiókod szintje. Ha a paklinak saját szintje van, az számít.</div>
-            </div>
-            <details class="advanced-settings">
-              <summary>Haladó beállítások</summary>
-              <div>
-            <div>
-              <label for="aiModel">MI-modell</label>
-              <select
-                id="aiModel"
-                name="aiModel"
-                [(ngModel)]="aiModel"
-                [disabled]="isSavingStudySettings">
-                @for (model of aiModels; track model.id) {
-                  <option [value]="model.id">{{ model.label }}</option>
-                }
-              </select>
-              <div>Mindegyik ugyanazt az OpenRouter-kulcsot használja.</div>
-            </div>
-            <div>
-              <input
-                id="automaticAiCheck"
-                name="automaticAiCheck"
-                type="checkbox"
-                [(ngModel)]="automaticAiCheck"
-                [disabled]="isSavingStudySettings">
-              <label for="automaticAiCheck">Automatikus MI-ellenőrzés</label>
-              <div>Ha a válaszod nem egyezik a mentett jelentéssel, az MI megnézi. Kikapcsolva ezt hibás válasz után te indíthatod el.</div>
-            </div>
-            <div>
-              <input
-                id="acceptPartialMeaningMatch"
-                name="acceptPartialMeaningMatch"
-                type="checkbox"
-                [(ngModel)]="acceptPartialMeaningMatch"
-                [disabled]="isSavingStudySettings">
-              <label for="acceptPartialMeaningMatch">Részleges egyezés elfogadása</label>
-              <div>Elég, ha a vesszővel elválasztott részek közül egy egyezik a mentett jelentéssel. Kikapcsolva a teljes válasznak egyeznie kell.</div>
-            </div>
-            <div>
-              <input
-                id="acceptEnglishSynonyms"
-                name="acceptEnglishSynonyms"
-                type="checkbox"
-                [(ngModel)]="acceptEnglishSynonyms"
-                [disabled]="isSavingStudySettings">
-              <label for="acceptEnglishSynonyms">Angol szinonima elfogadása</label>
-              <div>Magyarról angolra fordításnál, ha a kártya szava helyett egy azonos jelentésű másik angol szót írsz, az MI sárgán jelzi. Bekapcsolva ez jó válasz, kikapcsolva hibás (a Mégis helyes volt gombbal vitathatod).</div>
-            </div>
-            <div>
-              <input
-                id="repeatMistakes"
-                name="repeatMistakes"
-                type="checkbox"
-                [(ngModel)]="repeatMistakes"
-                [disabled]="isSavingStudySettings">
-              <label for="repeatMistakes">Hibás válasz után azonnali gyakorló ismétlés</label>
-              <div>Az elrontott kártya rögtön visszajön, hogy begyakorold. Ha másodszor is hibázol, jön a következő. Ezek a körök nem számítanak a statisztikába és az ütemezésbe. Csak Fordítás módban működik.</div>
-            </div>
-            <div>
-              <input
-                id="acceptHungarianParaphrase"
-                name="acceptHungarianParaphrase"
-                type="checkbox"
-                [(ngModel)]="acceptHungarianParaphrase"
-                [disabled]="isSavingStudySettings">
-              <label for="acceptHungarianParaphrase">Magyar körülírás elfogadása</label>
-              <div>Magyarul is elmagyarázhatod a szót, az MI angolra írja át. Kikapcsolva csak angolul lehet.</div>
-            </div>
-            <div>
-              <input
-                id="requireAppealReason"
-                name="requireAppealReason"
-                type="checkbox"
-                [(ngModel)]="requireAppealReason"
-                [disabled]="isSavingStudySettings">
-              <label for="requireAppealReason">A hibás válasz megvédéséhez indoklás kell.</label>
-              <div>Bekapcsolva a Mégis helyes volt gomb indoklást kér, és az MI dönt. Kikapcsolva a Márpedig ez jó válasz volt gomb indoklás nélkül helyesnek veszi.</div>
-            </div>
-            <div>
-              <input
-                id="reuseSavedExamples"
-                name="reuseSavedExamples"
-                type="checkbox"
-                [(ngModel)]="reuseSavedExamples"
-                [disabled]="isSavingStudySettings">
-              <label for="reuseSavedExamples">Mentett definíciók és példamondatok újrafelhasználása</label>
-              <div>Ha van már mentett példamondat vagy definíció, kb. minden második alkalommal azt kapod, MI-hívás nélkül. Kikapcsolva mindig újat kérünk az MI-től.</div>
-            </div>
-            <div>
-              <div>
-                <input
-                  id="allowOtherSavedLevels"
-                  name="allowOtherSavedLevels"
-                  type="checkbox"
-                  [(ngModel)]="allowOtherSavedLevels"
-                  [disabled]="isSavingStudySettings">
-                <label for="allowOtherSavedLevels">Eltérő szintű mentett válaszok is jöhetnek.</label>
+            <div class="form-grid">
+              <div class="field">
+                <label for="dailyNewCardGoal">Napi új szavak</label>
+                <div class="range-row">
+                  <input
+                    id="dailyNewCardGoal"
+                    name="dailyNewCardGoal"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    [(ngModel)]="dailyNewCardGoal"
+                    [disabled]="isSavingStudySettings">
+                  <output for="dailyNewCardGoal">{{ dailyNewCardGoal }}</output>
+                </div>
+                <span class="help">Naponta ennyi új szót kapsz. Az esedékes ismétlések ezen felül jönnek.</span>
               </div>
-              @if (allowOtherSavedLevels) {
-                <select
-                  id="savedLevelPolicy"
-                  name="savedLevelPolicy"
-                  [(ngModel)]="savedLevelPolicy"
+              <div class="field">
+                <label for="minimumAnswerSeconds">Minimum idő másodpercben</label>
+                <input
+                  id="minimumAnswerSeconds"
+                  name="minimumAnswerSeconds"
+                  type="number"
+                  min="0"
+                  max="120"
+                  step="1"
+                  [(ngModel)]="minimumAnswerSeconds"
                   [disabled]="isSavingStudySettings">
-                  @for (policy of savedLevelPolicies; track policy.id) {
-                    <option [value]="policy.id">{{ policy.label }}</option>
+                <span class="help">Ennyi másodperc után válaszolhatsz a kártyára (0–120).</span>
+              </div>
+              <div class="field">
+                <label for="exampleLevel">Mondatszint</label>
+                <select
+                  id="exampleLevel"
+                  name="exampleLevel"
+                  [(ngModel)]="exampleLevel"
+                  [disabled]="isSavingStudySettings">
+                  @for (level of exampleLevels; track level) {
+                    <option [value]="level">{{ level }}</option>
                   }
                 </select>
-              }
-              <div>Csak a már mentett példákra és definíciókra vonatkozik. Új MI-kérésnél továbbra is a pakli vagy a fiók szintje számít, és azon a szinten mentődik.</div>
-            </div>
-            <div>
-              <input
-                id="generateAlternateDefinitions"
-                name="generateAlternateDefinitions"
-                type="checkbox"
-                [(ngModel)]="generateAlternateDefinitions"
-                [disabled]="isSavingStudySettings">
-              <label for="generateAlternateDefinitions">Váltakozó definíció</label>
-              <div>Mindig új angol definíció készül a mondatszintednek megfelelően. Kikapcsolva a kártyára írt definíciót kapod.</div>
-            </div>
-            <div>
-              <label for="leechThreshold">Nehéz szó küszöbe (hibák száma)</label>
-              <input
-                id="leechThreshold"
-                name="leechThreshold"
-                type="number"
-                min="2"
-                max="50"
-                step="1"
-                [(ngModel)]="leechThreshold"
-                [disabled]="isSavingStudySettings">
-              <div>Ennyi hiba után számít nehéznek egy szó, ha többször rontottad el, mint ahányszor eltaláltad. A nehéz szavakat megjelöljük, hogy félretehesd őket.</div>
-            </div>
-            <div>
-              <label for="aiFillBatchSize">MI-kitöltés csomagmérete (szó / hívás)</label>
-              <input
-                id="aiFillBatchSize"
-                name="aiFillBatchSize"
-                type="number"
-                min="1"
-                max="10"
-                step="1"
-                [(ngModel)]="aiFillBatchSize"
-                [disabled]="isSavingStudySettings">
-              <div>Szöveges importnál ennyi szót dolgoz fel egy MI-hívás (1–10). A nagyobb csomag gyorsabb, de egy hiba több szót érint.</div>
-              <div>
-                Mai MI-kitöltés: {{ aiFillDailyLimit - aiFillRemainingToday }} / {{ aiFillDailyLimit }}, hátra: {{ aiFillRemainingToday }}.
-                A napi keret most nincs érvényben, ezért negatív is lehet.
+                <span class="help">Ez a fiókod szintje. Ha a paklinak saját szintje van, az számít.</span>
+              </div>
+              <div class="field">
+                <label for="aiModel">MI-modell</label>
+                <select
+                  id="aiModel"
+                  name="aiModel"
+                  [(ngModel)]="aiModel"
+                  [disabled]="isSavingStudySettings">
+                  @for (model of aiModels; track model.id) {
+                    <option [value]="model.id">{{ model.label }}</option>
+                  }
+                </select>
+                <span class="help">Mindegyik ugyanazt az OpenRouter-kulcsot használja.</span>
               </div>
             </div>
+            <div>
+              <label class="row-toggle" for="automaticAiCheck">
+                <span class="t"><span>Automatikus MI-ellenőrzés</span><small>Ha a válaszod nem egyezik a mentett jelentéssel, az MI megnézi. Kikapcsolva ezt hibás válasz után te indíthatod el.</small></span>
+                <span class="switch"><input id="automaticAiCheck" name="automaticAiCheck" type="checkbox" [(ngModel)]="automaticAiCheck" [disabled]="isSavingStudySettings"><span></span></span>
+              </label>
+              <label class="row-toggle" for="acceptPartialMeaningMatch">
+                <span class="t"><span>Részleges egyezés elfogadása</span><small>Elég, ha a vesszővel elválasztott részek közül egy egyezik a mentett jelentéssel. Kikapcsolva a teljes válasznak egyeznie kell.</small></span>
+                <span class="switch"><input id="acceptPartialMeaningMatch" name="acceptPartialMeaningMatch" type="checkbox" [(ngModel)]="acceptPartialMeaningMatch" [disabled]="isSavingStudySettings"><span></span></span>
+              </label>
+              <label class="row-toggle" for="acceptEnglishSynonyms">
+                <span class="t"><span>Angol szinonima elfogadása</span><small>Magyarról angolra fordításnál, ha a kártya szava helyett egy azonos jelentésű másik angol szót írsz, az MI sárgán jelzi. Bekapcsolva ez jó válasz, kikapcsolva hibás (a Mégis helyes volt gombbal vitathatod).</small></span>
+                <span class="switch"><input id="acceptEnglishSynonyms" name="acceptEnglishSynonyms" type="checkbox" [(ngModel)]="acceptEnglishSynonyms" [disabled]="isSavingStudySettings"><span></span></span>
+              </label>
+              <label class="row-toggle" for="repeatMistakes">
+                <span class="t"><span>Hibás válasz után azonnali gyakorló ismétlés</span><small>Az elrontott kártya rögtön visszajön, hogy begyakorold. Ha másodszor is hibázol, jön a következő. Ezek a körök nem számítanak a statisztikába és az ütemezésbe. Csak Fordítás módban működik.</small></span>
+                <span class="switch"><input id="repeatMistakes" name="repeatMistakes" type="checkbox" [(ngModel)]="repeatMistakes" [disabled]="isSavingStudySettings"><span></span></span>
+              </label>
+            </div>
+            <details class="adv">
+              <summary>Haladó beállítások <app-icon name="chev" /></summary>
+              <div class="adv-body">
+                <label class="row-toggle" for="acceptHungarianParaphrase">
+                  <span class="t"><span>Magyar körülírás elfogadása</span><small>Magyarul is elmagyarázhatod a szót, az MI angolra írja át. Kikapcsolva csak angolul lehet.</small></span>
+                  <span class="switch"><input id="acceptHungarianParaphrase" name="acceptHungarianParaphrase" type="checkbox" [(ngModel)]="acceptHungarianParaphrase" [disabled]="isSavingStudySettings"><span></span></span>
+                </label>
+                <label class="row-toggle" for="requireAppealReason">
+                  <span class="t"><span>A hibás válasz megvédéséhez indoklás kell</span><small>Bekapcsolva a Mégis helyes volt gomb indoklást kér, és az MI dönt. Kikapcsolva a Márpedig ez jó válasz volt gomb indoklás nélkül helyesnek veszi.</small></span>
+                  <span class="switch"><input id="requireAppealReason" name="requireAppealReason" type="checkbox" [(ngModel)]="requireAppealReason" [disabled]="isSavingStudySettings"><span></span></span>
+                </label>
+                <label class="row-toggle" for="reuseSavedExamples">
+                  <span class="t"><span>Mentett definíciók és példamondatok újrafelhasználása</span><small>Ha van már mentett példamondat vagy definíció, kb. minden második alkalommal azt kapod, MI-hívás nélkül. Kikapcsolva mindig újat kérünk az MI-től.</small></span>
+                  <span class="switch"><input id="reuseSavedExamples" name="reuseSavedExamples" type="checkbox" [(ngModel)]="reuseSavedExamples" [disabled]="isSavingStudySettings"><span></span></span>
+                </label>
+                <label class="row-toggle" for="allowOtherSavedLevels">
+                  <span class="t"><span>Eltérő szintű mentett válaszok is jöhetnek</span><small>Csak a már mentett példákra és definíciókra vonatkozik. Új MI-kérésnél továbbra is a pakli vagy a fiók szintje számít, és azon a szinten mentődik.</small></span>
+                  <span class="switch"><input id="allowOtherSavedLevels" name="allowOtherSavedLevels" type="checkbox" [(ngModel)]="allowOtherSavedLevels" [disabled]="isSavingStudySettings"><span></span></span>
+                </label>
+                @if (allowOtherSavedLevels) {
+                  <div class="field toggle-extra">
+                    <label for="savedLevelPolicy">Melyik mentett válaszok jöhetnek?</label>
+                    <select
+                      id="savedLevelPolicy"
+                      name="savedLevelPolicy"
+                      [(ngModel)]="savedLevelPolicy"
+                      [disabled]="isSavingStudySettings">
+                      @for (policy of savedLevelPolicies; track policy.id) {
+                        <option [value]="policy.id">{{ policy.label }}</option>
+                      }
+                    </select>
+                  </div>
+                }
+                <label class="row-toggle" for="generateAlternateDefinitions">
+                  <span class="t"><span>Váltakozó definíció</span><small>Mindig új angol definíció készül a mondatszintednek megfelelően. Kikapcsolva a kártyára írt definíciót kapod.</small></span>
+                  <span class="switch"><input id="generateAlternateDefinitions" name="generateAlternateDefinitions" type="checkbox" [(ngModel)]="generateAlternateDefinitions" [disabled]="isSavingStudySettings"><span></span></span>
+                </label>
+                <div class="form-grid adv-grid">
+                  <div class="field">
+                    <label for="leechThreshold">Nehéz szó küszöbe (hibák száma)</label>
+                    <input
+                      id="leechThreshold"
+                      name="leechThreshold"
+                      type="number"
+                      min="2"
+                      max="50"
+                      step="1"
+                      [(ngModel)]="leechThreshold"
+                      [disabled]="isSavingStudySettings">
+                    <span class="help">Ennyi hiba után számít nehéznek egy szó, ha többször rontottad el, mint ahányszor eltaláltad. A nehéz szavakat megjelöljük, hogy félretehesd őket.</span>
+                  </div>
+                  <div class="field">
+                    <label for="aiFillBatchSize">MI-kitöltés csomagmérete (szó / hívás)</label>
+                    <input
+                      id="aiFillBatchSize"
+                      name="aiFillBatchSize"
+                      type="number"
+                      min="1"
+                      max="10"
+                      step="1"
+                      [(ngModel)]="aiFillBatchSize"
+                      [disabled]="isSavingStudySettings">
+                    <span class="help">Szöveges importnál ennyi szót dolgoz fel egy MI-hívás (1–10). A nagyobb csomag gyorsabb, de egy hiba több szót érint.</span>
+                    <span class="help">
+                      Mai MI-kitöltés: {{ aiFillDailyLimit - aiFillRemainingToday }} / {{ aiFillDailyLimit }}, hátra: {{ aiFillRemainingToday }}.
+                      A napi keret most nincs érvényben, ezért negatív is lehet.
+                    </span>
+                  </div>
+                </div>
               </div>
             </details>
-            <button type="submit" [disabled]="isSavingStudySettings || !studySettingsLoaded">Mentés</button>
+            <div class="start-row">
+              <button type="submit" class="btn btn-primary btn-lg" [disabled]="isSavingStudySettings || !studySettingsLoaded">
+                @if (isSavingStudySettings) {
+                  <span class="spinner spinner-sm"></span>
+                }
+                Mentés
+              </button>
+            </div>
           </form>
         </main>
       } @else {
-        <main class="page-wrap">
-          <div>
-            <h1>Profil</h1>
-            <button type="button" (click)="logout()">Kijelentkezés</button>
-          </div>
-          @if (profileError) {
-            <div role="alert">{{ profileError }}</div>
-          }
-          @if (profileMessage) {
-            <div role="alert">{{ profileMessage }}</div>
-          }
-          <p>
-            <span>Email</span>
-            {{ profileEmail || session.email() }}
-          </p>
-          <div>
+        <main class="page page-narrow">
+          <header class="page-head">
+            <div class="ph-text"><h1 class="h1">Profil</h1></div>
+            <button type="button" class="btn" (click)="logout()"><app-icon name="logout" /> Kijelentkezés</button>
+          </header>
+          <section class="panel id-card">
             @if (hasAvatar && avatarUrl) {
-              <img
-                [src]="avatarUrl"
-                alt=""
-                width="96"
-                height="96"
-                (error)="hasAvatar = false">
+              <img [src]="avatarUrl" alt="" width="76" height="76" class="avatar avatar-xl" (error)="hasAvatar = false">
             } @else {
-              <span>
-                {{ initial() }}
-              </span>
+              <span class="avatar avatar-xl" aria-hidden="true">{{ initial() }}</span>
             }
-            <span
-              title="Napi sorozat"
-              [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">
-              <span>{{ studyDayStreak }}</span>
-              <span>nap</span>
-            </span>
-            <div>
-              <label for="avatarFile">Profilkép</label>
+            <div class="ph-text">
+              <h2 class="h2">{{ savedDisplayName || savedUsername || profileEmail || session.email() }}</h2>
+              <p class="muted">@if (savedUsername) {&#64;{{ savedUsername }} · }{{ profileEmail || session.email() }}</p>
+              <div class="chips">
+                <span class="streak-pill" title="Napi sorozat" [attr.aria-label]="'Napi sorozat: ' + studyDayStreak + ' nap'"><app-icon name="flame" />{{ studyDayStreak }} nap</span>
+              </div>
+            </div>
+            <div class="actions">
+              <label class="btn btn-sm" for="avatarFile" [class.disabled]="isUploadingAvatar">
+                @if (isUploadingAvatar) {
+                  <span class="spinner spinner-sm"></span>
+                } @else {
+                  <app-icon name="camera" />
+                }
+                Kép cseréje
+              </label>
               <input
                 id="avatarFile"
+                class="sr-only"
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
                 (change)="uploadAvatar($event)"
                 [disabled]="isUploadingAvatar">
-              <button
-                type="button"
-                (click)="deleteAvatar()"
-                [disabled]="isDeletingAvatar">
-                Kép törlése
-              </button>
+              @if (hasAvatar) {
+                <button
+                  type="button"
+                  class="btn btn-sm btn-ghost btn-danger-ghost"
+                  (click)="deleteAvatar()"
+                  [disabled]="isDeletingAvatar">
+                  Kép törlése
+                </button>
+              }
             </div>
-          </div>
-          <form (ngSubmit)="saveUsername()">
-            <label for="username">Felhasználónév</label>
-            <div>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                maxlength="30"
-                autocomplete="off"
-                [(ngModel)]="username"
-                [disabled]="isSavingUsername">
-              <button type="submit" [disabled]="isSavingUsername || !username.trim() || username.trim() === savedUsername">Mentés</button>
+          </section>
+          <section class="panel set-group">
+            <h2 class="h2">Adatok</h2>
+            <form class="field" (ngSubmit)="saveUsername()">
+              <label for="username">Felhasználónév</label>
+              <div class="input-row">
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  maxlength="30"
+                  autocomplete="off"
+                  [(ngModel)]="username"
+                  [disabled]="isSavingUsername">
+                <button type="submit" class="btn" [disabled]="isSavingUsername || !username.trim() || username.trim() === savedUsername">Mentés</button>
+              </div>
+              <span class="help">3–30 karakter: angol betű, szám, pont, kötőjel, aláhúzás. A megosztott paklijaid mellett ez látszik.</span>
+            </form>
+            <form class="field" (ngSubmit)="saveDisplayName()">
+              <label for="displayName">Megjelenített név</label>
+              <div class="input-row">
+                <input
+                  id="displayName"
+                  name="displayName"
+                  type="text"
+                  [(ngModel)]="displayName"
+                  [disabled]="isSavingName">
+                <button type="submit" class="btn" [disabled]="isSavingName">Mentés</button>
+              </div>
+            </form>
+          </section>
+          <form class="panel set-group" (ngSubmit)="changePassword()">
+            <h2 class="h2">Jelszócsere</h2>
+            <div class="form-grid">
+              <div class="field">
+                <label for="currentPassword">Jelenlegi jelszó</label>
+                <input
+                  id="currentPassword"
+                  name="currentPassword"
+                  type="password"
+                  autocomplete="current-password"
+                  [(ngModel)]="currentPassword"
+                  [disabled]="isChangingPassword">
+              </div>
+              <div class="field">
+                <label for="newPassword">Új jelszó</label>
+                <input
+                  id="newPassword"
+                  name="newPassword"
+                  type="password"
+                  autocomplete="new-password"
+                  [(ngModel)]="newPassword"
+                  [disabled]="isChangingPassword">
+                <span class="help">Legalább 8 karakter, benne betű és szám.</span>
+              </div>
             </div>
-            <div>3–30 karakter: angol betű, szám, pont, kötőjel, aláhúzás. A megosztott paklijaid mellett ez látszik.</div>
+            <div><button type="submit" class="btn btn-primary" [disabled]="isChangingPassword">Jelszócsere</button></div>
           </form>
-          <form (ngSubmit)="saveDisplayName()">
-            <label for="displayName">Megjelenített név</label>
-            <div>
+          <section class="panel set-group danger-zone">
+            <h2 class="h2">Fiók törlése</h2>
+            <p class="muted">A fiókod, a profilképed, a paklijaid és a tanulási adataid véglegesen törlődnek. Ezt nem lehet visszacsinálni.</p>
+            <div class="field">
+              <label for="deleteAccountSlide">A törléshez húzd jobbra a csúszkát</label>
               <input
-                id="displayName"
-                name="displayName"
-                type="text"
-                [(ngModel)]="displayName"
-                [disabled]="isSavingName">
-              <button type="submit" [disabled]="isSavingName">Mentés</button>
-            </div>
-          </form>
-          <form (ngSubmit)="changePassword()">
-            <h2>Jelszócsere</h2>
-            <div>
-              <label for="currentPassword">Jelenlegi jelszó</label>
-              <input
-                id="currentPassword"
-                name="currentPassword"
-                type="password"
-                autocomplete="current-password"
-                [(ngModel)]="currentPassword"
-                [disabled]="isChangingPassword">
-            </div>
-            <div>
-              <label for="newPassword">Új jelszó</label>
-              <input
-                id="newPassword"
-                name="newPassword"
-                type="password"
-                autocomplete="new-password"
-                [(ngModel)]="newPassword"
-                [disabled]="isChangingPassword">
-              <div>Legalább 8 karakter, benne betű és szám.</div>
-            </div>
-            <button type="submit" [disabled]="isChangingPassword">Jelszócsere</button>
-          </form>
-          <section>
-            <h2>Fiók törlése</h2>
-            <p>A fiókod, a profilképed, a paklijaid és a tanulási adataid véglegesen törlődnek. Ezt nem lehet visszacsinálni.</p>
-            <label for="deleteAccountSlide">A törléshez húzd jobbra a csúszkát</label>
-            <input
-              id="deleteAccountSlide"
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              [value]="deleteSlide"
-              (input)="onDeleteSlide($event)"
-              [disabled]="isDeletingAccount">
-            @if (deleteSlide >= 100) {
-              <button
-                type="button"
-                (click)="deleteAccount()"
+                id="deleteAccountSlide"
+                type="range"
+                class="range-danger"
+                min="0"
+                max="100"
+                step="1"
+                [value]="deleteSlide"
+                (input)="onDeleteSlide($event)"
                 [disabled]="isDeletingAccount">
-                Fiók törlése
+            </div>
+            <div>
+              <button
+                type="button"
+                class="btn btn-danger"
+                (click)="deleteAccount()"
+                [disabled]="isDeletingAccount || deleteSlide < 100">
+                <app-icon name="trash" /> Fiók végleges törlése
               </button>
-            }
+            </div>
           </section>
         </main>
+      }
+      @if (profileError || profileMessage) {
+        <div class="toast" [class.bad]="!!profileError" role="status">
+          <app-icon [name]="profileError ? 'warn' : 'check'" />
+          <span>{{ profileError || profileMessage }}</span>
+          <button type="button" class="toast-x" aria-label="Bezárás" (click)="profileError = null; profileMessage = null"><app-icon name="x" /></button>
+        </div>
       }
         </div>
 

@@ -479,3 +479,26 @@ app-icon { display: contents; }
   .auth-hero { display: flex; }
   .auth-brand-m { display: none; }
 }
+
+/* ---------- Profil és Beállítások ---------- */
+.start-row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.id-card { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 20px; }
+.id-card .ph-text { flex: 1 1 220px; }
+.set-group { display: flex; flex-direction: column; gap: 14px; }
+.set-group > .h2 { font-size: 17px; }
+.set-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.danger-zone { border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); }
+.danger-zone > .h2 { color: var(--bad); }
+.adv { border-top: 1px solid var(--border); }
+.adv summary { list-style: none; display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; padding: 12px 0 6px; font-weight: 600; }
+.adv summary::-webkit-details-marker { display: none; }
+.adv summary .ic { transition: transform .15s; color: var(--muted); }
+.adv[open] summary .ic { transform: rotate(180deg); }
+.adv-body { display: flex; flex-direction: column; }
+.adv-grid { padding-top: 12px; border-top: 1px solid var(--border); }
+.speech-options.is-disabled { opacity: .55; }
+.speech-sliders { padding-top: 12px; border-top: 1px solid var(--border); }
+.range-ends { display: flex; justify-content: space-between; }
+.speech-foot { padding-top: 14px; }
+.toast-x { border: 0; background: none; color: inherit; padding: 0; margin-left: 4px; cursor: pointer; display: grid; place-items: center; opacity: .7; }
+.toast-x:hover { opacity: 1; }

@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { IconComponent } from './icon.component';
 import {
   SpeechLang,
   SpeechService,
@@ -18,126 +19,136 @@ interface LangBlock {
 @Component({
   selector: 'app-speech-settings',
   standalone: true,
+  imports: [IconComponent],
   template: `
     @if (!speech.supported) {
-      <div role="alert">
-        Ez a böngésző nem támogatja a felolvasást. Próbáld Chrome, Edge vagy Safari böngészővel.
+      <div class="notice" role="alert">
+        <div>Ez a böngésző nem támogatja a felolvasást. Próbáld Chrome, Edge vagy Safari böngészővel.</div>
       </div>
     } @else {
       <div>
-        <input
-          id="speechEnabled"
-          type="checkbox"
-          role="switch"
-          [checked]="settings().enabled"
-          (change)="setEnabled($event)">
-        <label for="speechEnabled">Felolvasás engedélyezése</label>
-        <div>Kikapcsolva a kártyákról eltűnnek a hangszóró gombok.</div>
-      </div>
+        <label class="row-toggle" for="speechEnabled">
+          <span class="t"><span>Felolvasás engedélyezése</span><small>Kikapcsolva a kártyákról eltűnnek a hangszóró gombok.</small></span>
+          <span class="switch">
+            <input
+              id="speechEnabled"
+              type="checkbox"
+              role="switch"
+              [checked]="settings().enabled"
+              (change)="setEnabled($event)"><span></span>
+          </span>
+        </label>
 
-      @if (settings().muted && settings().enabled) {
-        <div role="status">
-          <span>A hang jelenleg némítva van, ezért semmi nem szólal meg.</span>
-          <button type="button" (click)="speech.toggleMute()">Némítás feloldása</button>
-        </div>
-      }
-
-      <div class="speech-options" [class.is-disabled]="!settings().enabled">
-        <div>
-          <input
-            id="speechAutoRead"
-            type="checkbox"
-            role="switch"
-            [checked]="settings().autoRead"
-            [disabled]="!settings().enabled"
-            (change)="setAutoRead($event)">
-          <label for="speechAutoRead">Automatikus felolvasás</label>
-          <div>Bekapcsolva a kártya szövege magától felolvasódik, amikor új kártya jelenik meg vagy megfordítod (felismerésnél a körülírást, utána a megoldást is). Kikapcsolva csak a hangszóró gombbal szólal meg.</div>
-        </div>
-
-        @for (block of blocks; track block.lang) {
-          <div class="speech-lang">
+        @if (settings().muted && settings().enabled) {
+          <div class="notice" role="status">
             <div>
-              <input
-                [id]="'speech-' + block.lang"
-                type="checkbox"
-                role="switch"
-                [checked]="settings()[block.toggleKey]"
-                [disabled]="!settings().enabled"
-                (change)="setLangEnabled(block, $event)">
-              <label [for]="'speech-' + block.lang">{{ block.title }}</label>
+              <span>A hang jelenleg némítva van, ezért semmi nem szólal meg.</span>
+              <span><button type="button" class="btn btn-sm" (click)="speech.toggleMute()">Némítás feloldása</button></span>
             </div>
-
-            @if (settings()[block.toggleKey]) {
-              @if (voicesFor(block.lang).length > 0) {
-                <label [for]="'voice-' + block.lang">Hang</label>
-                <div>
-                  <select
-                    [id]="'voice-' + block.lang"
-                    [disabled]="!settings().enabled"
-                    (change)="setVoice(block, $event)">
-                    <option value="" [selected]="selectedVoice(block) === ''">Automatikus (a böngésző választ)</option>
-                    @for (voice of voicesFor(block.lang); track voice.name) {
-                      <option [value]="voice.name" [selected]="voice.name === selectedVoice(block)">{{ voice.name }} ({{ voice.lang }})</option>
-                    }
-                  </select>
-                  <button
-                    type="button"
-                    [disabled]="!settings().enabled || settings().muted"
-                    (click)="preview(block)">
-                    Kipróbálás
-                  </button>
-                </div>
-              } @else if (speech.voices().length > 0) {
-                <div role="alert">
-                  {{ missingVoiceHint(block.lang) }}
-                </div>
-              } @else {
-                <div>Hangok betöltése…</div>
-              }
-            }
           </div>
         }
 
-        <div class="speech-sliders">
-          <div>
-            <label for="speechRate">
-              <span>Sebesség</span>
-              <span>{{ rateLabel() }}</span>
-            </label>
-            <input
-              id="speechRate"
-              type="range"
-              [min]="rateRange.min"
-              [max]="rateRange.max"
-              [step]="rateRange.step"
-              [value]="settings().rate"
-              [disabled]="!settings().enabled"
-              (input)="setNumber('rate', $event)">
-            <div><span>Lassabb</span><span>Gyorsabb</span></div>
-          </div>
-          <div>
-            <label for="speechPitch">
-              <span>Hangmagasság</span>
-              <span>{{ pitchLabel() }}</span>
-            </label>
-            <input
-              id="speechPitch"
-              type="range"
-              [min]="pitchRange.min"
-              [max]="pitchRange.max"
-              [step]="pitchRange.step"
-              [value]="settings().pitch"
-              [disabled]="!settings().enabled"
-              (input)="setNumber('pitch', $event)">
-            <div><span>Mélyebb</span><span>Magasabb</span></div>
+        <div class="speech-options" [class.is-disabled]="!settings().enabled">
+          <label class="row-toggle" for="speechAutoRead">
+            <span class="t"><span>Automatikus felolvasás</span><small>Bekapcsolva a kártya szövege magától felolvasódik, amikor új kártya jelenik meg vagy megfordítod (felismerésnél a körülírást, utána a megoldást is). Kikapcsolva csak a hangszóró gombbal szólal meg.</small></span>
+            <span class="switch">
+              <input
+                id="speechAutoRead"
+                type="checkbox"
+                role="switch"
+                [checked]="settings().autoRead"
+                [disabled]="!settings().enabled"
+                (change)="setAutoRead($event)"><span></span>
+            </span>
+          </label>
+
+          @for (block of blocks; track block.lang) {
+            <div class="speech-lang">
+              <label class="row-toggle" [for]="'speech-' + block.lang">
+                <span class="t"><span>{{ block.title }}</span></span>
+                <span class="switch">
+                  <input
+                    [id]="'speech-' + block.lang"
+                    type="checkbox"
+                    role="switch"
+                    [checked]="settings()[block.toggleKey]"
+                    [disabled]="!settings().enabled"
+                    (change)="setLangEnabled(block, $event)"><span></span>
+                </span>
+              </label>
+
+              @if (settings()[block.toggleKey]) {
+                @if (voicesFor(block.lang).length > 0) {
+                  <div class="field toggle-extra">
+                    <label [for]="'voice-' + block.lang">Hang</label>
+                    <div class="input-row">
+                      <select
+                        [id]="'voice-' + block.lang"
+                        [disabled]="!settings().enabled"
+                        (change)="setVoice(block, $event)">
+                        <option value="" [selected]="selectedVoice(block) === ''">Automatikus (a böngésző választ)</option>
+                        @for (voice of voicesFor(block.lang); track voice.name) {
+                          <option [value]="voice.name" [selected]="voice.name === selectedVoice(block)">{{ voice.name }} ({{ voice.lang }})</option>
+                        }
+                      </select>
+                      <button
+                        type="button"
+                        class="btn"
+                        [disabled]="!settings().enabled || settings().muted"
+                        (click)="preview(block)">
+                        <app-icon name="volume" /> Kipróbálás
+                      </button>
+                    </div>
+                  </div>
+                } @else if (speech.voices().length > 0) {
+                  <div class="notice toggle-extra" role="alert"><div>{{ missingVoiceHint(block.lang) }}</div></div>
+                } @else {
+                  <p class="help toggle-extra">Hangok betöltése…</p>
+                }
+              }
+            </div>
+          }
+
+          <div class="form-grid speech-sliders">
+            <div class="field">
+              <label class="label-row" for="speechRate">
+                <span>Sebesség</span>
+                <span class="tnum">{{ rateLabel() }}</span>
+              </label>
+              <input
+                id="speechRate"
+                type="range"
+                [min]="rateRange.min"
+                [max]="rateRange.max"
+                [step]="rateRange.step"
+                [value]="settings().rate"
+                [disabled]="!settings().enabled"
+                (input)="setNumber('rate', $event)">
+              <div class="range-ends help"><span>Lassabb</span><span>Gyorsabb</span></div>
+            </div>
+            <div class="field">
+              <label class="label-row" for="speechPitch">
+                <span>Hangmagasság</span>
+                <span class="tnum">{{ pitchLabel() }}</span>
+              </label>
+              <input
+                id="speechPitch"
+                type="range"
+                [min]="pitchRange.min"
+                [max]="pitchRange.max"
+                [step]="pitchRange.step"
+                [value]="settings().pitch"
+                [disabled]="!settings().enabled"
+                (input)="setNumber('pitch', $event)">
+              <div class="range-ends help"><span>Mélyebb</span><span>Magasabb</span></div>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div>
-        <button type="button" (click)="speech.reset()">Alapértékek visszaállítása</button>
-        <span>A beállítások azonnal érvénybe lépnek, és ezen az eszközön megmaradnak.</span>
+        <div class="row-gap speech-foot">
+          <button type="button" class="btn btn-sm" (click)="speech.reset()">Alapértékek visszaállítása</button>
+          <span class="help">A beállítások azonnal érvénybe lépnek, és ezen az eszközön megmaradnak.</span>
+        </div>
       </div>
     }
   `,
