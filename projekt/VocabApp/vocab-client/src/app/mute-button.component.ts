@@ -9,7 +9,7 @@ import { SpeechService } from './speech.service';
     @if (speech.supported && speech.settings().enabled) {
       <button
         type="button"
-        class="btn btn-outline-secondary mute-btn"
+        class="mute-btn"
         [class.icon-only]="compact"
         [class.is-muted]="speech.settings().muted"
         [attr.aria-pressed]="speech.settings().muted"

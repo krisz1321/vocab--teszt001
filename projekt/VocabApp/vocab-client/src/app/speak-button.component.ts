@@ -9,7 +9,7 @@ import { SpeechLang, SpeechService } from './speech.service';
     @if (text?.trim() && speech.canSpeak(lang)) {
       <button
         type="button"
-        class="btn btn-outline-secondary btn-sm speak-btn"
+        class="speak-btn"
         [class.is-speaking]="isSpeaking()"
         [disabled]="speech.settings().muted"
         [attr.aria-pressed]="isSpeaking()"

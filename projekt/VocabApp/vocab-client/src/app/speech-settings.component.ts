@@ -20,64 +20,60 @@ interface LangBlock {
   standalone: true,
   template: `
     @if (!speech.supported) {
-      <div class="alert alert-warning mb-0" role="alert">
+      <div role="alert">
         Ez a böngésző nem támogatja a felolvasást. Próbáld Chrome, Edge vagy Safari böngészővel.
       </div>
     } @else {
-      <div class="form-check form-switch mb-3">
+      <div>
         <input
           id="speechEnabled"
           type="checkbox"
           role="switch"
-          class="form-check-input"
           [checked]="settings().enabled"
           (change)="setEnabled($event)">
-        <label class="form-check-label fw-semibold" for="speechEnabled">Felolvasás engedélyezése</label>
-        <div class="form-text">Kikapcsolva a kártyákról eltűnnek a hangszóró gombok.</div>
+        <label for="speechEnabled">Felolvasás engedélyezése</label>
+        <div>Kikapcsolva a kártyákról eltűnnek a hangszóró gombok.</div>
       </div>
 
       @if (settings().muted && settings().enabled) {
-        <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2" role="status">
+        <div role="status">
           <span>A hang jelenleg némítva van, ezért semmi nem szólal meg.</span>
-          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="speech.toggleMute()">Némítás feloldása</button>
+          <button type="button" (click)="speech.toggleMute()">Némítás feloldása</button>
         </div>
       }
 
       <div class="speech-options" [class.is-disabled]="!settings().enabled">
-        <div class="form-check form-switch">
+        <div>
           <input
             id="speechAutoRead"
             type="checkbox"
             role="switch"
-            class="form-check-input"
             [checked]="settings().autoRead"
             [disabled]="!settings().enabled"
             (change)="setAutoRead($event)">
-          <label class="form-check-label fw-semibold" for="speechAutoRead">Automatikus felolvasás</label>
-          <div class="form-text">Bekapcsolva a kártya szövege magától felolvasódik, amikor új kártya jelenik meg vagy megfordítod (felismerésnél a körülírást, utána a megoldást is). Kikapcsolva csak a hangszóró gombbal szólal meg.</div>
+          <label for="speechAutoRead">Automatikus felolvasás</label>
+          <div>Bekapcsolva a kártya szövege magától felolvasódik, amikor új kártya jelenik meg vagy megfordítod (felismerésnél a körülírást, utána a megoldást is). Kikapcsolva csak a hangszóró gombbal szólal meg.</div>
         </div>
 
         @for (block of blocks; track block.lang) {
           <div class="speech-lang">
-            <div class="form-check form-switch mb-2">
+            <div>
               <input
                 [id]="'speech-' + block.lang"
                 type="checkbox"
                 role="switch"
-                class="form-check-input"
                 [checked]="settings()[block.toggleKey]"
                 [disabled]="!settings().enabled"
                 (change)="setLangEnabled(block, $event)">
-              <label class="form-check-label fw-semibold" [for]="'speech-' + block.lang">{{ block.title }}</label>
+              <label [for]="'speech-' + block.lang">{{ block.title }}</label>
             </div>
 
             @if (settings()[block.toggleKey]) {
               @if (voicesFor(block.lang).length > 0) {
-                <label class="form-label small mb-1" [for]="'voice-' + block.lang">Hang</label>
-                <div class="d-flex gap-2">
+                <label [for]="'voice-' + block.lang">Hang</label>
+                <div>
                   <select
                     [id]="'voice-' + block.lang"
-                    class="form-select"
                     [disabled]="!settings().enabled"
                     (change)="setVoice(block, $event)">
                     <option value="" [selected]="selectedVoice(block) === ''">Automatikus (a böngésző választ)</option>
@@ -87,18 +83,17 @@ interface LangBlock {
                   </select>
                   <button
                     type="button"
-                    class="btn btn-outline-secondary flex-shrink-0"
                     [disabled]="!settings().enabled || settings().muted"
                     (click)="preview(block)">
                     Kipróbálás
                   </button>
                 </div>
               } @else if (speech.voices().length > 0) {
-                <div class="alert alert-warning small mb-0" role="alert">
+                <div role="alert">
                   {{ missingVoiceHint(block.lang) }}
                 </div>
               } @else {
-                <div class="form-text">Hangok betöltése…</div>
+                <div>Hangok betöltése…</div>
               }
             }
           </div>
@@ -106,45 +101,43 @@ interface LangBlock {
 
         <div class="speech-sliders">
           <div>
-            <label class="form-label d-flex justify-content-between" for="speechRate">
+            <label for="speechRate">
               <span>Sebesség</span>
-              <span class="text-body-secondary">{{ rateLabel() }}</span>
+              <span>{{ rateLabel() }}</span>
             </label>
             <input
               id="speechRate"
               type="range"
-              class="form-range"
               [min]="rateRange.min"
               [max]="rateRange.max"
               [step]="rateRange.step"
               [value]="settings().rate"
               [disabled]="!settings().enabled"
               (input)="setNumber('rate', $event)">
-            <div class="d-flex justify-content-between small text-body-secondary"><span>Lassabb</span><span>Gyorsabb</span></div>
+            <div><span>Lassabb</span><span>Gyorsabb</span></div>
           </div>
           <div>
-            <label class="form-label d-flex justify-content-between" for="speechPitch">
+            <label for="speechPitch">
               <span>Hangmagasság</span>
-              <span class="text-body-secondary">{{ pitchLabel() }}</span>
+              <span>{{ pitchLabel() }}</span>
             </label>
             <input
               id="speechPitch"
               type="range"
-              class="form-range"
               [min]="pitchRange.min"
               [max]="pitchRange.max"
               [step]="pitchRange.step"
               [value]="settings().pitch"
               [disabled]="!settings().enabled"
               (input)="setNumber('pitch', $event)">
-            <div class="d-flex justify-content-between small text-body-secondary"><span>Mélyebb</span><span>Magasabb</span></div>
+            <div><span>Mélyebb</span><span>Magasabb</span></div>
           </div>
         </div>
       </div>
 
-      <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="speech.reset()">Alapértékek visszaállítása</button>
-        <span class="small text-body-secondary">A beállítások azonnal érvénybe lépnek, és ezen az eszközön megmaradnak.</span>
+      <div>
+        <button type="button" (click)="speech.reset()">Alapértékek visszaállítása</button>
+        <span>A beállítások azonnal érvénybe lépnek, és ezen az eszközön megmaradnak.</span>
       </div>
     }
   `,

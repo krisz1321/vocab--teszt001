@@ -76,25 +76,24 @@ interface AiModelOption {
         <header class="auth-top">
           <span class="brand">VocabApp</span>
         </header>
-        <main class="container d-flex pb-5">
+        <main>
           <div class="auth-card">
-            <h1 class="h3 mb-1">{{ mode === 'login' ? 'Üdv újra!' : 'Fiók létrehozása' }}</h1>
-            <p class="text-body-secondary mb-4">Angol szókártyák MI-segítséggel.</p>
-            <div class="seg mb-4" role="group" aria-label="Belépés módja">
+            <h1>{{ mode === 'login' ? 'Üdv újra!' : 'Fiók létrehozása' }}</h1>
+            <p>Angol szókártyák MI-segítséggel.</p>
+            <div class="seg" role="group" aria-label="Belépés módja">
               <button type="button" [class.is-active]="mode === 'login'" (click)="setMode('login')">Bejelentkezés</button>
               <button type="button" [class.is-active]="mode === 'register'" (click)="setMode('register')">Regisztráció</button>
             </div>
             @if (session.expired()) {
-              <div class="alert alert-warning" role="status">Lejárt a bejelentkezésed, lépj be újra.</div>
+              <div role="status">Lejárt a bejelentkezésed, lépj be újra.</div>
             }
             <form (ngSubmit)="submit()">
-              <div class="mb-3">
-                <label class="form-label" for="email">Email</label>
+              <div>
+                <label for="email">Email</label>
                 <input
                   id="email"
                   name="email"
                   type="email"
-                  class="form-control form-control-lg"
                   autocomplete="username"
                   placeholder="nev@példa.hu"
                   [class.is-invalid]="mode === 'register' && emailTaken"
@@ -102,17 +101,16 @@ interface AiModelOption {
                   (ngModelChange)="onRegisterFieldChange()"
                   [disabled]="isSubmitting">
                 @if (mode === 'register' && emailTaken) {
-                  <div class="invalid-feedback d-block">Ezzel az email címmel már van fiók.</div>
+                  <div>Ezzel az email címmel már van fiók.</div>
                 }
               </div>
               @if (mode === 'register') {
-                <div class="mb-3">
-                  <label class="form-label" for="registerUsername">Felhasználónév</label>
+                <div>
+                  <label for="registerUsername">Felhasználónév</label>
                   <input
                     id="registerUsername"
                     name="registerUsername"
                     type="text"
-                    class="form-control form-control-lg"
                     autocomplete="nickname"
                     maxlength="30"
                     placeholder="3–30 karakter: betű, szám, . - _"
@@ -121,46 +119,44 @@ interface AiModelOption {
                     (ngModelChange)="onRegisterFieldChange()"
                     [disabled]="isSubmitting">
                   @if (usernameTaken) {
-                    <div class="invalid-feedback d-block">Ez a felhasználónév már foglalt.</div>
+                    <div>Ez a felhasználónév már foglalt.</div>
                   } @else {
-                    <div class="form-text">Ez látszik a megosztott paklijaid mellett.</div>
+                    <div>Ez látszik a megosztott paklijaid mellett.</div>
                   }
                 </div>
               }
-              <div class="mb-3">
-                <label class="form-label" for="password">Jelszó</label>
+              <div>
+                <label for="password">Jelszó</label>
                 <input
                   id="password"
                   name="password"
                   type="password"
-                  class="form-control form-control-lg"
                   [attr.autocomplete]="mode === 'register' ? 'new-password' : 'current-password'"
                   [placeholder]="mode === 'register' ? 'Legalább 8 karakter, betűvel és számmal' : ''"
                   [(ngModel)]="password"
                   [disabled]="isSubmitting">
               </div>
               @if (mode === 'register') {
-                <div class="mb-3">
-                  <label class="form-label" for="passwordConfirm">Jelszó újra</label>
+                <div>
+                  <label for="passwordConfirm">Jelszó újra</label>
                   <input
                     id="passwordConfirm"
                     name="passwordConfirm"
                     type="password"
-                    class="form-control form-control-lg"
                     autocomplete="new-password"
                     placeholder="Írd be még egyszer a jelszót"
                     [class.is-invalid]="passwordConfirm.length > 0 && password !== passwordConfirm"
                     [(ngModel)]="passwordConfirm"
                     [disabled]="isSubmitting">
                   @if (passwordConfirm.length > 0 && password !== passwordConfirm) {
-                    <div class="invalid-feedback d-block">A két jelszó nem egyezik.</div>
+                    <div>A két jelszó nem egyezik.</div>
                   }
                 </div>
               }
               @if (errorMessage) {
-                <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+                <div role="alert">{{ errorMessage }}</div>
               }
-              <button type="submit" class="btn btn-primary btn-lg w-100" [disabled]="isSubmitting">
+              <button type="submit" [disabled]="isSubmitting">
                 {{ mode === 'login' ? 'Bejelentkezés' : 'Regisztráció' }}
               </button>
             </form>
@@ -213,14 +209,14 @@ interface AiModelOption {
                 <span class="streak-chip" title="Napi sorozat" [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">{{ studyDayStreak }} nap</span>
               </span>
             </button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="logout()">Kijelentkezés</button>
+            <button type="button" (click)="logout()">Kijelentkezés</button>
           </div>
         </aside>
 
         <div class="app-content">
       @if (errorMessage) {
-        <div class="container pt-3 page-wrap">
-          <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+        <div class="page-wrap">
+          <div role="alert">{{ errorMessage }}</div>
         </div>
       }
       @if (view === 'study') {
@@ -234,184 +230,171 @@ interface AiModelOption {
       } @else if (view === 'decks') {
         <app-decks (studyDeck)="studyDeck($event)" />
       } @else if (view === 'settings') {
-        <main class="container py-4 page-wrap">
-          <h1 class="h3 mb-4">Beállítások</h1>
+        <main class="page-wrap">
+          <h1>Beállítások</h1>
           @if (profileError) {
-            <div class="alert alert-danger" role="alert">{{ profileError }}</div>
+            <div role="alert">{{ profileError }}</div>
           }
           @if (profileMessage) {
-            <div class="alert alert-success" role="alert">{{ profileMessage }}</div>
+            <div role="alert">{{ profileMessage }}</div>
           }
-          <section class="mb-4">
-            <h2 class="h5 mb-3">Hang és felolvasás</h2>
-            <p class="text-body-secondary">A kártyák szövegét a hangszóró gombbal felolvastathatod. Itt állíthatod be, mit és milyen hangon olvasson.</p>
+          <section>
+            <h2>Hang és felolvasás</h2>
+            <p>A kártyák szövegét a hangszóró gombbal felolvastathatod. Itt állíthatod be, mit és milyen hangon olvasson.</p>
             <app-speech-settings />
           </section>
-          <form class="mb-4" (ngSubmit)="saveStudySettings()">
-            <h2 class="h5 mb-3">Tanulási beállítások</h2>
+          <form (ngSubmit)="saveStudySettings()">
+            <h2>Tanulási beállítások</h2>
             @if (!studySettingsLoaded) {
-              <div class="alert alert-info d-flex flex-wrap align-items-center gap-2" role="status">
+              <div role="status">
                 @if (isLoadingStudySettings) {
-                  <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                  <span aria-hidden="true"></span>
                   A beállítások betöltése…
                 } @else {
                   Nem sikerült betölteni a beállításokat, ezért most nem tudsz menteni.
-                  <button type="button" class="btn btn-sm btn-outline-secondary" (click)="loadStudySettings()">Újrapróbálás</button>
+                  <button type="button" (click)="loadStudySettings()">Újrapróbálás</button>
                 }
               </div>
             }
-            <div class="mb-3">
-              <label class="form-label" for="dailyNewCardGoal">Napi új szavak</label>
+            <div>
+              <label for="dailyNewCardGoal">Napi új szavak</label>
               <input
                 id="dailyNewCardGoal"
                 name="dailyNewCardGoal"
                 type="number"
-                class="form-control"
                 min="0"
                 max="100"
                 step="1"
                 [(ngModel)]="dailyNewCardGoal"
                 [disabled]="isSavingStudySettings">
-              <div class="form-text">Naponta ennyi új szót kapsz (0–100). Az esedékes ismétlések ezen felül jönnek.</div>
+              <div>Naponta ennyi új szót kapsz (0–100). Az esedékes ismétlések ezen felül jönnek.</div>
             </div>
-            <div class="mb-3">
-              <label class="form-label" for="minimumAnswerSeconds">Minimum idő másodpercben</label>
+            <div>
+              <label for="minimumAnswerSeconds">Minimum idő másodpercben</label>
               <input
                 id="minimumAnswerSeconds"
                 name="minimumAnswerSeconds"
                 type="number"
-                class="form-control"
                 min="0"
                 max="120"
                 step="1"
                 [(ngModel)]="minimumAnswerSeconds"
                 [disabled]="isSavingStudySettings">
-              <div class="form-text">Ennyi másodperc után válaszolhatsz a kártyára (0–120).</div>
+              <div>Ennyi másodperc után válaszolhatsz a kártyára (0–120).</div>
             </div>
-            <div class="mb-3">
-              <label class="form-label" for="exampleLevel">Mondatszint</label>
+            <div>
+              <label for="exampleLevel">Mondatszint</label>
               <select
                 id="exampleLevel"
                 name="exampleLevel"
-                class="form-select"
                 [(ngModel)]="exampleLevel"
                 [disabled]="isSavingStudySettings">
                 @for (level of exampleLevels; track level) {
                   <option [value]="level">{{ level }}</option>
                 }
               </select>
-              <div class="form-text">Ez a fiókod szintje. Ha a paklinak saját szintje van, az számít.</div>
+              <div>Ez a fiókod szintje. Ha a paklinak saját szintje van, az számít.</div>
             </div>
-            <details class="advanced-settings mb-4">
-              <summary class="fw-semibold">Haladó beállítások</summary>
-              <div class="pt-3">
-            <div class="mb-3">
-              <label class="form-label" for="aiModel">MI-modell</label>
+            <details class="advanced-settings">
+              <summary>Haladó beállítások</summary>
+              <div>
+            <div>
+              <label for="aiModel">MI-modell</label>
               <select
                 id="aiModel"
                 name="aiModel"
-                class="form-select"
                 [(ngModel)]="aiModel"
                 [disabled]="isSavingStudySettings">
                 @for (model of aiModels; track model.id) {
                   <option [value]="model.id">{{ model.label }}</option>
                 }
               </select>
-              <div class="form-text">Mindegyik ugyanazt az OpenRouter-kulcsot használja.</div>
+              <div>Mindegyik ugyanazt az OpenRouter-kulcsot használja.</div>
             </div>
-            <div class="form-check mb-3">
+            <div>
               <input
                 id="automaticAiCheck"
                 name="automaticAiCheck"
                 type="checkbox"
-                class="form-check-input"
                 [(ngModel)]="automaticAiCheck"
                 [disabled]="isSavingStudySettings">
-              <label class="form-check-label" for="automaticAiCheck">Automatikus MI-ellenőrzés</label>
-              <div class="form-text">Ha a válaszod nem egyezik a mentett jelentéssel, az MI megnézi. Kikapcsolva ezt hibás válasz után te indíthatod el.</div>
+              <label for="automaticAiCheck">Automatikus MI-ellenőrzés</label>
+              <div>Ha a válaszod nem egyezik a mentett jelentéssel, az MI megnézi. Kikapcsolva ezt hibás válasz után te indíthatod el.</div>
             </div>
-            <div class="form-check mb-3">
+            <div>
               <input
                 id="acceptPartialMeaningMatch"
                 name="acceptPartialMeaningMatch"
                 type="checkbox"
-                class="form-check-input"
                 [(ngModel)]="acceptPartialMeaningMatch"
                 [disabled]="isSavingStudySettings">
-              <label class="form-check-label" for="acceptPartialMeaningMatch">Részleges egyezés elfogadása</label>
-              <div class="form-text">Elég, ha a vesszővel elválasztott részek közül egy egyezik a mentett jelentéssel. Kikapcsolva a teljes válasznak egyeznie kell.</div>
+              <label for="acceptPartialMeaningMatch">Részleges egyezés elfogadása</label>
+              <div>Elég, ha a vesszővel elválasztott részek közül egy egyezik a mentett jelentéssel. Kikapcsolva a teljes válasznak egyeznie kell.</div>
             </div>
-            <div class="form-check mb-3">
+            <div>
               <input
                 id="acceptEnglishSynonyms"
                 name="acceptEnglishSynonyms"
                 type="checkbox"
-                class="form-check-input"
                 [(ngModel)]="acceptEnglishSynonyms"
                 [disabled]="isSavingStudySettings">
-              <label class="form-check-label" for="acceptEnglishSynonyms">Angol szinonima elfogadása</label>
-              <div class="form-text">Magyarról angolra fordításnál, ha a kártya szava helyett egy azonos jelentésű másik angol szót írsz, az MI sárgán jelzi. Bekapcsolva ez jó válasz, kikapcsolva hibás (a Mégis helyes volt gombbal vitathatod).</div>
+              <label for="acceptEnglishSynonyms">Angol szinonima elfogadása</label>
+              <div>Magyarról angolra fordításnál, ha a kártya szava helyett egy azonos jelentésű másik angol szót írsz, az MI sárgán jelzi. Bekapcsolva ez jó válasz, kikapcsolva hibás (a Mégis helyes volt gombbal vitathatod).</div>
             </div>
-            <div class="form-check mb-3">
+            <div>
               <input
                 id="repeatMistakes"
                 name="repeatMistakes"
                 type="checkbox"
-                class="form-check-input"
                 [(ngModel)]="repeatMistakes"
                 [disabled]="isSavingStudySettings">
-              <label class="form-check-label" for="repeatMistakes">Hibás válasz után azonnali gyakorló ismétlés</label>
-              <div class="form-text">Az elrontott kártya rögtön visszajön, hogy begyakorold. Ha másodszor is hibázol, jön a következő. Ezek a körök nem számítanak a statisztikába és az ütemezésbe. Csak Fordítás módban működik.</div>
+              <label for="repeatMistakes">Hibás válasz után azonnali gyakorló ismétlés</label>
+              <div>Az elrontott kártya rögtön visszajön, hogy begyakorold. Ha másodszor is hibázol, jön a következő. Ezek a körök nem számítanak a statisztikába és az ütemezésbe. Csak Fordítás módban működik.</div>
             </div>
-            <div class="form-check mb-3">
+            <div>
               <input
                 id="acceptHungarianParaphrase"
                 name="acceptHungarianParaphrase"
                 type="checkbox"
-                class="form-check-input"
                 [(ngModel)]="acceptHungarianParaphrase"
                 [disabled]="isSavingStudySettings">
-              <label class="form-check-label" for="acceptHungarianParaphrase">Magyar körülírás elfogadása</label>
-              <div class="form-text">Magyarul is elmagyarázhatod a szót, az MI angolra írja át. Kikapcsolva csak angolul lehet.</div>
+              <label for="acceptHungarianParaphrase">Magyar körülírás elfogadása</label>
+              <div>Magyarul is elmagyarázhatod a szót, az MI angolra írja át. Kikapcsolva csak angolul lehet.</div>
             </div>
-            <div class="form-check mb-3">
+            <div>
               <input
                 id="requireAppealReason"
                 name="requireAppealReason"
                 type="checkbox"
-                class="form-check-input"
                 [(ngModel)]="requireAppealReason"
                 [disabled]="isSavingStudySettings">
-              <label class="form-check-label" for="requireAppealReason">A hibás válasz megvédéséhez indoklás kell.</label>
-              <div class="form-text">Bekapcsolva a Mégis helyes volt gomb indoklást kér, és az MI dönt. Kikapcsolva a Márpedig ez jó válasz volt gomb indoklás nélkül helyesnek veszi.</div>
+              <label for="requireAppealReason">A hibás válasz megvédéséhez indoklás kell.</label>
+              <div>Bekapcsolva a Mégis helyes volt gomb indoklást kér, és az MI dönt. Kikapcsolva a Márpedig ez jó válasz volt gomb indoklás nélkül helyesnek veszi.</div>
             </div>
-            <div class="form-check mb-3">
+            <div>
               <input
                 id="reuseSavedExamples"
                 name="reuseSavedExamples"
                 type="checkbox"
-                class="form-check-input"
                 [(ngModel)]="reuseSavedExamples"
                 [disabled]="isSavingStudySettings">
-              <label class="form-check-label" for="reuseSavedExamples">Mentett definíciók és példamondatok újrafelhasználása</label>
-              <div class="form-text">Ha van már mentett példamondat vagy definíció, kb. minden második alkalommal azt kapod, MI-hívás nélkül. Kikapcsolva mindig újat kérünk az MI-től.</div>
+              <label for="reuseSavedExamples">Mentett definíciók és példamondatok újrafelhasználása</label>
+              <div>Ha van már mentett példamondat vagy definíció, kb. minden második alkalommal azt kapod, MI-hívás nélkül. Kikapcsolva mindig újat kérünk az MI-től.</div>
             </div>
-            <div class="mb-3">
-              <div class="form-check">
+            <div>
+              <div>
                 <input
                   id="allowOtherSavedLevels"
                   name="allowOtherSavedLevels"
                   type="checkbox"
-                  class="form-check-input"
                   [(ngModel)]="allowOtherSavedLevels"
                   [disabled]="isSavingStudySettings">
-                <label class="form-check-label" for="allowOtherSavedLevels">Eltérő szintű mentett válaszok is jöhetnek.</label>
+                <label for="allowOtherSavedLevels">Eltérő szintű mentett válaszok is jöhetnek.</label>
               </div>
               @if (allowOtherSavedLevels) {
                 <select
                   id="savedLevelPolicy"
                   name="savedLevelPolicy"
-                  class="form-select mt-2"
                   [(ngModel)]="savedLevelPolicy"
                   [disabled]="isSavingStudySettings">
                   @for (policy of savedLevelPolicies; track policy.id) {
@@ -419,176 +402,163 @@ interface AiModelOption {
                   }
                 </select>
               }
-              <div class="form-text">Csak a már mentett példákra és definíciókra vonatkozik. Új MI-kérésnél továbbra is a pakli vagy a fiók szintje számít, és azon a szinten mentődik.</div>
+              <div>Csak a már mentett példákra és definíciókra vonatkozik. Új MI-kérésnél továbbra is a pakli vagy a fiók szintje számít, és azon a szinten mentődik.</div>
             </div>
-            <div class="form-check mb-3">
+            <div>
               <input
                 id="generateAlternateDefinitions"
                 name="generateAlternateDefinitions"
                 type="checkbox"
-                class="form-check-input"
                 [(ngModel)]="generateAlternateDefinitions"
                 [disabled]="isSavingStudySettings">
-              <label class="form-check-label" for="generateAlternateDefinitions">Váltakozó definíció</label>
-              <div class="form-text">Mindig új angol definíció készül a mondatszintednek megfelelően. Kikapcsolva a kártyára írt definíciót kapod.</div>
+              <label for="generateAlternateDefinitions">Váltakozó definíció</label>
+              <div>Mindig új angol definíció készül a mondatszintednek megfelelően. Kikapcsolva a kártyára írt definíciót kapod.</div>
             </div>
-            <div class="mb-3">
-              <label class="form-label" for="leechThreshold">Nehéz szó küszöbe (hibák száma)</label>
+            <div>
+              <label for="leechThreshold">Nehéz szó küszöbe (hibák száma)</label>
               <input
                 id="leechThreshold"
                 name="leechThreshold"
                 type="number"
-                class="form-control"
                 min="2"
                 max="50"
                 step="1"
                 [(ngModel)]="leechThreshold"
                 [disabled]="isSavingStudySettings">
-              <div class="form-text">Ennyi hiba után számít nehéznek egy szó, ha többször rontottad el, mint ahányszor eltaláltad. A nehéz szavakat megjelöljük, hogy félretehesd őket.</div>
+              <div>Ennyi hiba után számít nehéznek egy szó, ha többször rontottad el, mint ahányszor eltaláltad. A nehéz szavakat megjelöljük, hogy félretehesd őket.</div>
             </div>
-            <div class="mb-3">
-              <label class="form-label" for="aiFillBatchSize">MI-kitöltés csomagmérete (szó / hívás)</label>
+            <div>
+              <label for="aiFillBatchSize">MI-kitöltés csomagmérete (szó / hívás)</label>
               <input
                 id="aiFillBatchSize"
                 name="aiFillBatchSize"
                 type="number"
-                class="form-control"
                 min="1"
                 max="10"
                 step="1"
                 [(ngModel)]="aiFillBatchSize"
                 [disabled]="isSavingStudySettings">
-              <div class="form-text">Szöveges importnál ennyi szót dolgoz fel egy MI-hívás (1–10). A nagyobb csomag gyorsabb, de egy hiba több szót érint.</div>
-              <div class="form-text">
+              <div>Szöveges importnál ennyi szót dolgoz fel egy MI-hívás (1–10). A nagyobb csomag gyorsabb, de egy hiba több szót érint.</div>
+              <div>
                 Mai MI-kitöltés: {{ aiFillDailyLimit - aiFillRemainingToday }} / {{ aiFillDailyLimit }}, hátra: {{ aiFillRemainingToday }}.
                 A napi keret most nincs érvényben, ezért negatív is lehet.
               </div>
             </div>
               </div>
             </details>
-            <button type="submit" class="btn btn-primary" [disabled]="isSavingStudySettings || !studySettingsLoaded">Mentés</button>
+            <button type="submit" [disabled]="isSavingStudySettings || !studySettingsLoaded">Mentés</button>
           </form>
         </main>
       } @else {
-        <main class="container py-4 page-wrap">
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1 class="h3 mb-0">Profil</h1>
-            <button type="button" class="btn btn-outline-secondary" (click)="logout()">Kijelentkezés</button>
+        <main class="page-wrap">
+          <div>
+            <h1>Profil</h1>
+            <button type="button" (click)="logout()">Kijelentkezés</button>
           </div>
           @if (profileError) {
-            <div class="alert alert-danger" role="alert">{{ profileError }}</div>
+            <div role="alert">{{ profileError }}</div>
           }
           @if (profileMessage) {
-            <div class="alert alert-success" role="alert">{{ profileMessage }}</div>
+            <div role="alert">{{ profileMessage }}</div>
           }
-          <p class="mb-4">
-            <span class="text-secondary d-block">Email</span>
+          <p>
+            <span>Email</span>
             {{ profileEmail || session.email() }}
           </p>
-          <div class="d-flex align-items-center gap-3 mb-4">
+          <div>
             @if (hasAvatar && avatarUrl) {
               <img
                 [src]="avatarUrl"
                 alt=""
                 width="96"
                 height="96"
-                class="rounded-circle border"
                 (error)="hasAvatar = false">
             } @else {
-              <span
-                class="rounded-circle border d-inline-flex align-items-center justify-content-center bg-secondary text-white fs-3">
+              <span>
                 {{ initial() }}
               </span>
             }
             <span
-              class="rounded-circle border d-inline-flex flex-column align-items-center justify-content-center flex-shrink-0"
               title="Napi sorozat"
               [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">
-              <span class="fs-3 fw-semibold lh-1">{{ studyDayStreak }}</span>
-              <span class="small text-secondary">nap</span>
+              <span>{{ studyDayStreak }}</span>
+              <span>nap</span>
             </span>
             <div>
-              <label class="form-label" for="avatarFile">Profilkép</label>
+              <label for="avatarFile">Profilkép</label>
               <input
                 id="avatarFile"
                 type="file"
-                class="form-control"
                 accept="image/jpeg,image/png,image/webp"
                 (change)="uploadAvatar($event)"
                 [disabled]="isUploadingAvatar">
               <button
                 type="button"
-                class="btn btn-outline-danger mt-2"
                 (click)="deleteAvatar()"
                 [disabled]="isDeletingAvatar">
                 Kép törlése
               </button>
             </div>
           </div>
-          <form class="mb-4" (ngSubmit)="saveUsername()">
-            <label class="form-label" for="username">Felhasználónév</label>
-            <div class="input-group">
+          <form (ngSubmit)="saveUsername()">
+            <label for="username">Felhasználónév</label>
+            <div>
               <input
                 id="username"
                 name="username"
                 type="text"
-                class="form-control"
                 maxlength="30"
                 autocomplete="off"
                 [(ngModel)]="username"
                 [disabled]="isSavingUsername">
-              <button type="submit" class="btn btn-primary" [disabled]="isSavingUsername || !username.trim() || username.trim() === savedUsername">Mentés</button>
+              <button type="submit" [disabled]="isSavingUsername || !username.trim() || username.trim() === savedUsername">Mentés</button>
             </div>
-            <div class="form-text">3–30 karakter: angol betű, szám, pont, kötőjel, aláhúzás. A megosztott paklijaid mellett ez látszik.</div>
+            <div>3–30 karakter: angol betű, szám, pont, kötőjel, aláhúzás. A megosztott paklijaid mellett ez látszik.</div>
           </form>
-          <form class="mb-4" (ngSubmit)="saveDisplayName()">
-            <label class="form-label" for="displayName">Megjelenített név</label>
-            <div class="input-group">
+          <form (ngSubmit)="saveDisplayName()">
+            <label for="displayName">Megjelenített név</label>
+            <div>
               <input
                 id="displayName"
                 name="displayName"
                 type="text"
-                class="form-control"
                 [(ngModel)]="displayName"
                 [disabled]="isSavingName">
-              <button type="submit" class="btn btn-primary" [disabled]="isSavingName">Mentés</button>
+              <button type="submit" [disabled]="isSavingName">Mentés</button>
             </div>
           </form>
           <form (ngSubmit)="changePassword()">
-            <h2 class="h5 mb-3">Jelszócsere</h2>
-            <div class="mb-3">
-              <label class="form-label" for="currentPassword">Jelenlegi jelszó</label>
+            <h2>Jelszócsere</h2>
+            <div>
+              <label for="currentPassword">Jelenlegi jelszó</label>
               <input
                 id="currentPassword"
                 name="currentPassword"
                 type="password"
-                class="form-control"
                 autocomplete="current-password"
                 [(ngModel)]="currentPassword"
                 [disabled]="isChangingPassword">
             </div>
-            <div class="mb-3">
-              <label class="form-label" for="newPassword">Új jelszó</label>
+            <div>
+              <label for="newPassword">Új jelszó</label>
               <input
                 id="newPassword"
                 name="newPassword"
                 type="password"
-                class="form-control"
                 autocomplete="new-password"
                 [(ngModel)]="newPassword"
                 [disabled]="isChangingPassword">
-              <div class="form-text">Legalább 8 karakter, benne betű és szám.</div>
+              <div>Legalább 8 karakter, benne betű és szám.</div>
             </div>
-            <button type="submit" class="btn btn-primary" [disabled]="isChangingPassword">Jelszócsere</button>
+            <button type="submit" [disabled]="isChangingPassword">Jelszócsere</button>
           </form>
-          <section class="mt-4 pt-4 border-top">
-            <h2 class="h5 mb-2">Fiók törlése</h2>
-            <p class="mb-3">A fiókod, a profilképed, a paklijaid és a tanulási adataid véglegesen törlődnek. Ezt nem lehet visszacsinálni.</p>
-            <label class="form-label" for="deleteAccountSlide">A törléshez húzd jobbra a csúszkát</label>
+          <section>
+            <h2>Fiók törlése</h2>
+            <p>A fiókod, a profilképed, a paklijaid és a tanulási adataid véglegesen törlődnek. Ezt nem lehet visszacsinálni.</p>
+            <label for="deleteAccountSlide">A törléshez húzd jobbra a csúszkát</label>
             <input
               id="deleteAccountSlide"
               type="range"
-              class="form-range"
               min="0"
               max="100"
               step="1"
@@ -598,7 +568,6 @@ interface AiModelOption {
             @if (deleteSlide >= 100) {
               <button
                 type="button"
-                class="btn btn-outline-danger"
                 (click)="deleteAccount()"
                 [disabled]="isDeletingAccount">
                 Fiók törlése

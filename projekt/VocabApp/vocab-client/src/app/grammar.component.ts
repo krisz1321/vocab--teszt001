@@ -90,87 +90,84 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
   standalone: true,
   imports: [CommonModule, FormsModule, SpeakButtonComponent],
   template: `
-    <main class="container py-5">
-      <div class="mx-auto page-wrap">
-        <header class="text-center mb-4">
-          <h1 class="h3 mb-1">Nyelvtan</h1>
-          <p class="text-body-secondary mb-0">Írj mondatokat a választott igeidőkben. Nem számít bele az ismétlésbe.</p>
+    <main>
+      <div class="page-wrap">
+        <header>
+          <h1>Nyelvtan</h1>
+          <p>Írj mondatokat a választott igeidőkben. Nem számít bele az ismétlésbe.</p>
         </header>
 
         @if (errorMessage) {
-          <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+          <div role="alert">{{ errorMessage }}</div>
         }
 
         @if (phase === 'setup') {
-          <section class="card shadow-sm mb-3">
-            <div class="card-body">
-              <h2 class="h5 mb-1">Igeidők</h2>
-              <p class="text-body-secondary small mb-3">Minden szónál véletlenszerűen kapsz egyet a bejelölt igeidők közül. A választásod mentődik.</p>
+          <section>
+            <div>
+              <h2>Igeidők</h2>
+              <p>Minden szónál véletlenszerűen kapsz egyet a bejelölt igeidők közül. A választásod mentődik.</p>
               @if (isLoadingTenses) {
-                <div class="text-center py-3" role="status"><div class="spinner-border text-primary"></div></div>
+                <div role="status"><div></div></div>
               } @else {
-                <div class="d-flex flex-wrap gap-2 mb-3" role="group" aria-label="Gyorsválasztás">
-                  <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="isSavingTenses" (click)="selectAll()">Mind</button>
+                <div role="group" aria-label="Gyorsválasztás">
+                  <button type="button" [disabled]="isSavingTenses" (click)="selectAll()">Mind</button>
                   @for (group of groups; track group.id) {
-                    <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="isSavingTenses" (click)="selectGroup(group.id)">{{ group.label }}</button>
+                    <button type="button" [disabled]="isSavingTenses" (click)="selectGroup(group.id)">{{ group.label }}</button>
                   }
-                  <button type="button" class="btn btn-sm btn-outline-secondary" [disabled]="isSavingTenses" (click)="selectNone()">Egyik sem</button>
+                  <button type="button" [disabled]="isSavingTenses" (click)="selectNone()">Egyik sem</button>
                 </div>
                 <div class="grammar-groups">
                   @for (group of groups; track group.id) {
                     <fieldset>
-                      <legend class="h6 mb-2">{{ group.label }}</legend>
+                      <legend>{{ group.label }}</legend>
                       @for (tense of tensesOf(group.id); track tense.key) {
-                        <div class="form-check">
+                        <div>
                           <input
-                            class="form-check-input"
                             type="checkbox"
                             [id]="'tense-' + tense.key"
                             [checked]="isSelected(tense.key)"
                             [disabled]="isSavingTenses"
                             (change)="toggleTense(tense.key)">
-                          <label class="form-check-label" [for]="'tense-' + tense.key" [title]="tense.hint">{{ tense.label }}</label>
+                          <label [for]="'tense-' + tense.key" [title]="tense.hint">{{ tense.label }}</label>
                         </div>
                       }
                     </fieldset>
                   }
                 </div>
                 @if (selectedTenses.length === 0) {
-                  <div class="alert alert-warning mt-3 mb-0" role="status">Jelölj be legalább egy igeidőt.</div>
+                  <div role="status">Jelölj be legalább egy igeidőt.</div>
                 }
-                <div class="form-check form-switch mt-3 mb-0">
+                <div>
                   <input
-                    class="form-check-input"
                     type="checkbox"
                     role="switch"
                     id="grammar-translation"
                     [checked]="showTranslation"
                     [disabled]="isSavingTranslation"
                     (change)="toggleTranslation()">
-                  <label class="form-check-label" for="grammar-translation">A mondatom magyar jelentése az ellenőrzés után</label>
-                  <div class="form-text">Azt fordítja le, amit írtál, hibás mondatnál is. Nem kér külön MI-hívást.</div>
+                  <label for="grammar-translation">A mondatom magyar jelentése az ellenőrzés után</label>
+                  <div>Azt fordítja le, amit írtál, hibás mondatnál is. Nem kér külön MI-hívást.</div>
                 </div>
               }
             </div>
           </section>
 
-          <form class="card shadow-sm" (ngSubmit)="start()">
-            <div class="card-body">
-              <h2 class="h5 mb-3">Szavak</h2>
+          <form (ngSubmit)="start()">
+            <div>
+              <h2>Szavak</h2>
               @if (isLoadingDecks) {
-                <div class="text-center py-3" role="status"><div class="spinner-border text-primary"></div></div>
+                <div role="status"><div></div></div>
               } @else {
                 @if (decks.length === 0) {
-                  <div class="alert alert-warning" role="status">
-                    <p class="mb-2">Még nincs paklid, nincs mit gyakorolni.</p>
-                    <button type="button" class="btn btn-sm btn-primary" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
+                  <div role="status">
+                    <p>Még nincs paklid, nincs mit gyakorolni.</p>
+                    <button type="button" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
                   </div>
                 }
-                <label class="form-label fw-semibold" for="grammar-deck">Pakli</label>
+                <label for="grammar-deck">Pakli</label>
                 <select
                   id="grammar-deck"
                   name="grammarDeck"
-                  class="form-select mb-3"
                   [(ngModel)]="deckChoice"
                   (ngModelChange)="onDeckChange()">
                   <option [ngValue]="'all'">Összes pakli</option>
@@ -179,11 +176,10 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                   }
                 </select>
                 @if (tagOptions.length > 0) {
-                  <label class="form-label fw-semibold" for="grammar-tag">Címke</label>
+                  <label for="grammar-tag">Címke</label>
                   <select
                     id="grammar-tag"
                     name="grammarTag"
-                    class="form-select mb-3"
                     [(ngModel)]="tag"
                     (ngModelChange)="savePreference('tag', tag)">
                     <option [ngValue]="''">Minden címke</option>
@@ -192,27 +188,25 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                     }
                   </select>
                 }
-                <div class="form-check form-switch mb-3">
+                <div>
                   <input
-                    class="form-check-input"
                     type="checkbox"
                     role="switch"
                     id="grammar-reviewed"
                     name="grammarReviewed"
                     [(ngModel)]="onlyReviewed"
                     (ngModelChange)="onReviewedChange()">
-                  <label class="form-check-label" for="grammar-reviewed">Csak a már tanult szavak</label>
-                  <div class="form-text">Csak, amit már legalább egyszer gyakoroltál.</div>
+                  <label for="grammar-reviewed">Csak a már tanult szavak</label>
+                  <div>Csak, amit már legalább egyszer gyakoroltál.</div>
                 </div>
                 @if (emptySelection) {
-                  <div class="alert alert-info" role="status">Ebben a választásban nincs kártya.</div>
+                  <div role="status">Ebben a választásban nincs kártya.</div>
                 }
                 <button
                   type="submit"
-                  class="btn btn-primary"
                   [disabled]="selectedTenses.length === 0 || isLoadingTenses || isSavingTenses || isLoadingCards">
                   @if (isLoadingCards) {
-                    <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                    <span aria-hidden="true"></span>
                   }
                   Kezdés
                 </button>
@@ -224,41 +218,39 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
         @if (phase === 'practice' && card) {
           <section class="session-bar" aria-label="A gyakorlás állása">
             <div class="session-bar-top">
-              <span class="fw-semibold">{{ index + 1 }}. szó / {{ cards.length }}</span>
-              <button type="button" class="btn btn-outline-secondary btn-sm flex-shrink-0" [disabled]="isBusy" (click)="backToSetup()">Vissza a beállításokhoz</button>
+              <span>{{ index + 1 }}. szó / {{ cards.length }}</span>
+              <button type="button" [disabled]="isBusy" (click)="backToSetup()">Vissza a beállításokhoz</button>
             </div>
             <div class="session-progress">
               <div
-                class="progress"
                 role="progressbar"
                 aria-label="Haladás a szavakban"
                 [attr.aria-valuenow]="progressPercent"
                 aria-valuemin="0"
                 aria-valuemax="100">
-                <div class="progress-bar"></div>
+                <div></div>
               </div>
               <span class="session-meta">{{ selectedTenses.length }} igeidő · {{ checkedCount > 0 ? correctCount + ' / ' + checkedCount + ' helyes' : 'még nincs ellenőrzött mondat' }}</span>
             </div>
           </section>
-          <section class="card border-0 shadow-sm">
-            <div class="card-body">
-              <div class="d-flex align-items-center gap-2 mb-1">
+          <section>
+            <div>
+              <div>
                 <span class="grammar-term">{{ card.term }}</span>
                 <app-speak-button [text]="card.term" lang="en" label="A szó" />
               </div>
-              <p class="text-body-secondary mb-3">{{ card.definition }}</p>
+              <p>{{ card.definition }}</p>
 
-              <div class="grammar-task mb-3">
+              <div class="grammar-task">
                 <div>Írj egy <strong>{{ tenseLabel(currentTense) }}</strong> mondatot a(z) <strong>{{ card.term }}</strong> szóval.</div>
-                <div class="small text-body-secondary">Képzés: {{ tenseHint(currentTense) }}</div>
+                <div>Képzés: {{ tenseHint(currentTense) }}</div>
               </div>
 
-              <label class="form-label fw-semibold" for="grammar-sentence">A mondatod</label>
+              <label for="grammar-sentence">A mondatod</label>
               <textarea
                 #sentenceInput
                 id="grammar-sentence"
                 name="grammarSentence"
-                class="form-control mb-2"
                 rows="2"
                 maxlength="300"
                 autocomplete="off"
@@ -269,85 +261,85 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                 (keydown.enter)="onEnter($event)"></textarea>
 
               @if (confirmMissingTerm) {
-                <div class="alert alert-warning py-2" role="status">
+                <div role="status">
                   Nem látom a mondatban ezt: „{{ card.term }}”. Ha más alakban írtad (pl. go → went), küldd el nyugodtan.
-                  <button type="button" class="btn btn-sm btn-outline-secondary ms-2" (click)="check(true)">Mégis elküldöm</button>
+                  <button type="button" (click)="check(true)">Mégis elküldöm</button>
                 </div>
               }
 
               @if (result === null) {
-                <div class="d-flex flex-wrap gap-2">
-                  <button type="button" class="btn btn-primary" [disabled]="!sentence.trim() || isBusy" (click)="check()">
+                <div>
+                  <button type="button" [disabled]="!sentence.trim() || isBusy" (click)="check()">
                     @if (isChecking) {
-                      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                      <span aria-hidden="true"></span>
                     }
                     Ellenőrzés
                   </button>
-                  <button type="button" class="btn btn-outline-secondary" [disabled]="isBusy" (click)="loadHint()" title="Magyar mondat, amit lefordíthatsz angolra">
+                  <button type="button" [disabled]="isBusy" (click)="loadHint()" title="Magyar mondat, amit lefordíthatsz angolra">
                     @if (isLoadingHint) {
-                      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                      <span aria-hidden="true"></span>
                     }
                     {{ hint ? 'Másik tipp' : 'Tipp' }}
                   </button>
-                  <button type="button" class="btn btn-link ms-auto" [disabled]="isBusy" (click)="next()">Kihagyás</button>
+                  <button type="button" [disabled]="isBusy" (click)="next()">Kihagyás</button>
                 </div>
               }
 
               @if (hint) {
-                <div class="grammar-example mt-3">
-                  <span class="small text-body-secondary d-block">Tipp – fordítsd le angolra</span>
+                <div class="grammar-example">
+                  <span>Tipp – fordítsd le angolra</span>
                   <span>{{ hint }}</span>
                   <app-speak-button [text]="hint" lang="hu" label="A magyar mondat" />
                 </div>
               }
 
               @if (result) {
-                <div class="mt-3" role="status">
-                  <div class="alert mb-3" [class.alert-success]="result.isCorrect" [class.alert-danger]="!result.isCorrect">
+                <div role="status">
+                  <div>
                     <strong>{{ manuallyAccepted ? 'Elfogadva kézzel.' : result.isCorrect ? 'Helyes!' : 'Nem egészen.' }}</strong> {{ result.feedback }}
                   </div>
-                  <div class="d-flex flex-wrap gap-2 mb-3">
-                    <span class="badge" [class.text-bg-success]="result.termUsedCorrectly" [class.text-bg-danger]="!result.termUsedCorrectly">{{ result.termUsedCorrectly ? '✓' : '✗' }} Szóhasználat</span>
-                    <span class="badge" [class.text-bg-success]="result.tenseCorrect" [class.text-bg-danger]="!result.tenseCorrect">{{ result.tenseCorrect ? '✓' : '✗' }} Igeidő</span>
-                    <span class="badge" [class.text-bg-success]="result.grammarCorrect" [class.text-bg-danger]="!result.grammarCorrect">{{ result.grammarCorrect ? '✓' : '✗' }} Nyelvtan</span>
+                  <div>
+                    <span>{{ result.termUsedCorrectly ? '✓' : '✗' }} Szóhasználat</span>
+                    <span>{{ result.tenseCorrect ? '✓' : '✗' }} Igeidő</span>
+                    <span>{{ result.grammarCorrect ? '✓' : '✗' }} Nyelvtan</span>
                   </div>
                   @if (result.hungarianTranslation) {
-                    <div class="grammar-example mb-3">
-                      <span class="small text-body-secondary d-block">A mondatod jelentése magyarul</span>
+                    <div class="grammar-example">
+                      <span>A mondatod jelentése magyarul</span>
                       <span>{{ result.hungarianTranslation }}</span>
                       <app-speak-button [text]="result.hungarianTranslation" lang="hu" label="A magyar jelentés" />
                     </div>
                   }
                   @if (result.correctedSentence) {
-                    <div class="grammar-example mb-3">
-                      <span class="small text-body-secondary d-block">Javított mondat</span>
+                    <div class="grammar-example">
+                      <span>Javított mondat</span>
                       <span>{{ result.correctedSentence }}</span>
                       <app-speak-button [text]="result.correctedSentence" lang="en" label="A javított mondat" />
                     </div>
                   }
                   @if (example) {
-                    <div class="grammar-example mb-3">
-                      <span class="small text-body-secondary d-block">Példamondat</span>
+                    <div class="grammar-example">
+                      <span>Példamondat</span>
                       <span>{{ example }}</span>
                       <app-speak-button [text]="example" lang="en" label="A példamondat" />
                     </div>
                   }
-                  <div class="d-flex flex-wrap gap-2">
-                    <button #nextButton type="button" class="btn btn-primary" [disabled]="isBusy" (click)="next()">
+                  <div>
+                    <button #nextButton type="button" [disabled]="isBusy" (click)="next()">
                       {{ index + 1 < cards.length ? 'Következő' : 'Befejezés' }}
                     </button>
                     @if (example === null) {
-                      <button type="button" class="btn btn-outline-secondary" [disabled]="isBusy" (click)="loadExample()">
+                      <button type="button" [disabled]="isBusy" (click)="loadExample()">
                         @if (isLoadingExample) {
-                          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                          <span aria-hidden="true"></span>
                         }
                         Mutass egy példát
                       </button>
                     }
                     @if (!result.isCorrect) {
-                      <button type="button" class="btn btn-outline-success" [disabled]="isBusy" (click)="acceptManually()">
+                      <button type="button" [disabled]="isBusy" (click)="acceptManually()">
                         @if (isAccepting) {
-                          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+                          <span aria-hidden="true"></span>
                         }
                         Márpedig jó volt
                       </button>
@@ -360,13 +352,13 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
         }
 
         @if (phase === 'done') {
-          <section class="card border-0 shadow-sm text-center">
-            <div class="card-body py-4">
-              <h2 class="h5 mb-2">Kész!</h2>
-              <p class="mb-3">{{ checkedCount }} ellenőrzött mondatból {{ correctCount }} lett helyes.</p>
-              <div class="d-flex flex-wrap justify-content-center gap-2">
-                <button type="button" class="btn btn-primary" (click)="restart()">Újrakezdés</button>
-                <button type="button" class="btn btn-outline-secondary" (click)="backToSetup()">Vissza a beállításokhoz</button>
+          <section>
+            <div>
+              <h2>Kész!</h2>
+              <p>{{ checkedCount }} ellenőrzött mondatból {{ correctCount }} lett helyes.</p>
+              <div>
+                <button type="button" (click)="restart()">Újrakezdés</button>
+                <button type="button" (click)="backToSetup()">Vissza a beállításokhoz</button>
               </div>
             </div>
           </section>

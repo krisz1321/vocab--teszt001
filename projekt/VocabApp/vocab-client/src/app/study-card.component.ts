@@ -168,8 +168,8 @@ const emptyAnswerMessage = 'Írj be valamit.';
   standalone: true,
   imports: [CommonModule, FormsModule, SpeakButtonComponent],
   template: `
-    <main class="container py-5">
-      <div class="mx-auto page-wrap">
+    <main>
+      <div class="page-wrap">
         <!-- A módcsempék és az irányválasztó az indító képernyőn és a "Mód váltása" panelen is ugyanez. -->
         <ng-template #modeTiles>
           <div class="mode-tiles" role="radiogroup" aria-label="Tanulási mód">
@@ -195,8 +195,8 @@ const emptyAnswerMessage = 'Írj be valamit.';
 
         <ng-template #directionPicker>
           @if (tileMode === 'meaning' || tileMode === 'definition') {
-            <div class="mt-3">
-              <span class="form-label fw-semibold d-block mb-2">Irány</span>
+            <div>
+              <span>Irány</span>
               <div class="seg" role="group" aria-label="Irány">
                 @for (option of directionOptionsFor(tileMode); track option.value) {
                   <button
@@ -210,16 +210,16 @@ const emptyAnswerMessage = 'Írj be valamit.';
               </div>
             </div>
           }
-          <p class="text-body-secondary small mb-0 mt-2">{{ modeHintFor(tileMode, tileDirection) }}</p>
+          <p>{{ modeHintFor(tileMode, tileDirection) }}</p>
         </ng-template>
 
         @if (!studying) {
-          <header class="text-center mb-4">
-            <h1 class="h3 mb-1">Tanulás</h1>
-            <p class="text-body-secondary mb-0">Válassz módot és paklit.</p>
+          <header>
+            <h1>Tanulás</h1>
+            <p>Válassz módot és paklit.</p>
           </header>
         } @else {
-          <h1 class="visually-hidden">Tanulás</h1>
+          <h1>Tanulás</h1>
           <section class="session-bar" aria-label="Tanulási munkamenet">
             <div class="session-bar-top">
               <button
@@ -237,26 +237,24 @@ const emptyAnswerMessage = 'Írj be valamit.';
               </button>
               <button
                 type="button"
-                class="btn btn-outline-secondary btn-sm flex-shrink-0"
                 (click)="chooseAnotherDeck()"
                 [disabled]="!canChangeDeck">
                 Másik pakli
               </button>
             </div>
             <p class="session-meta">
-              <span class="fw-semibold">{{ activeDeckLabel }}</span> · {{ studyScopeDetail }}
+              <span>{{ activeDeckLabel }}</span> · {{ studyScopeDetail }}
             </p>
             @if (mode !== 'free' && (dailyNewCardGoal !== null || sessionSummary)) {
               <div class="session-progress">
                 @if (dailyNewCardGoal !== null && dailyNewCardGoal > 0) {
                   <div
-                    class="progress"
                     role="progressbar"
                     aria-label="Mai új szavak haladása"
                     [attr.aria-valuenow]="newCardsIntroducedToday"
                     aria-valuemin="0"
                     [attr.aria-valuemax]="dailyNewCardGoal">
-                    <div class="progress-bar"></div>
+                    <div></div>
                   </div>
                 }
                 <span class="session-meta">{{ sessionSummary }}</span>
@@ -267,48 +265,48 @@ const emptyAnswerMessage = 'Írj be valamit.';
           @if (modePickerOpen) {
             <div class="sheet-backdrop" (click)="closeModePicker()"></div>
             <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="mode-sheet-title">
-              <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="h5 mb-0" id="mode-sheet-title">Mód váltása</h2>
-                <button type="button" class="btn-close" aria-label="Bezárás" (click)="closeModePicker()"></button>
+              <div>
+                <h2 id="mode-sheet-title">Mód váltása</h2>
+                <button type="button" aria-label="Bezárás" (click)="closeModePicker()"></button>
               </div>
               <ng-container *ngTemplateOutlet="modeTiles" />
               <ng-container *ngTemplateOutlet="directionPicker" />
               <div class="sheet-actions">
-                <button type="button" class="btn btn-outline-secondary" (click)="closeModePicker()">Mégse</button>
-                <button type="button" class="btn btn-primary" (click)="applyModePicker()" [disabled]="!modePickerChanged">Alkalmaz</button>
+                <button type="button" (click)="closeModePicker()">Mégse</button>
+                <button type="button" (click)="applyModePicker()" [disabled]="!modePickerChanged">Alkalmaz</button>
               </div>
             </div>
           }
         }
 
         @if (errorMessage) {
-          <div class="alert alert-danger" role="alert">{{ errorMessage }}</div>
+          <div role="alert">{{ errorMessage }}</div>
         }
 
         @if (cardNotice && studying && mode !== 'free') {
-          <div class="alert alert-info py-2" role="status">{{ cardNotice }}</div>
+          <div role="status">{{ cardNotice }}</div>
         }
 
         @if (!studying) {
-          <form class="card border-0 shadow-sm" (ngSubmit)="startStudy()">
-            <div class="card-body p-3 p-sm-4">
+          <form (ngSubmit)="startStudy()">
+            <div>
               @if (showStudyGuide) {
-                <div class="alert alert-info" role="note">
-                  <h2 class="h6">Így működik a tanulás</h2>
-                  <p class="mb-2">Válassz paklit és gyakorlási típust. Az esedékes ismétlések mennek előre, a hibás kártyákat külön is gyakorolhatod.</p>
-                  <button type="button" class="btn btn-sm btn-outline-primary" (click)="dismissStudyGuide()">Értem</button>
+                <div role="note">
+                  <h2>Így működik a tanulás</h2>
+                  <p>Válassz paklit és gyakorlási típust. Az esedékes ismétlések mennek előre, a hibás kártyákat külön is gyakorolhatod.</p>
+                  <button type="button" (click)="dismissStudyGuide()">Értem</button>
                 </div>
               }
               @if (isLoadingDecks) {
-                <div class="text-center py-4" role="status">
-                  <div class="spinner-border text-primary"></div>
-                  <p class="mt-3 mb-0">Paklik betöltése…</p>
+                <div role="status">
+                  <div></div>
+                  <p>Paklik betöltése…</p>
                 </div>
               } @else {
                 @if (hasNoCards) {
-                  <div class="alert alert-warning" role="status">
-                    <p class="mb-2">Még nincs kártyád. Vegyél fel újakat a saját paklidba, vagy másolj le egy közös paklit.</p>
-                    <button type="button" class="btn btn-sm btn-primary" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
+                  <div role="status">
+                    <p>Még nincs kártyád. Vegyél fel újakat a saját paklidba, vagy másolj le egy közös paklit.</p>
+                    <button type="button" (click)="openDecks.emit()">Ugrás a paklikhoz</button>
                   </div>
                 }
                 <h2 class="setup-step">1. Hogyan gyakorolsz?</h2>
@@ -316,13 +314,12 @@ const emptyAnswerMessage = 'Írj be valamit.';
                 <ng-container *ngTemplateOutlet="directionPicker" />
 
                 <h2 class="setup-step">2. Mit gyakorolsz?</h2>
-                <div class="row g-3">
-                  <div class="col-sm-6">
-                    <label class="form-label" for="study-deck">Pakli</label>
+                <div>
+                  <div>
+                    <label for="study-deck">Pakli</label>
                     <select
                       id="study-deck"
                       name="studyDeck"
-                      class="form-select"
                       [(ngModel)]="deckChoice"
                       (ngModelChange)="refreshTagOptions()">
                       <option [ngValue]="null" disabled>Válassz paklit</option>
@@ -332,12 +329,11 @@ const emptyAnswerMessage = 'Írj be valamit.';
                       }
                     </select>
                   </div>
-                  <div class="col-sm-6">
-                    <label class="form-label" for="study-focus">Gyakorlás típusa</label>
+                  <div>
+                    <label for="study-focus">Gyakorlás típusa</label>
                     <select
                       id="study-focus"
                       name="studyFocus"
-                      class="form-select"
                       [(ngModel)]="studyFocus"
                       (ngModelChange)="saveStudyFocus()">
                       <option [ngValue]="'all'">Esedékes és új kártyák</option>
@@ -347,12 +343,11 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     </select>
                   </div>
                   @if (tagOptions.length > 0) {
-                    <div class="col-sm-6">
-                      <label class="form-label" for="study-tag">Címke</label>
+                    <div>
+                      <label for="study-tag">Címke</label>
                       <select
                         id="study-tag"
                         name="studyTag"
-                        class="form-select"
                         [(ngModel)]="studyTag"
                         (ngModelChange)="saveStudyTag()">
                         <option [ngValue]="''">Minden címke</option>
@@ -364,20 +359,19 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   }
                 </div>
                 @if (mode !== 'free' && dailyNewCardGoal !== null && dailyNewCardGoal > 0) {
-                  <div class="session-progress mt-4">
+                  <div class="session-progress">
                     <div
-                      class="progress"
                       role="progressbar"
                       aria-label="Mai új szavak haladása"
                       [attr.aria-valuenow]="newCardsIntroducedToday"
                       aria-valuemin="0"
                       [attr.aria-valuemax]="dailyNewCardGoal">
-                      <div class="progress-bar"></div>
+                      <div></div>
                     </div>
                     <span class="session-meta">Új szavak ma: {{ newCardsIntroducedToday }}/{{ dailyNewCardGoal }}</span>
                   </div>
                 }
-                <button type="submit" class="btn btn-primary btn-lg w-100 mt-4" [disabled]="deckChoice === null">
+                <button type="submit" [disabled]="deckChoice === null">
                   Indítás: {{ activeModeOption.label }}
                 </button>
               }
@@ -386,24 +380,24 @@ const emptyAnswerMessage = 'Írj be valamit.';
         }
 
         @if (studying && isLoadingCard) {
-          <div class="text-center py-5" role="status">
-            <div class="spinner-border text-primary"></div>
-            <p class="mt-3 mb-0">Kártya betöltése…</p>
+          <div role="status">
+            <div></div>
+            <p>Kártya betöltése…</p>
           </div>
         }
 
         @if (studying && mode !== 'free' && studyStatus === 'empty' && !isLoadingCard) {
-          <div class="alert alert-info">Most nincs tanulható kártya.</div>
+          <div>Most nincs tanulható kártya.</div>
         }
 
         @if (studying && mode !== 'free' && studyStatus === 'dailyLimitReached' && !isLoadingCard) {
-          <div class="alert alert-info">
+          <div>
             Mára elfogytak az új szavak, és nincs esedékes ismétlés. Holnap folytathatod, vagy emeld a napi célt a Beállításokban.
           </div>
         }
 
         @if (studying && mode === 'free' && freeListLoaded && freeCards.length === 0 && !isLoadingCard) {
-          <div class="alert alert-info">Ebben a választásban nincs kártya.</div>
+          <div>Ebben a választásban nincs kártya.</div>
         }
 
         @if (studying && mode === 'free' && !isLoadingCard) {
@@ -414,11 +408,11 @@ const emptyAnswerMessage = 'Írj be valamit.';
                 <span class="free-study-kicker">{{ activeDeckLabel }}</span>
                 <strong>{{ freeIndex + 1 }} / {{ freeCards.length }}</strong>
               </div>
-              <div class="d-flex align-items-center gap-2">
+              <div>
                 @if (freeShowStats) {
                   <span class="free-study-progress">{{ freeKnowCount }} tudom · {{ freeDontKnowCount }} nem tudom</span>
                 }
-                <button type="button" class="btn btn-light btn-sm free-settings-button" (click)="freeSettingsOpen = !freeSettingsOpen" aria-label="Kártyázás beállításai" title="Beállítások">
+                <button type="button" class="free-settings-button" (click)="freeSettingsOpen = !freeSettingsOpen" aria-label="Kártyázás beállításai" title="Beállítások">
                   Beállítások
                 </button>
               </div>
@@ -428,15 +422,15 @@ const emptyAnswerMessage = 'Írj be valamit.';
               <div class="free-settings-panel" role="dialog" aria-label="Kártyázás beállításai">
                 <div class="free-settings-heading">
                   <strong>Tanulási nézet</strong>
-                  <button type="button" class="btn-close" aria-label="Bezárás" (click)="freeSettingsOpen = false"></button>
+                  <button type="button" aria-label="Bezárás" (click)="freeSettingsOpen = false"></button>
                 </div>
                 <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowStats" (ngModelChange)="saveFreeSetting('stats', $event)"> <span>Statisztika mutatása</span></label>
                 <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowAudio" (ngModelChange)="saveFreeSetting('audio', $event)"> <span>Kiejtés gomb</span></label>
                 <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeKeyboardEnabled" (ngModelChange)="saveFreeSetting('keyboard', $event)"> <span>Billentyűparancsok</span></label>
                 <label class="free-setting-row"><input type="checkbox" [(ngModel)]="freeShowExample" (ngModelChange)="saveFreeSetting('example', $event)"> <span>Példamondat mutatása</span></label>
-                <div class="row g-2 mt-2">
-                  <div class="col-6"><label class="small text-body-secondary" for="free-front">Elöl</label><select id="free-front" name="freeFront" class="form-select form-select-sm" [(ngModel)]="freeFront"><option [ngValue]="'term'">Angol szó</option><option [ngValue]="'other'">A másik oldal</option></select></div>
-                  <div class="col-6"><label class="small text-body-secondary" for="free-back">Hátul</label><select id="free-back" name="freeBack" class="form-select form-select-sm" [(ngModel)]="freeBack"><option [ngValue]="'bilingual'">Angol–magyar</option><option [ngValue]="'definition'">Definícióval</option></select></div>
+                <div>
+                  <div><label for="free-front">Elöl</label><select id="free-front" name="freeFront" [(ngModel)]="freeFront"><option [ngValue]="'term'">Angol szó</option><option [ngValue]="'other'">A másik oldal</option></select></div>
+                  <div><label for="free-back">Hátul</label><select id="free-back" name="freeBack" [(ngModel)]="freeBack"><option [ngValue]="'bilingual'">Angol–magyar</option><option [ngValue]="'definition'">Definícióval</option></select></div>
                 </div>
               </div>
             }
@@ -445,7 +439,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
               <div class="free-swipe-label free-swipe-label-left" [class.is-visible]="freeSwipeX < -24">Nem tudom</div>
               <div class="free-swipe-label free-swipe-label-right" [class.is-visible]="freeSwipeX > 24">Tudom</div>
               <div
-                class="card border-0 free-study-face"
+                class="free-study-face"
                 [class.is-dragging]="isFreeDragging"
                 [class.is-exiting]="freeSwipeAnimating"
                 (pointerdown)="onFreePointerDown($event)"
@@ -455,14 +449,14 @@ const emptyAnswerMessage = 'Írj be valamit.';
                 role="button"
                 tabindex="0"
                 [attr.aria-label]="freeShowingTerm ? 'A kártya eleje, a megfordításhoz kattints vagy nyomj Space-t' : 'A kártya hátulja'">
-                <div class="card-body d-flex flex-column justify-content-center align-items-center text-center p-4 p-md-5">
+                <div>
                   <span class="free-card-hint">{{ freeShowingTerm ? 'Fordítsd meg a kártyát' : 'Megoldás' }}</span>
                   @if (freeShowingTerm) {
                     <p class="free-card-word">{{ freeFront === 'term' ? card.term : (card.targetMeanings?.trim() || 'Nincs megadva magyar jelentés.') }}</p>
                     @if (freeFront === 'other' && !card.targetMeanings?.trim()) {
-                      <button type="button" class="btn btn-outline-primary btn-sm mb-2" (click)="generateFreeMeaning()" (pointerdown)="$event.stopPropagation()" (pointerup)="$event.stopPropagation()" [disabled]="isGeneratingFreeMeaning">
+                      <button type="button" (click)="generateFreeMeaning()" (pointerdown)="$event.stopPropagation()" (pointerup)="$event.stopPropagation()" [disabled]="isGeneratingFreeMeaning">
                         @if (isGeneratingFreeMeaning) {
-                          <span class="spinner-border spinner-border-sm me-2"></span>
+                          <span></span>
                         }
                         Magyar jelentés generálása
                       </button>
@@ -476,9 +470,9 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   } @else {
                     <p class="free-card-word">{{ freeFront === 'term' ? (card.targetMeanings?.trim() || 'Nincs megadva magyar jelentés.') : card.term }}</p>
                     @if (freeFront === 'term' && !card.targetMeanings?.trim()) {
-                      <button type="button" class="btn btn-outline-primary btn-sm mb-2" (click)="generateFreeMeaning()" (pointerdown)="$event.stopPropagation()" (pointerup)="$event.stopPropagation()" [disabled]="isGeneratingFreeMeaning">
+                      <button type="button" (click)="generateFreeMeaning()" (pointerdown)="$event.stopPropagation()" (pointerup)="$event.stopPropagation()" [disabled]="isGeneratingFreeMeaning">
                         @if (isGeneratingFreeMeaning) {
-                          <span class="spinner-border spinner-border-sm me-2"></span>
+                          <span></span>
                         }
                         Magyar jelentés generálása
                       </button>
@@ -508,24 +502,24 @@ const emptyAnswerMessage = 'Írj be valamit.';
             </div>
 
             <div class="free-study-actions">
-              <button type="button" class="btn free-action free-action-no" (click)="markFree(false)" [disabled]="isSavingFreeMark || isClearingFreeMarks" aria-label="Nem tudom, balra húzás"><span aria-hidden="true">←</span><span>Nem tudom</span></button>
-              <button type="button" class="btn btn-outline-secondary free-flip-button" (click)="flipFree()" [disabled]="isSavingFreeMark || isClearingFreeMarks">Fordítás</button>
-              <button type="button" class="btn free-action free-action-yes" (click)="markFree(true)" [disabled]="isSavingFreeMark || isClearingFreeMarks" aria-label="Tudom, jobbra húzás"><span>Tudom</span><span aria-hidden="true">→</span></button>
+              <button type="button" class="free-action free-action-no" (click)="markFree(false)" [disabled]="isSavingFreeMark || isClearingFreeMarks" aria-label="Nem tudom, balra húzás"><span aria-hidden="true">←</span><span>Nem tudom</span></button>
+              <button type="button" class="free-flip-button" (click)="flipFree()" [disabled]="isSavingFreeMark || isClearingFreeMarks">Fordítás</button>
+              <button type="button" class="free-action free-action-yes" (click)="markFree(true)" [disabled]="isSavingFreeMark || isClearingFreeMarks" aria-label="Tudom, jobbra húzás"><span>Tudom</span><span aria-hidden="true">→</span></button>
             </div>
             <div class="free-study-footer">
-              <button type="button" class="btn btn-link btn-sm" (click)="undoFree()" [disabled]="!freeUndo || isSavingFreeMark || isClearingFreeMarks">Visszavonás</button>
-              <button type="button" class="btn btn-link btn-sm text-body-secondary" (click)="askRestartFree()" [disabled]="isSavingFreeMark || isClearingFreeMarks">Újrakezdés</button>
+              <button type="button" (click)="undoFree()" [disabled]="!freeUndo || isSavingFreeMark || isClearingFreeMarks">Visszavonás</button>
+              <button type="button" (click)="askRestartFree()" [disabled]="isSavingFreeMark || isClearingFreeMarks">Újrakezdés</button>
             </div>
             @if (freeRestartConfirm) {
-              <div class="alert alert-warning mt-3 mb-0">
-                <p class="mb-3">Biztosan törlöd a jelöléseket?</p>
-                <div class="d-grid d-sm-flex gap-2">
-                  <button type="button" class="btn btn-outline-secondary" (click)="cancelRestartFree()" [disabled]="isClearingFreeMarks">
+              <div>
+                <p>Biztosan törlöd a jelöléseket?</p>
+                <div>
+                  <button type="button" (click)="cancelRestartFree()" [disabled]="isClearingFreeMarks">
                     Mégse
                   </button>
-                  <button type="button" class="btn btn-danger" (click)="confirmRestartFree()" [disabled]="isClearingFreeMarks">
+                  <button type="button" (click)="confirmRestartFree()" [disabled]="isClearingFreeMarks">
                     @if (isClearingFreeMarks) {
-                      <span class="spinner-border spinner-border-sm me-2"></span>
+                      <span></span>
                     }
                     Törlés
                   </button>
@@ -537,30 +531,28 @@ const emptyAnswerMessage = 'Írj be valamit.';
         }
 
         @if (studying && mode !== 'free' && card && !isLoadingCard) {
-          <section class="card border-0 shadow-sm">
-            <div class="card-body p-3 p-sm-4 p-md-5">
+          <section>
+            <div>
               <div class="study-card-head">
                 <div class="study-card-term">
                   @if (!showTermInHeader) {
-                    <div class="d-flex align-items-center gap-2">
-                      <h2 class="h1 mb-0 text-break">{{ card.targetMeanings }}</h2>
+                    <div>
+                      <h2>{{ card.targetMeanings }}</h2>
                       <app-speak-button [text]="card.targetMeanings" lang="hu" label="A magyar jelentés" />
                     </div>
                   } @else if (mode !== 'recognition' || isRecognitionRevealed) {
-                    <div class="d-flex align-items-center gap-2">
-                      <h2 class="h1 mb-0 text-break">{{ card.term }}</h2>
+                    <div>
+                      <h2>{{ card.term }}</h2>
                       <app-speak-button [text]="card.term" lang="en" label="A szó" />
                     </div>
                   } @else {
-                    <h2 class="h3 mb-0">Körülírás</h2>
+                    <h2>Körülírás</h2>
                   }
                 </div>
                 <div class="study-card-tools">
                   <button
                     type="button"
-                    class="btn btn-sm suspend-btn"
-                    [class.btn-outline-primary]="automaticAiCheck"
-                    [class.btn-outline-secondary]="!automaticAiCheck"
+                    class="suspend-btn"
                     [disabled]="isTogglingAiCheck"
                     (click)="toggleAutomaticAiCheck()"
                     [attr.aria-pressed]="automaticAiCheck"
@@ -570,7 +562,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   </button>
                   <button
                     type="button"
-                    class="btn btn-outline-secondary btn-sm suspend-btn"
+                    class="suspend-btn"
                     [disabled]="isSuspendBusy"
                     (click)="suspendCurrentCard('buried')"
                     aria-label="Elnapolás holnapig"
@@ -579,7 +571,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   </button>
                   <button
                     type="button"
-                    class="btn btn-outline-secondary btn-sm suspend-btn"
+                    class="suspend-btn"
                     [disabled]="isSuspendBusy"
                     (click)="suspendCurrentCard('suspended')"
                     aria-label="Felfüggesztés"
@@ -590,7 +582,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
               </div>
               <p class="study-card-stats">
                 @if (card.isLeech) {
-                  <span class="badge text-bg-warning" title="Sokszor elrontott szó. Ha zavar, tedd félre.">Nehéz szó</span>
+                  <span title="Sokszor elrontott szó. Ha zavar, tedd félre.">Nehéz szó</span>
                 }
                 <span>Sorozat: {{ card.streak }}</span>
                 <span>Hibák: {{ card.incorrectCount }}</span>
@@ -599,25 +591,24 @@ const emptyAnswerMessage = 'Írj be valamit.';
               </p>
 
               @if (secondsUntilAnswer > 0) {
-                <p class="text-body-secondary">Még {{ secondsUntilAnswer }} mp a válaszadásig.</p>
+                <p>Még {{ secondsUntilAnswer }} mp a válaszadásig.</p>
               }
 
               @if (mode === 'meaning') {
                 @if (hasTargetMeanings) {
                   @if (!isReversed) {
-                    <p class="text-body-secondary">Ehhez a szóhoz van magyar jelentés.</p>
+                    <p>Ehhez a szóhoz van magyar jelentés.</p>
                   }
                   @if (isRetry) {
-                    <div class="alert alert-info py-2" role="status">
+                    <div role="status">
                       Gyakorló kör: írd be még egyszer. Nem számít bele a statisztikába.
                     </div>
                   }
-                  <label for="meaning-answer" class="form-label fw-semibold">{{ isReversed ? 'Írd be az angol szót.' : 'Írd be a magyar jelentést.' }}</label>
+                  <label for="meaning-answer">{{ isReversed ? 'Írd be az angol szót.' : 'Írd be a magyar jelentést.' }}</label>
                   <textarea
                     id="meaning-answer"
                     data-answer-input
                     (input)="emptyAnswerWarned = false"
-                    class="form-control"
                     [attr.rows]="isReversed ? 2 : 4"
                     [attr.maxlength]="isReversed ? 100 : 1000"
                     [(ngModel)]="answer"
@@ -627,20 +618,18 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     placeholder="Válasz…"></textarea>
 
                   @if (!isMeaningRevealed) {
-                    <div class="d-grid d-sm-flex gap-2 mt-3">
+                    <div>
                       <button
                         type="button"
-                        class="btn btn-primary"
                         (click)="checkMeaningAnswer()"
                         [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isSubmitting || updatedProgress !== null">
                         @if (isSubmitting) {
-                          <span class="spinner-border spinner-border-sm me-2"></span>
+                          <span></span>
                         }
                         Válasz ellenőrzése
                       </button>
                       <button
                         type="button"
-                        class="btn btn-outline-secondary"
                         (click)="giveUpMeaning()"
                         [disabled]="secondsUntilAnswer > 0 || isSubmitting || updatedProgress !== null">
                         Nem tudom
@@ -649,42 +638,38 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   }
 
                   @if (isMeaningRevealed) {
-                    <div class="mt-4 p-3 bg-body-tertiary rounded">
-                      <h3 class="h6">Magyar jelentés</h3>
-                      <div class="speak-row mb-2">
-                        <p class="mb-0">{{ card.targetMeanings }}</p>
+                    <div>
+                      <h3>Magyar jelentés</h3>
+                      <div class="speak-row">
+                        <p>{{ card.targetMeanings }}</p>
                         <app-speak-button [text]="card.targetMeanings" lang="hu" label="A magyar jelentés" />
                       </div>
-                      <div class="speak-row mb-2">
-                        <p class="mb-0">{{ card.definition }}</p>
+                      <div class="speak-row">
+                        <p>{{ card.definition }}</p>
                         <app-speak-button [text]="card.definition" lang="en" label="A definíció" />
                       </div>
                       @if (card.example) {
                         <div class="speak-row">
-                          <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
+                          <p>{{ card.example }}</p>
                           <app-speak-button [text]="card.example" lang="en" label="A példamondat" />
                         </div>
                       }
                     </div>
                     @if (meaningCorrect !== null && !validationResult && !isValidating) {
-                      <div
-                        class="alert mt-3 mb-0"
-                        [class.alert-success]="meaningCorrect"
-                        [class.alert-danger]="!meaningCorrect">
+                      <div>
                         <strong>{{ meaningCorrect ? 'Helyes válasz.' : 'Még nem pontos.' }}</strong>
                       </div>
                     }
                     @if (isValidating) {
-                      <p class="text-body-secondary mt-3 mb-0" role="status">
-                        <span class="spinner-border spinner-border-sm me-2"></span>
+                      <p role="status">
+                        <span></span>
                         Az MI ellenőrzi a választ…
                       </p>
                     }
                     @if (meaningAwaitingGrade && !isValidating) {
-                      <div class="d-flex flex-wrap gap-2 mt-3">
+                      <div>
                         <button
                           type="button"
-                          class="btn btn-outline-primary"
                           (click)="evaluateMeaningWithAi()"
                           [disabled]="isSubmitting || !aiCheckAvailable"
                           [attr.title]="aiCheckAvailable ? null : 'Az MI-keret elfogyott.'">
@@ -692,7 +677,6 @@ const emptyAnswerMessage = 'Írj be valamit.';
                         </button>
                         <button
                           type="button"
-                          class="btn btn-success"
                           (click)="skipMeaningAiCheck()"
                           data-next-card
                           [disabled]="isSubmitting">
@@ -702,49 +686,45 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     }
                   }
                 } @else {
-                  <div class="alert alert-warning" role="status">
+                  <div role="status">
                     Ehhez a szóhoz még nincs magyar jelentés. Írd be ide és mentsd el, utána indulhat a felelés.
                   </div>
-                  <label for="target-meanings" class="form-label fw-semibold">Elfogadott alakok</label>
+                  <label for="target-meanings">Elfogadott alakok</label>
                   <textarea
                     id="target-meanings"
-                    class="form-control"
                     rows="3"
                     maxlength="300"
                     [(ngModel)]="targetMeaningsDraft"
                     [disabled]="isGeneratingTargetMeaning || isSavingTargetMeaning"
                     placeholder="étel, kaja"></textarea>
-                  <div class="form-text">Magyarul, több elfogadott alakot vesszővel válassz el: étel, kaja</div>
-                  <div class="d-grid d-sm-flex gap-2 mt-3">
+                  <div>Magyarul, több elfogadott alakot vesszővel válassz el: étel, kaja</div>
+                  <div>
                     <button
                       type="button"
-                      class="btn btn-outline-primary"
                       (click)="generateTargetMeaning()"
                       [disabled]="isGeneratingTargetMeaning || isSavingTargetMeaning">
                       @if (isGeneratingTargetMeaning) {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span></span>
                       }
                       Generálás
                     </button>
                     <button
                       type="button"
-                      class="btn btn-primary"
                       (click)="saveTargetMeaning()"
                       [disabled]="!targetMeaningsDraft.trim() || isGeneratingTargetMeaning || isSavingTargetMeaning">
                       @if (isSavingTargetMeaning) {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span></span>
                       }
                       Mentés
                     </button>
                   </div>
                 }
               } @else if (mode === 'definition') {
-                <label for="answer" class="form-label fw-semibold">{{ definitionPromptLabel }}</label>
+                <label for="answer">{{ definitionPromptLabel }}</label>
                 <textarea
                   id="answer"
                     data-answer-input
                     (input)="emptyAnswerWarned = false"
-                  class="form-control"
                   rows="4"
                   maxlength="1000"
                   [(ngModel)]="answer"
@@ -753,93 +733,89 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   [disabled]="isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null || validationResult !== null"
                   [placeholder]="acceptHungarianParaphrase ? 'Írd le angolul vagy magyarul a jelentését…' : 'Írd le angolul a jelentését…'"></textarea>
 
-                <div class="d-grid d-sm-flex gap-2 mt-3">
+                <div>
                   <button
                     type="button"
-                    class="btn btn-primary"
                     (click)="validateAnswer()"
                     [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null || validationResult !== null">
                     @if (isValidating || isSubmitting) {
-                      <span class="spinner-border spinner-border-sm me-2"></span>
+                      <span></span>
                     }
                     Válasz ellenőrzése
                   </button>
                   <button
                     type="button"
-                    class="btn btn-outline-secondary"
                     (click)="revealDefinition()"
                     [disabled]="secondsUntilAnswer > 0 || isDefinitionRevealed || isSubmitting || isValidating || updatedProgress !== null || definitionPenaltyPending !== null">
                     Definíció felfedése
                   </button>
                 </div>
 
-                <hr class="my-4">
+                <hr>
 
-                <div class="d-flex flex-wrap gap-2">
+                <div>
                   <button
                     type="button"
-                    class="btn btn-outline-primary btn-sm"
                     (click)="generateDefinition()"
                     [disabled]="isGeneratingDefinition || definitionPenaltyPending !== null || isSubmitting || isValidating || (updatedProgress === null && secondsUntilAnswer > 0)">
                     @if (isGeneratingDefinition) {
-                      <span class="spinner-border spinner-border-sm me-1"></span>
+                      <span></span>
                     }
                     MI-definíció
                   </button>
                   <button
                     type="button"
-                    class="btn btn-outline-primary btn-sm"
                     (click)="generateExample()"
                     [disabled]="isGeneratingExample">
                     @if (isGeneratingExample) {
-                      <span class="spinner-border spinner-border-sm me-1"></span>
+                      <span></span>
                     }
                     MI-példamondat
                   </button>
                 </div>
 
                 @if (isDefinitionRevealed) {
-                  <div class="mt-4 p-3 bg-body-tertiary rounded">
-                    <h3 class="h6">Referencia-definíció</h3>
-                    <div class="speak-row mb-2">
-                      <p class="mb-0">{{ card.definition }}</p>
+                  <div>
+                    <h3>Referencia-definíció</h3>
+                    <div class="speak-row">
+                      <p>{{ card.definition }}</p>
                       <app-speak-button [text]="card.definition" lang="en" label="A definíció" />
                     </div>
                     @if (card.example) {
                       <div class="speak-row">
-                        <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
+                        <p>{{ card.example }}</p>
                         <app-speak-button [text]="card.example" lang="en" label="A példamondat" />
                       </div>
                     }
                   </div>
                 }
                 @if (definitionPenaltyApplied) {
-                  <div class="alert alert-danger mt-3 mb-0">
+                  <div>
                     <strong>Még nem pontos.</strong>
                   </div>
                 }
               } @else {
                 @if (isLoadingPrompt) {
-                  <div class="text-center py-4" role="status">
-                    <div class="spinner-border text-primary"></div>
-                    <p class="mt-3 mb-0">Körülírás készítése…</p>
+                  <div role="status">
+                    <div></div>
+                    <p>Körülírás készítése…</p>
                   </div>
                 } @else if (promptDefinition) {
-                  <div class="speak-row mb-3">
-                    <p class="lead mb-0">{{ promptDefinition }}</p>
+                  <div class="speak-row">
+                    <p>{{ promptDefinition }}</p>
                     <app-speak-button [text]="promptDefinition" lang="en" label="A körülírás" />
                   </div>
                   @if (recognitionSecondChance && !isRecognitionRevealed) {
                     @if (recognitionHint) {
-                      <p class="small text-body-secondary">{{ recognitionHint }}</p>
+                      <p>{{ recognitionHint }}</p>
                     }
-                    <p class="small text-body-secondary">Ez a definíció a beírt szóra is illik. Próbáld újra.</p>
+                    <p>Ez a definíció a beírt szóra is illik. Próbáld újra.</p>
                   } @else {
                     @if (extraDefinition) {
-                      <p class="small text-body-secondary">{{ extraDefinition }}</p>
+                      <p>{{ extraDefinition }}</p>
                     }
                     @if (extraDefinitionMessage) {
-                      <p class="small text-body-secondary">{{ extraDefinitionMessage }}</p>
+                      <p>{{ extraDefinitionMessage }}</p>
                     }
                   }
                 }
@@ -847,7 +823,6 @@ const emptyAnswerMessage = 'Írj be valamit.';
                 @if (!isLoadingPrompt && !promptDefinition) {
                   <button
                     type="button"
-                    class="btn btn-outline-primary"
                     (click)="loadPromptDefinition()"
                     [disabled]="isSubmitting || updatedProgress !== null">
                     Újrapróbálás
@@ -855,12 +830,11 @@ const emptyAnswerMessage = 'Írj be valamit.';
                 }
 
                 @if (promptDefinition && !isRecognitionRevealed) {
-                  <label for="recognition-answer" class="form-label fw-semibold">Melyik angol szó ez?</label>
+                  <label for="recognition-answer">Melyik angol szó ez?</label>
                   <textarea
                     id="recognition-answer"
                     data-answer-input
                     (input)="emptyAnswerWarned = false"
-                    class="form-control"
                     rows="3"
                     maxlength="100"
                     [(ngModel)]="answer"
@@ -869,35 +843,32 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     [disabled]="isLoadingPrompt || isCheckingRecognition || isSubmitting || updatedProgress !== null"
                     placeholder="Írd be az angol szót…"></textarea>
 
-                  <div class="d-grid d-sm-flex gap-2 mt-3">
+                  <div>
                     <button
                       type="button"
-                      class="btn btn-primary"
                       (click)="checkRecognitionAnswer()"
                       [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isLoadingPrompt || isCheckingRecognition || isSubmitting || updatedProgress !== null">
                       @if (isCheckingRecognition || isSubmitting) {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span></span>
                       }
                       Válasz ellenőrzése
                     </button>
                     <button
                       type="button"
-                      class="btn btn-outline-secondary"
                       (click)="giveUpRecognition()"
                       [disabled]="secondsUntilAnswer > 0 || isCheckingRecognition || isSubmitting || updatedProgress !== null">
                       Nem tudom
                     </button>
                   </div>
                   @if (!recognitionSecondChance) {
-                    <div class="mt-3">
+                    <div>
                       <button
                         type="button"
-                        class="btn btn-outline-secondary btn-sm"
                         (click)="loadExtraDefinition()"
                         [disabled]="isLoadingExtraDefinition || isCheckingRecognition"
                         aria-label="Másik definíció kérése" title="Másik definíció kérése">
                         @if (isLoadingExtraDefinition) {
-                          <span class="spinner-border spinner-border-sm"></span>
+                          <span></span>
                         } @else {
                           Másik definíció
                         }
@@ -907,28 +878,25 @@ const emptyAnswerMessage = 'Írj be valamit.';
                 }
 
                 @if (isRecognitionRevealed) {
-                  <div class="mt-4 p-3 bg-body-tertiary rounded">
-                    <h3 class="h6">A szó</h3>
-                    <div class="speak-row mb-2">
-                      <p class="mb-0 fw-semibold">{{ card.term }}</p>
+                  <div>
+                    <h3>A szó</h3>
+                    <div class="speak-row">
+                      <p>{{ card.term }}</p>
                       <app-speak-button [text]="card.term" lang="en" label="A szó" />
                     </div>
-                    <div class="speak-row mb-2">
-                      <p class="mb-0">{{ card.definition }}</p>
+                    <div class="speak-row">
+                      <p>{{ card.definition }}</p>
                       <app-speak-button [text]="card.definition" lang="en" label="A definíció" />
                     </div>
                     @if (card.example) {
                       <div class="speak-row">
-                        <p class="mb-0 fst-italic text-body-secondary">{{ card.example }}</p>
+                        <p>{{ card.example }}</p>
                         <app-speak-button [text]="card.example" lang="en" label="A példamondat" />
                       </div>
                     }
                   </div>
                   @if (recognitionCorrect !== null) {
-                    <div
-                      class="alert mt-3 mb-0"
-                      [class.alert-success]="recognitionCorrect"
-                      [class.alert-danger]="!recognitionCorrect">
+                    <div>
                       <strong>{{ recognitionCorrect ? 'Helyes válasz.' : 'Még nem pontos.' }}</strong>
                       @if (!recognitionCorrect) {
                         @if (updatedProgress?.confusedWithTerm; as confusedWithTerm) {
@@ -937,14 +905,13 @@ const emptyAnswerMessage = 'Írj be valamit.';
                       }
                     </div>
                   }
-                  <div class="d-flex flex-wrap gap-2 mt-3">
+                  <div>
                     <button
                       type="button"
-                      class="btn btn-outline-primary btn-sm"
                       (click)="generateExample()"
                       [disabled]="isGeneratingExample">
                       @if (isGeneratingExample) {
-                        <span class="spinner-border spinner-border-sm me-1"></span>
+                        <span></span>
                       }
                       MI-példamondat
                     </button>
@@ -953,25 +920,21 @@ const emptyAnswerMessage = 'Írj be valamit.';
               }
 
               @if (generatedDefinition) {
-                <div class="alert alert-info mt-3 mb-0 speak-row">
+                <div class="speak-row">
                   <div><strong>{{ generatedDefinitionLabel() }}:</strong> {{ generatedDefinition }}</div>
                   <app-speak-button [text]="generatedDefinition" lang="en" label="A definíció" />
                 </div>
               }
 
               @if (generatedExample) {
-                <div class="alert alert-info mt-3 mb-0 speak-row">
+                <div class="speak-row">
                   <div><strong>{{ generatedExampleReused ? 'Mentett példamondat' : 'MI-példamondat' }}:</strong> @for (part of generatedExampleParts; track $index) {@if (part.hit) {<mark class="example-term">{{ part.text }}</mark>} @else {{{ part.text }}}}</div>
                   <app-speak-button [text]="generatedExample" lang="en" label="A példamondat" />
                 </div>
               }
 
               @if (validationResult) {
-                <div
-                  class="alert mt-3 mb-0"
-                  [class.alert-success]="validationResult.isCorrect && !validationResult.isSynonym"
-                  [class.alert-warning]="validationResult.isSynonym"
-                  [class.alert-danger]="!validationResult.isCorrect && !validationResult.isSynonym">
+                <div>
                   <strong>{{ validationResult.isSynonym
                     ? (validationResult.isCorrect ? 'Szinonima, elfogadva.' : 'Szinonima, nem a kártya szava.')
                     : (validationResult.isCorrect ? 'Helyes válasz.' : 'Még nem pontos.') }}</strong>
@@ -979,21 +942,20 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     {{ ' ' + validationResult.feedback }}
                   }
                   @if (mode === 'definition' && validationResult.isCorrect && validationResult.englishAnswer) {
-                    <div class="mt-2">Angolul: {{ validationResult.englishAnswer }}</div>
+                    <div>Angolul: {{ validationResult.englishAnswer }}</div>
                   }
                   @if (appealFeedback && !validationResult.isCorrect) {
-                    <div class="mt-2">{{ appealFeedback }}</div>
+                    <div>{{ appealFeedback }}</div>
                   }
                 </div>
               }
 
               @if (showChallengeActions) {
-                <div class="d-flex flex-wrap gap-2 mt-3">
+                <div>
                   @if (canAppeal) {
                     @if (!requireAppealReason) {
                       <button
                         type="button"
-                        class="btn btn-outline-success"
                         (click)="acceptAppealWithoutReason()"
                         [disabled]="isSubmitting || isAppealing">
                         Márpedig ez jó válasz volt
@@ -1001,7 +963,6 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     } @else if (!appealOpen) {
                       <button
                         type="button"
-                        class="btn btn-outline-success"
                         (click)="appealOpen = true"
                         [disabled]="isSubmitting || isAppealing">
                         Mégis helyes volt
@@ -1011,21 +972,19 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   @if (!explanationStarted) {
                     <button
                       type="button"
-                      class="btn btn-outline-primary"
                       (click)="explainWhyWrong()"
                       [disabled]="isExplaining || isSubmitting">
                       @if (isExplaining) {
-                        <span class="spinner-border spinner-border-sm me-2"></span>
+                        <span></span>
                       }
                       Miért volt rossz?
                     </button>
                   }
                 </div>
                 @if (canAppeal && requireAppealReason && appealOpen) {
-                  <label for="appeal-reason" class="form-label fw-semibold mt-3">Indoklás</label>
+                  <label for="appeal-reason">Indoklás</label>
                   <textarea
                     id="appeal-reason"
-                    class="form-control"
                     rows="3"
                     maxlength="1000"
                     [(ngModel)]="appealReason"
@@ -1033,11 +992,10 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     placeholder="Magyarul vagy angolul…"></textarea>
                   <button
                     type="button"
-                    class="btn btn-primary mt-2"
                     (click)="submitAppeal()"
                     [disabled]="!appealReason.trim() || isAppealing || isSubmitting">
                     @if (isAppealing) {
-                      <span class="spinner-border spinner-border-sm me-2"></span>
+                      <span></span>
                     }
                     Indoklás elküldése
                   </button>
@@ -1045,11 +1003,11 @@ const emptyAnswerMessage = 'Írj be valamit.';
               }
 
               @if (explanationMessages.length > 0) {
-                <div class="mt-3">
+                <div>
                   @for (message of explanationMessages; track $index) {
-                    <p class="mb-2" [class.text-body-secondary]="message.role === 'user'">
+                    <p>
                       @if (message.role === 'user') {
-                        <span class="fw-semibold">Kérdés. </span>
+                        <span>Kérdés. </span>
                       }
                       {{ message.content }}
                     </p>
@@ -1058,10 +1016,9 @@ const emptyAnswerMessage = 'Írj be valamit.';
               }
 
               @if (explanationStarted && !explanationClosed) {
-                <label for="follow-up" class="form-label fw-semibold mt-3">Kérdés</label>
+                <label for="follow-up">Kérdés</label>
                 <textarea
                   id="follow-up"
-                  class="form-control"
                   rows="3"
                   maxlength="2000"
                   [(ngModel)]="followUpQuestion"
@@ -1069,26 +1026,24 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   placeholder="A szóról, a jelentéséről vagy a hibáról…"></textarea>
                 <button
                   type="button"
-                  class="btn btn-outline-primary mt-2"
                   (click)="askFollowUp()"
                   [disabled]="!followUpQuestion.trim() || isExplaining || isSubmitting">
                   @if (isExplaining) {
-                    <span class="spinner-border spinner-border-sm me-2"></span>
+                    <span></span>
                   }
                   Kérdés küldése
                 </button>
               }
 
               @if (pendingIncorrect && !updatedProgress) {
-                <div class="border-top mt-4 pt-4">
+                <div>
                   <button
                     type="button"
-                    class="btn btn-success"
                     (click)="savePendingAndContinue()"
                           data-next-card
                     [disabled]="isSubmitting || isAppealing">
                     @if (isSubmitting) {
-                      <span class="spinner-border spinner-border-sm me-2"></span>
+                      <span></span>
                     }
                     Következő kártya
                   </button>
@@ -1096,11 +1051,11 @@ const emptyAnswerMessage = 'Írj be valamit.';
               }
 
               @if (updatedProgress) {
-                <div class="border-top mt-4 pt-4">
+                <div>
                   @if (isRetry) {
-                    <p class="mb-3">Gyakorló kör: nem számít bele a statisztikába.</p>
+                    <p>Gyakorló kör: nem számít bele a statisztikába.</p>
                   } @else {
-                    <p class="mb-3">
+                    <p>
                       Mentve. Sorozat: {{ updatedProgress.streak }},
                       következő ismétlés {{ updatedProgress.interval }} nap múlva,
                       könnyűség {{ updatedProgress.easeFactor | number:'1.1-1' }}.
@@ -1108,7 +1063,6 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   }
                   <button
                     type="button"
-                    class="btn btn-success"
                     (click)="continueToNext()"
                           data-next-card
                     [disabled]="isGeneratingDefinition || isGeneratingExample || isGeneratingTargetMeaning || isSavingTargetMeaning || isLoadingPrompt || isValidating || isSubmitting">
