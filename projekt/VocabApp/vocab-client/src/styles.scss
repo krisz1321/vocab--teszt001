@@ -452,3 +452,30 @@ app-icon { display: contents; }
 .mp-item .ic { color: var(--muted); width: 18px; height: 18px; }
 .mp-item:hover { background: var(--surface-2); }
 .mp-theme { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; font-size: 14px; }
+
+/* ---------- Szó kiemelővel (kártya, belépés) ---------- */
+.term { font-family: var(--f-display); font-size: 40px; line-height: 1.1; font-weight: 800; letter-spacing: var(--ls-display); overflow-wrap: anywhere; margin: 0; }
+@container main (min-width: 700px) { .term { font-size: 54px; } }
+.term-mark { background: linear-gradient(var(--mark), var(--mark)) 0 86% / 100% 38% no-repeat; padding: 0 .06em; }
+.ipa { font-family: var(--f-mono); color: var(--muted); font-size: 14px; }
+
+/* ---------- Belépés ---------- */
+.auth { min-height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr); }
+.auth-hero { display: none; flex-direction: column; justify-content: space-between; gap: 32px; padding: 44px 48px; background: var(--hero-bg); color: var(--hero-ink); min-width: 0; }
+.auth-hero .brand-mark { background: var(--hero-ink); color: var(--hero-bg); }
+.hero-copy { display: flex; flex-direction: column; gap: 12px; max-width: 30em; }
+.hero-title { font-family: var(--f-display); font-size: 44px; line-height: 1.08; font-weight: var(--w-display); letter-spacing: var(--ls-display); text-wrap: balance; }
+.hero-copy p { font-size: 16.5px; opacity: .8; }
+.hero-card { display: flex; flex-direction: column; gap: 4px; align-self: flex-start; min-width: 280px; padding: 22px 26px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: var(--r); box-shadow: 0 24px 40px -28px rgb(0 0 0 / .45); transform: rotate(-4deg); }
+.hero-card .term { font-size: 42px; }
+.hero-hu { font-weight: 600; margin-top: 6px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.hero-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 10px; font-size: 15px; }
+.hero-list li { display: flex; gap: 10px; align-items: flex-start; }
+.auth-main { display: flex; align-items: center; justify-content: center; padding: 32px 20px; }
+.auth-card { width: min(400px, 100%); display: flex; flex-direction: column; gap: 18px; }
+.auth-foot { text-align: center; font-size: 13.5px; color: var(--muted); }
+@media (min-width: 900px) {
+  .auth { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+  .auth-hero { display: flex; }
+  .auth-brand-m { display: none; }
+}

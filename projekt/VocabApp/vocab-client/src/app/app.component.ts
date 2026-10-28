@@ -79,26 +79,45 @@ interface AiModelOption {
   imports: [CommonModule, FormsModule, StudyCardComponent, GrammarComponent, CompositionComponent, StatsComponent, DecksComponent, SpeechSettingsComponent, MuteButtonComponent, IconComponent],
   template: `
     @if (!session.isLoggedIn()) {
-      <div class="auth-shell">
-        <header class="auth-top">
-          <span class="brand">VocabApp</span>
-        </header>
-        <main>
+      <div class="auth">
+        <aside class="auth-hero">
+          <span class="brand"><span class="brand-mark">W</span>WordTárs</span>
+          <div class="hero-copy">
+            <h1 class="hero-title">Szavak, amik megmaradnak.</h1>
+            <p>Angol szókártyák MI-segítséggel. Az ismétlés akkor jön, amikor kezdenéd elfelejteni a szót.</p>
+          </div>
+          <div class="hero-card" aria-hidden="true">
+            <span class="eyebrow">Mai kártya</span>
+            <span class="term"><span class="term-mark">eager</span></span>
+            <span class="ipa">/ˈiːɡə/ · melléknév</span>
+            <span class="hero-hu">lelkes, buzgó</span>
+          </div>
+          <ul class="hero-list">
+            <li><app-icon name="check" />SM-2 alapú ismétlés, napi célokkal</li>
+            <li><app-icon name="check" />Az MI ellenőrzi a válaszod, és elmagyarázza a hibát</li>
+            <li><app-icon name="check" />Nyelvtan és mondatalkotás a saját szavaiddal</li>
+          </ul>
+        </aside>
+        <main class="auth-main">
           <div class="auth-card">
-            <h1>{{ mode === 'login' ? 'Üdv újra!' : 'Fiók létrehozása' }}</h1>
-            <p>Angol szókártyák MI-segítséggel.</p>
-            <div class="seg" role="group" aria-label="Belépés módja">
-              <button type="button" [class.is-active]="mode === 'login'" (click)="setMode('login')">Bejelentkezés</button>
-              <button type="button" [class.is-active]="mode === 'register'" (click)="setMode('register')">Regisztráció</button>
+            <div class="auth-brand-m"><span class="brand"><span class="brand-mark">W</span>WordTárs</span></div>
+            <div class="ph-text">
+              <h1 class="h1">{{ mode === 'login' ? 'Üdv újra!' : 'Fiók létrehozása' }}</h1>
+              <p class="lead">Angol szókártyák MI-segítséggel.</p>
+            </div>
+            <div class="seg seg-full" role="group" aria-label="Belépés módja">
+              <button type="button" [class.is-on]="mode === 'login'" [attr.aria-pressed]="mode === 'login'" (click)="setMode('login')">Bejelentkezés</button>
+              <button type="button" [class.is-on]="mode === 'register'" [attr.aria-pressed]="mode === 'register'" (click)="setMode('register')">Regisztráció</button>
             </div>
             @if (session.expired()) {
-              <div role="status">Lejárt a bejelentkezésed, lépj be újra.</div>
+              <div class="notice" role="status"><app-icon name="info" /><div>Lejárt a bejelentkezésed, lépj be újra.</div></div>
             }
-            <form (ngSubmit)="submit()">
-              <div>
-                <label for="email">Email</label>
+            <form class="form-stack" (ngSubmit)="submit()" novalidate>
+              <div class="field">
+                <label for="email">E-mail</label>
                 <input
                   id="email"
+                  class="input-lg"
                   name="email"
                   type="email"
                   autocomplete="username"
@@ -108,14 +127,15 @@ interface AiModelOption {
                   (ngModelChange)="onRegisterFieldChange()"
                   [disabled]="isSubmitting">
                 @if (mode === 'register' && emailTaken) {
-                  <div>Ezzel az email címmel már van fiók.</div>
+                  <span class="field-error">Ezzel az email címmel már van fiók.</span>
                 }
               </div>
               @if (mode === 'register') {
-                <div>
+                <div class="field">
                   <label for="registerUsername">Felhasználónév</label>
                   <input
                     id="registerUsername"
+                    class="input-lg"
                     name="registerUsername"
                     type="text"
                     autocomplete="nickname"
@@ -126,16 +146,17 @@ interface AiModelOption {
                     (ngModelChange)="onRegisterFieldChange()"
                     [disabled]="isSubmitting">
                   @if (usernameTaken) {
-                    <div>Ez a felhasználónév már foglalt.</div>
+                    <span class="field-error">Ez a felhasználónév már foglalt.</span>
                   } @else {
-                    <div>Ez látszik a megosztott paklijaid mellett.</div>
+                    <span class="help">Ez látszik a megosztott paklijaid mellett.</span>
                   }
                 </div>
               }
-              <div>
+              <div class="field">
                 <label for="password">Jelszó</label>
                 <input
                   id="password"
+                  class="input-lg"
                   name="password"
                   type="password"
                   [attr.autocomplete]="mode === 'register' ? 'new-password' : 'current-password'"
@@ -144,10 +165,11 @@ interface AiModelOption {
                   [disabled]="isSubmitting">
               </div>
               @if (mode === 'register') {
-                <div>
+                <div class="field">
                   <label for="passwordConfirm">Jelszó újra</label>
                   <input
                     id="passwordConfirm"
+                    class="input-lg"
                     name="passwordConfirm"
                     type="password"
                     autocomplete="new-password"
@@ -156,17 +178,24 @@ interface AiModelOption {
                     [(ngModel)]="passwordConfirm"
                     [disabled]="isSubmitting">
                   @if (passwordConfirm.length > 0 && password !== passwordConfirm) {
-                    <div>A két jelszó nem egyezik.</div>
+                    <span class="field-error">A két jelszó nem egyezik.</span>
                   }
                 </div>
               }
               @if (errorMessage) {
-                <div role="alert">{{ errorMessage }}</div>
+                <div class="notice notice-bad" role="alert"><app-icon name="warn" /><div>{{ errorMessage }}</div></div>
               }
-              <button type="submit" [disabled]="isSubmitting">
+              <button type="submit" class="btn btn-primary btn-lg btn-block" [disabled]="isSubmitting">
+                @if (isSubmitting) {
+                  <span class="spinner spinner-sm"></span>
+                }
                 {{ mode === 'login' ? 'Bejelentkezés' : 'Regisztráció' }}
               </button>
             </form>
+            <p class="auth-foot">
+              {{ mode === 'login' ? 'Nincs még fiókod?' : 'Van már fiókod?' }}
+              <button type="button" class="link-btn" (click)="setMode(mode === 'login' ? 'register' : 'login')">{{ mode === 'login' ? 'Regisztráció' : 'Bejelentkezés' }}</button>
+            </p>
           </div>
         </main>
       </div>
