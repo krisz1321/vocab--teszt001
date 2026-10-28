@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, effect, inject, OnInit, ViewChild } from '@angular/core';
+import { Component, effect, HostListener, inject, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
@@ -11,10 +11,17 @@ import { SpeechSettingsComponent } from './speech-settings.component';
 import { StudyCardComponent } from './study-card.component';
 import { GrammarComponent } from './grammar.component';
 import { CompositionComponent } from './composition.component';
+import { IconComponent, IconName } from './icon.component';
+import { ThemeService } from './theme.service';
 
 type AppView = 'study' | 'grammar' | 'composition' | 'stats' | 'decks' | 'profile' | 'settings';
-type NavGroup = 'practice' | 'overview';
 type AuthMode = 'login' | 'register';
+
+interface NavItem {
+  id: AppView;
+  label: string;
+  icon: IconName;
+}
 
 interface AuthResponse {
   token: string;
@@ -69,7 +76,7 @@ interface AiModelOption {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, StudyCardComponent, GrammarComponent, CompositionComponent, StatsComponent, DecksComponent, SpeechSettingsComponent, MuteButtonComponent],
+  imports: [CommonModule, FormsModule, StudyCardComponent, GrammarComponent, CompositionComponent, StatsComponent, DecksComponent, SpeechSettingsComponent, MuteButtonComponent, IconComponent],
   template: `
     @if (!session.isLoggedIn()) {
       <div class="auth-shell">
@@ -164,59 +171,73 @@ interface AiModelOption {
         </main>
       </div>
     } @else {
-      <div class="app-shell">
-        <aside class="app-sidebar" aria-label="Fő navigáció">
-          <span class="brand">VocabApp</span>
-          @for (group of navGroups; track group.id) {
-            <span class="nav-group-label">{{ group.label }}</span>
-            @for (item of group.items; track item.id) {
-              <button
-                type="button"
-                class="nav-item-btn"
-                [class.is-active]="view === item.id"
-                [attr.aria-current]="view === item.id ? 'page' : null"
-                (click)="goTo(item.id)">
-                {{ item.label }}
-              </button>
-            }
-          }
-          <span class="sidebar-spacer"></span>
-          <button
-            type="button"
-            class="nav-item-btn"
-            [class.is-active]="view === 'settings'"
-            [attr.aria-current]="view === 'settings' ? 'page' : null"
-            (click)="goTo('settings')">
-            Beállítások
-          </button>
-          <div class="sidebar-tools">
-            <app-mute-button [compact]="true" />
-          </div>
-          <div class="sidebar-user" [class.is-active]="view === 'profile'">
+      <ng-template #avatarTpl>
+        @if (hasAvatar && avatarUrl) {
+          <img [src]="avatarUrl" alt="" width="36" height="36" class="avatar" (error)="hasAvatar = false">
+        } @else {
+          <span class="avatar" aria-hidden="true">{{ initial() }}</span>
+        }
+      </ng-template>
+      <ng-template #streakTpl>
+        <span class="streak-pill" title="Napi sorozat" [attr.aria-label]="'Napi sorozat: ' + studyDayStreak + ' nap'"><app-icon name="flame" />{{ studyDayStreak }}</span>
+      </ng-template>
+
+      <div class="shell">
+        <aside class="rail" aria-label="Fő navigáció">
+          <span class="brand-mark rail-mark" role="img" aria-label="WordTárs">W</span>
+          <span class="rail-streak"><ng-container *ngTemplateOutlet="streakTpl" /></span>
+          @for (item of navItems; track item.id) {
             <button
               type="button"
-              class="sidebar-user-main"
-              [attr.aria-current]="view === 'profile' ? 'page' : null"
-              (click)="goTo('profile')"
-              title="Profil">
-              @if (hasAvatar && avatarUrl) {
-                <img [src]="avatarUrl" alt="" width="40" height="40" class="avatar-sm" (error)="hasAvatar = false">
-              } @else {
-                <span class="avatar-sm">{{ initial() }}</span>
-              }
-              <span class="who">
-                <strong>{{ savedDisplayName || profileEmail || session.email() }}</strong>
-                <span class="streak-chip" title="Napi sorozat" [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">{{ studyDayStreak }} nap</span>
-              </span>
+              class="rail-item"
+              [class.is-on]="view === item.id"
+              [attr.aria-current]="view === item.id ? 'page' : null"
+              (click)="goTo(item.id)">
+              <span class="ic-wrap"><app-icon [name]="item.icon" /></span>
+              {{ item.label }}
             </button>
-            <button type="button" (click)="logout()">Kijelentkezés</button>
-          </div>
+          }
+          <span class="spacer"></span>
+          <button
+            type="button"
+            class="rail-item"
+            [class.is-on]="view === 'settings'"
+            [attr.aria-current]="view === 'settings' ? 'page' : null"
+            (click)="goTo('settings')">
+            <span class="ic-wrap"><app-icon name="sliders" /></span>
+            Beállítások
+          </button>
+          <button
+            type="button"
+            class="avatar-btn rail-avatar"
+            [class.is-on]="view === 'profile'"
+            aria-label="Fiókmenü"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="menuOpen"
+            (click)="toggleMenu($event)">
+            <ng-container *ngTemplateOutlet="avatarTpl" />
+          </button>
         </aside>
 
-        <div class="app-content">
+        <header class="mtop">
+          <span class="brand"><span class="brand-mark">W</span>WordTárs</span>
+          <span class="spacer"></span>
+          <ng-container *ngTemplateOutlet="streakTpl" />
+          <button
+            type="button"
+            class="avatar-btn"
+            aria-label="Fiókmenü"
+            aria-haspopup="menu"
+            [attr.aria-expanded]="menuOpen"
+            (click)="toggleMenu($event)">
+            <ng-container *ngTemplateOutlet="avatarTpl" />
+          </button>
+        </header>
+
+        <div class="main" id="main">
       @if (errorMessage) {
-        <div class="page-wrap">
-          <div role="alert">{{ errorMessage }}</div>
+        <div class="page">
+          <div class="notice notice-bad" role="alert"><app-icon name="warn" /><div>{{ errorMessage }}</div></div>
         </div>
       }
       @if (view === 'study') {
@@ -577,6 +598,54 @@ interface AiModelOption {
         </main>
       }
         </div>
+
+        <nav class="dock" aria-label="Fő navigáció">
+          @for (item of dockItems; track item.id) {
+            @if (item.id === 'study') {
+              <button
+                type="button"
+                class="fab"
+                [class.is-on]="view === item.id"
+                [attr.aria-current]="view === item.id ? 'page' : null"
+                aria-label="Tanulás"
+                (click)="goTo(item.id)">
+                <app-icon name="play" />
+              </button>
+            } @else {
+              <button
+                type="button"
+                [class.is-on]="view === item.id"
+                [attr.aria-current]="view === item.id ? 'page' : null"
+                (click)="goTo(item.id)">
+                <app-icon [name]="item.icon" />
+                <span>{{ item.label }}</span>
+              </button>
+            }
+          }
+        </nav>
+
+        @if (menuOpen) {
+          <div class="menu-pop" role="menu" aria-label="Fiókmenü" (click)="$event.stopPropagation()">
+            <div class="mp-head">
+              <ng-container *ngTemplateOutlet="avatarTpl" />
+              <span class="who">
+                <strong>{{ savedDisplayName || savedUsername || profileEmail || session.email() }}</strong>
+                <span class="muted">{{ profileEmail || session.email() }}</span>
+              </span>
+            </div>
+            <button type="button" class="mp-item" role="menuitem" (click)="goTo('profile')"><app-icon name="user" /> Profil</button>
+            <button type="button" class="mp-item" role="menuitem" (click)="goTo('settings')"><app-icon name="sliders" /> Beállítások</button>
+            <app-mute-button />
+            <div class="mp-theme">
+              <span>Téma</span>
+              <div class="seg seg-sm" role="group" aria-label="Téma">
+                <button type="button" [class.is-on]="theme.mode() === 'light'" [attr.aria-pressed]="theme.mode() === 'light'" (click)="theme.setChoice('light')">Világos</button>
+                <button type="button" [class.is-on]="theme.mode() === 'dark'" [attr.aria-pressed]="theme.mode() === 'dark'" (click)="theme.setChoice('dark')">Sötét</button>
+              </div>
+            </div>
+            <button type="button" class="mp-item" role="menuitem" (click)="logout()"><app-icon name="logout" /> Kijelentkezés</button>
+          </div>
+        }
       </div>
     }
   `,
@@ -585,19 +654,21 @@ export class AppComponent implements OnInit {
   private readonly http = inject(HttpClient);
   readonly session = inject(AuthSessionService);
 
+  readonly theme = inject(ThemeService);
+
   view: AppView = 'study';
-  // A Profil és a Beállítások nincs itt: a felhasználói kártya és a külön menüpont nyitja.
-  readonly navItems: { id: AppView; label: string; group: NavGroup }[] = [
-    { id: 'study', label: 'Tanulás', group: 'practice' },
-    { id: 'grammar', label: 'Nyelvtan', group: 'practice' },
-    { id: 'composition', label: 'Mondatok', group: 'practice' },
-    { id: 'stats', label: 'Statisztika', group: 'overview' },
-    { id: 'decks', label: 'Paklik', group: 'overview' },
+  // A Profil és a Beállítások nincs itt: a fiókmenü és az ikonsín alsó gombja nyitja.
+  readonly navItems: NavItem[] = [
+    { id: 'study', label: 'Tanulás', icon: 'layers' },
+    { id: 'grammar', label: 'Nyelvtan', icon: 'pen' },
+    { id: 'composition', label: 'Mondatok', icon: 'text' },
+    { id: 'stats', label: 'Statisztika', icon: 'chart' },
+    { id: 'decks', label: 'Paklik', icon: 'folder' },
   ];
-  readonly navGroups = [
-    { id: 'practice', label: 'Gyakorlás' },
-    { id: 'overview', label: 'Áttekintés' },
-  ].map(group => ({ ...group, items: this.navItems.filter(item => item.group === group.id) }));
+  // Telefonon az alsó sávban a Tanulás a kiemelt középső gomb.
+  readonly dockItems = (['grammar', 'composition', 'study', 'stats', 'decks'] as AppView[])
+    .map(id => this.navItems.find(item => item.id === id)!);
+  menuOpen = false;
   mode: AuthMode = 'login';
   email = '';
   registerUsername = '';
@@ -849,7 +920,24 @@ export class AppComponent implements OnInit {
     );
   }
 
+  toggleMenu(event: Event): void {
+    event.stopPropagation();
+    this.menuOpen = !this.menuOpen;
+  }
+
+  // A fiókmenü a mellé kattintásra és az Escape-re bezárul.
+  @HostListener('document:click')
+  closeMenu(): void {
+    this.menuOpen = false;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscape(): void {
+    this.menuOpen = false;
+  }
+
   goTo(view: AppView): void {
+    this.menuOpen = false;
     if (view !== 'decks' && !this.confirmLeaveDecks()) {
       return;
     }

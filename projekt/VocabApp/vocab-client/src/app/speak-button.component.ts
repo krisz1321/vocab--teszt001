@@ -1,15 +1,17 @@
 import { Component, Input, inject } from '@angular/core';
+import { IconComponent } from './icon.component';
 import { SpeechLang, SpeechService } from './speech.service';
 
 /** Hangszóró gomb: a megadott szöveget olvassa fel, ha a beállítások ezt az adott nyelvre engedik. */
 @Component({
   selector: 'app-speak-button',
   standalone: true,
+  imports: [IconComponent],
   template: `
     @if (text?.trim() && speech.canSpeak(lang)) {
       <button
         type="button"
-        class="speak-btn"
+        class="icon-btn speak-btn"
         [class.is-speaking]="isSpeaking()"
         [disabled]="speech.settings().muted"
         [attr.aria-pressed]="isSpeaking()"
@@ -18,7 +20,7 @@ import { SpeechLang, SpeechService } from './speech.service';
         (pointerdown)="$event.stopPropagation()"
         (pointerup)="$event.stopPropagation()"
         (click)="toggle($event)">
-        {{ isSpeaking() ? 'Leállítás' : 'Felolvasás' }}
+        <app-icon [name]="isSpeaking() ? 'stop' : 'volume'" />
       </button>
     }
   `,
