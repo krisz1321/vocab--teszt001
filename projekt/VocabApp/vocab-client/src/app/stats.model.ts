@@ -277,7 +277,8 @@ function makeBars(items: { label: string; value: number; title: string }[]): Bar
 }
 
 function sparseLabel(index: number, length: number, step: number, text: string): string {
-  return index === length - 1 || index % step === 0 ? text : '';
+  // A végéről számolunk, így az utolsó (legfrissebb) felirat mindig látszik, és nem ütközik a szomszédjával.
+  return (length - 1 - index) % step === 0 ? text : '';
 }
 
 function buildHeat(activity: StudyStatsActivityDay[]): HeatMap {
@@ -316,6 +317,10 @@ function buildHeat(activity: StudyStatsActivityDay[]): HeatMap {
     });
     previousMonth = month;
   }
+  // A csonka első hét hónapneve rácsúszna a következő hónapéra.
+  if (columns.length > 1 && columns[1].monthLabel) {
+    columns[0].monthLabel = '';
+  }
 
   const activeDays = activity.filter(day => day.answerCount > 0).length;
   const totalAnswers = activity.reduce((sum, day) => sum + day.answerCount, 0);
@@ -329,7 +334,7 @@ function buildHeat(activity: StudyStatsActivityDay[]): HeatMap {
 }
 
 function buildTrend(activity: StudyStatsActivityDay[]): Trend {
-  const width = 600;
+  const width = 440;
   const height = 190;
   const left = 50;
   const right = 26;
@@ -634,7 +639,7 @@ function pickWeakestTense(tenses: PracticeTenseRow[]): PracticeTenseRow | null {
 }
 
 function buildPracticeTrend(weeks: StudyStatsPracticeWeek[]): PracticeTrend {
-  const width = 600;
+  const width = 440;
   const height = 190;
   const left = 50;
   const right = 26;

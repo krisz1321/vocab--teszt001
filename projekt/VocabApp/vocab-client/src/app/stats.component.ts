@@ -169,25 +169,23 @@ const PAGE_SIZE = 25;
                   <h2 class="h2" id="stats-heat">Aktivitás, utolsó 13 hét</h2>
                   <span>{{ v.heat.activeDays }} tanulónap</span>
                 </div>
-                <div class="heat-wrap" role="img" [attr.aria-label]="v.heat.summary">
-                  <div class="heat-days" aria-hidden="true">
-                    <span></span><span>H</span><span></span><span>Sze</span><span></span><span>P</span><span></span><span></span>
-                  </div>
-                  <div class="heat-scroll">
-                    <div class="heat-grid" [style.grid-template-columns]="'repeat(' + v.heat.columns.length + ', minmax(0, 1fr))'">
-                      @for (column of v.heat.columns; track $index) {
-                        <div class="heat-col">
-                          <div class="heat-month">{{ column.monthLabel }}</div>
-                          @for (cell of column.cells; track $index) {
-                            @if (cell) {
-                              <div class="heat-cell" [attr.data-level]="cell.level" [attr.data-tip]="cell.title" [attr.aria-label]="cell.title"></div>
-                            } @else {
-                              <div class="heat-cell heat-empty"></div>
-                            }
-                          }
-                        </div>
-                      }
+                <div class="heat-scroll" role="img" [attr.aria-label]="v.heat.summary">
+                  <div class="heat-grid" [style.grid-template-columns]="'auto repeat(' + v.heat.columns.length + ', minmax(0, 1fr))'">
+                    <div class="heat-days" aria-hidden="true">
+                      <span></span><span>H</span><span></span><span>Sze</span><span></span><span>P</span><span></span><span></span>
                     </div>
+                    @for (column of v.heat.columns; track $index) {
+                      <div class="heat-col">
+                        <div class="heat-month">{{ column.monthLabel }}</div>
+                        @for (cell of column.cells; track $index) {
+                          @if (cell) {
+                            <div class="heat-cell" [attr.data-level]="cell.level" [attr.data-tip]="cell.title" [attr.aria-label]="cell.title"></div>
+                          } @else {
+                            <div class="heat-cell heat-empty"></div>
+                          }
+                        }
+                      </div>
+                    }
                   </div>
                 </div>
                 <div class="heat-foot">
@@ -309,28 +307,60 @@ const PAGE_SIZE = 25;
                 }
 
                 <div class="stats-grid practice-grid">
-                  @if (v.practice.tenses.length > 0) {
-                    <div>
-                      <p class="sub-h">Pontosság igeidőnként</p>
-                      <div class="hbars">
-                        @for (row of v.practice.tenses; track row.key) {
-                          <div class="hbar">
-                            <span>
-                              {{ row.label }}
-                              @if (v.practice.weakestTense?.key === row.key) {
-                                <br><span class="weak-tag"><app-icon name="warn" /> Leggyengébb</span>
-                              }
-                            </span>
-                            <span class="track" role="progressbar" [attr.aria-label]="row.label + ' helyes válaszai'"
-                              [attr.aria-valuenow]="row.percent ?? 0" aria-valuemin="0" aria-valuemax="100">
-                              <i [class.weak]="v.practice.weakestTense?.key === row.key" [style.width.%]="row.percent ?? 0"></i>
-                            </span>
-                            <span class="val" [attr.title]="row.correct + ' / ' + row.attempts">{{ row.percent }}%</span>
-                          </div>
+                  <div class="practice-main">
+                    @if (v.practice.tenses.length > 0) {
+                      <div>
+                        <p class="sub-h">Pontosság igeidőnként</p>
+                        <div class="hbars">
+                          @for (row of v.practice.tenses; track row.key) {
+                            <div class="hbar">
+                              <span>
+                                {{ row.label }}
+                                @if (v.practice.weakestTense?.key === row.key) {
+                                  <br><span class="weak-tag"><app-icon name="warn" /> Leggyengébb</span>
+                                }
+                              </span>
+                              <span class="track" role="progressbar" [attr.aria-label]="row.label + ' helyes válaszai'"
+                                [attr.aria-valuenow]="row.percent ?? 0" aria-valuemin="0" aria-valuemax="100">
+                                <i [class.weak]="v.practice.weakestTense?.key === row.key" [style.width.%]="row.percent ?? 0"></i>
+                              </span>
+                              <span class="val" [attr.title]="row.correct + ' / ' + row.attempts">{{ row.percent }}%</span>
+                            </div>
+                          }
+                        </div>
+                      </div>
+                    }
+
+                    <p class="sub-h">Heti pontosság</p>
+                    @if (v.practice.trend.hasData) {
+                      <div class="legend" aria-hidden="true">
+                        @for (line of v.practice.trend.series; track line.key) {
+                          <span><i class="trend-key" [attr.data-series]="line.key"></i>{{ line.label }}</span>
                         }
                       </div>
-                    </div>
-                  }
+                      <svg class="trend" [attr.viewBox]="'0 0 ' + v.practice.trend.width + ' ' + v.practice.trend.height" role="img" [attr.aria-label]="v.practice.trend.summary">
+                        @for (tick of [0, 50, 100]; track tick) {
+                          <line class="trend-grid"
+                            [attr.x1]="v.practice.trend.left" [attr.x2]="v.practice.trend.width - v.practice.trend.right"
+                            [attr.y1]="trendY(tick, v.practice.trend)" [attr.y2]="trendY(tick, v.practice.trend)" />
+                          <text class="trend-text" text-anchor="end" [attr.x]="v.practice.trend.left - 6" [attr.y]="trendY(tick, v.practice.trend) + 4">{{ tick }}%</text>
+                        }
+                        @for (line of v.practice.trend.series; track line.key) {
+                          @for (path of line.paths; track $index) {
+                            <path class="trend-line" [attr.data-series]="line.key" [attr.d]="path" />
+                          }
+                          @for (point of line.points; track $index) {
+                            <circle class="trend-dot" [attr.data-series]="line.key" r="4" [attr.cx]="point.x" [attr.cy]="point.y"><title>{{ point.title }}</title></circle>
+                          }
+                        }
+                        @for (label of v.practice.trend.xLabels; track $index) {
+                          <text class="trend-text" text-anchor="middle" [attr.x]="label.x" [attr.y]="v.practice.trend.height - 8">{{ label.text }}</text>
+                        }
+                      </svg>
+                    } @else {
+                      <p class="muted">{{ v.practice.trend.summary }}</p>
+                    }
+                  </div>
 
                   @if (v.practice.errorGroups.length > 0) {
                     <div>
@@ -354,36 +384,6 @@ const PAGE_SIZE = 25;
                     </div>
                   }
                 </div>
-
-                <p class="sub-h">Heti pontosság</p>
-                @if (v.practice.trend.hasData) {
-                  <div class="legend" aria-hidden="true">
-                    @for (line of v.practice.trend.series; track line.key) {
-                      <span><i class="trend-key" [attr.data-series]="line.key"></i>{{ line.label }}</span>
-                    }
-                  </div>
-                  <svg class="trend" [attr.viewBox]="'0 0 ' + v.practice.trend.width + ' ' + v.practice.trend.height" role="img" [attr.aria-label]="v.practice.trend.summary">
-                    @for (tick of [0, 50, 100]; track tick) {
-                      <line class="trend-grid"
-                        [attr.x1]="v.practice.trend.left" [attr.x2]="v.practice.trend.width - v.practice.trend.right"
-                        [attr.y1]="trendY(tick, v.practice.trend)" [attr.y2]="trendY(tick, v.practice.trend)" />
-                      <text class="trend-text" text-anchor="end" [attr.x]="v.practice.trend.left - 6" [attr.y]="trendY(tick, v.practice.trend) + 4">{{ tick }}%</text>
-                    }
-                    @for (line of v.practice.trend.series; track line.key) {
-                      @for (path of line.paths; track $index) {
-                        <path class="trend-line" [attr.data-series]="line.key" [attr.d]="path" />
-                      }
-                      @for (point of line.points; track $index) {
-                        <circle class="trend-dot" [attr.data-series]="line.key" r="4" [attr.cx]="point.x" [attr.cy]="point.y"><title>{{ point.title }}</title></circle>
-                      }
-                    }
-                    @for (label of v.practice.trend.xLabels; track $index) {
-                      <text class="trend-text" text-anchor="middle" [attr.x]="label.x" [attr.y]="v.practice.trend.height - 8">{{ label.text }}</text>
-                    }
-                  </svg>
-                } @else {
-                  <p class="muted">{{ v.practice.trend.summary }}</p>
-                }
 
                 <p class="help">
                   Mondatokban {{ s.practice.composition.correctWordCount }} / {{ s.practice.composition.wordCount }} szót használtál helyesen.
