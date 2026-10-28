@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, EventEmitter, HostListener, OnDestroy, OnInit, Output, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription, finalize } from 'rxjs';
+import { IconComponent } from './icon.component';
 
 interface SharedInfo {
   version: number;
@@ -144,43 +145,43 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
 @Component({
   selector: 'app-decks',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, IconComponent],
   template: `
-    <main>
-      <div class="page-wrap decks-page">
-        <header>
-          <div>
-            <h1>Paklik</h1>
-            <p>Hozz létre, szerkessz és oszd meg a szókártya-paklijaidat.</p>
-          </div>
-          <div class="dseg page-tabs" role="tablist" aria-label="Paklik">
-            <button type="button" role="tab" class="dseg-btn" [class.active]="section === 'mine'" [attr.aria-selected]="section === 'mine'" (click)="setSection('mine')">
-              Saját paklik <span class="dseg-count">{{ decks.length }}</span>
-            </button>
-            <button type="button" role="tab" class="dseg-btn" [class.active]="section === 'public'" [attr.aria-selected]="section === 'public'" (click)="setSection('public')">
-              Közös paklik <span class="dseg-count">{{ publicDecks.length }}</span>
-            </button>
-          </div>
-        </header>
-
-        @if (errorMessage) {
-          <div role="alert">
-            <span>{{ errorMessage }}</span>
-            <button type="button" aria-label="Bezárás" (click)="errorMessage = null"></button>
+    <div class="page page-wide decks-ui">
+      <header class="page-head">
+        <div class="ph-text">
+          <h1 class="h1">Paklik</h1>
+          <p class="lead">Hozz létre, szerkessz és oszd meg a szókártya-paklijaidat.</p>
+        </div>
+        @if (section === 'mine') {
+          <div class="actions">
+            <button type="button" class="btn btn-primary" (click)="toggleCreate()" [attr.aria-expanded]="creating"><app-icon name="plus" /> Új pakli</button>
           </div>
         }
+      </header>
+      <div class="tabs page-tabs" role="tablist" aria-label="Paklik">
+        <button type="button" role="tab" [class.is-on]="section === 'mine'" [attr.aria-selected]="section === 'mine'" (click)="setSection('mine')">
+          Paklijaim <span class="count">{{ decks.length }}</span>
+        </button>
+        <button type="button" role="tab" [class.is-on]="section === 'public'" [attr.aria-selected]="section === 'public'" (click)="setSection('public')">
+          Közös paklik <span class="count">{{ publicDecks.length }}</span>
+        </button>
+      </div>
 
-        @if (section === 'mine') {
-          <div class="deck-layout" [class.show-detail]="mobileDetailOpen">
-            <aside class="deck-list-panel" aria-label="Paklijaim">
-              <div>
-                <h2 class="panel-title">Paklijaim</h2>
-                <button type="button" (click)="toggleCreate()" [attr.aria-expanded]="creating">
-                  {{ creating ? 'Mégse' : '+ Új pakli' }}
-                </button>
-              </div>
+      @if (errorMessage) {
+        <div class="notice notice-bad" role="alert">
+          <app-icon name="warn" />
+          <div>{{ errorMessage }}</div>
+          <button type="button" class="icon-btn" aria-label="Bezárás" (click)="errorMessage = null"><app-icon name="x" /></button>
+        </div>
+      }
 
-              @if (decks.length > 0) {
+      @if (section === 'mine') {
+        <div class="decks-layout" [class.show-detail]="mobileDetailOpen">
+          <aside class="deck-list" aria-label="Paklijaim">
+            @if (decks.length > 0) {
+              <div class="search-mini search-full">
+                <app-icon name="search" />
                 <input
                   type="search"
                   name="globalSearch"
@@ -189,286 +190,267 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                   autocomplete="off"
                   [(ngModel)]="globalQuery"
                   (ngModelChange)="onGlobalSearchChange()">
-                @if (globalActive) {
-                  @if (isGlobalSearching && globalResults.length === 0) {
-                    <div class="loading" role="status"><div class="spinner spinner-sm"></div></div>
-                  } @else if (globalResults.length === 0) {
-                    <p>Nincs találat.</p>
-                  } @else {
-                    <ul class="deck-list global-results" aria-label="Keresési találatok">
-                      @for (result of globalResults; track result.id) {
-                        <li>
-                          <button type="button" class="deck-item" (click)="openSearchResult(result)">
-                            <span>
-                              <span class="deck-name">{{ result.term }}</span>
-                              <span class="chip" [attr.title]="'Pakli: ' + result.deckName">{{ result.deckName }}</span>
-                            </span>
-                            <span class="deck-meta">{{ result.definition }}</span>
-                            @if (result.isLeech || result.suspension !== 'none' || result.tags) {
-                              <span>
-                                @if (result.isLeech) {
-                                  <span class="chip chip-leech">Nehéz szó</span>
-                                }
-                                @if (result.suspension === 'suspended') {
-                                  <span class="chip chip-paused">Felfüggesztve</span>
-                                } @else if (result.suspension === 'buried') {
-                                  <span class="chip chip-paused">Elnapolva holnapig</span>
-                                }
-                                @for (tag of tagList(result.tags); track tag) {
-                                  <span class="chip">{{ tag }}</span>
-                                }
-                              </span>
-                            }
-                          </button>
-                        </li>
-                      }
-                    </ul>
-                  }
-                }
-              }
-
-              @if (creating) {
-                <form class="create-box" (ngSubmit)="createDeck()">
-                  <label for="deckName">A pakli neve</label>
-                  <input
-                    id="deckName"
-                    name="deckName"
-                    maxlength="100"
-                    placeholder="pl. Utazás, Munka, B2 igék"
-                    autocomplete="off"
-                    [(ngModel)]="newDeckName"
-                    [disabled]="isSavingDeck">
-                  <label for="deckDescription">Leírás (nem kötelező)</label>
-                  <textarea
-                    id="deckDescription"
-                    name="deckDescription"
-                    rows="2"
-                    maxlength="500"
-                    placeholder="Miről szól a pakli? Mások ebben is kereshetnek."
-                    [(ngModel)]="newDeckDescription"
-                    [disabled]="isSavingDeck"></textarea>
-                  <label for="deckLevel">Mondatszint</label>
-                  <select
-                    id="deckLevel"
-                    name="deckLevel"
-                    [(ngModel)]="newDeckLevel"
-                    [disabled]="isSavingDeck">
-                    @for (level of exampleLevels; track level) {
-                      <option [value]="level">{{ level }}{{ level === accountLevel ? ' (fiók szintje)' : '' }}</option>
-                    }
-                  </select>
-                  <div>Az MI ilyen nehézségű definíciókat és példamondatokat készít a paklihoz. Később a pakli beállításaiban átállíthatod.</div>
-                  <div>
-                    <button type="submit" [disabled]="isSavingDeck || !newDeckName.trim()">
-                      @if (isSavingDeck) {
-                        <span class="spinner spinner-sm"></span>
-                      }
-                      Létrehozás
-                    </button>
-                    <button type="button" (click)="toggleCreate()">Mégse</button>
-                  </div>
-                </form>
-              }
-
-              @if (isLoadingDecks) {
-                <div class="loading" role="status">
-                  <div class="spinner"></div>
-                </div>
-              } @else {
-                @if (decks.length === 0) {
-                  <div class="empty-box">
-                    <p>Még nincs paklid</p>
-                    <p>Hozz létre egy újat, vagy másolj le egy kész paklit a közösből.</p>
-                    <div>
-                      <button type="button" (click)="creating = true">+ Új pakli</button>
-                      <button type="button" (click)="setSection('public')">Kész paklik böngészése</button>
-                    </div>
-                  </div>
-                }
-                <ul class="deck-list" [hidden]="globalActive">
-                  @for (deck of decks; track deck.id) {
-                    <li>
-                      <button
-                        type="button"
-                        class="deck-item"
-                        [class.active]="!viewingLearned && selectedDeckId === deck.id"
-                        [attr.aria-current]="!viewingLearned && selectedDeckId === deck.id ? 'true' : null"
-                        (click)="selectDeck(deck.id, true)">
-                        <span>
-                          <span class="deck-name">{{ deck.name }}</span>
-                          <span>
-                            @if (deck.isPublic && deck.share; as share) {
-                              <span class="chip chip-shared" title="Ez a pakli megosztva van">Megosztva · v{{ share.version }}</span>
-                              @if (share.hasUnpublishedChanges) {
-                                <span class="chip chip-pending" title="A legutóbbi megosztás óta módosult. Frissítsd a Beállítások és megosztás fülön.">Frissítésre vár</span>
-                              }
-                            }
-                            @if (deck.updateAvailable) {
-                              <span class="chip chip-pending" [attr.title]="'A készítő újabb verziót tett közzé (v' + deck.latestSharedVersion + ')'">Új verzió: v{{ deck.latestSharedVersion }}</span>
-                            }
+              </div>
+              @if (globalActive) {
+                @if (isGlobalSearching && globalResults.length === 0) {
+                  <div class="loading" role="status"><div class="spinner spinner-sm"></div></div>
+                } @else if (globalResults.length === 0) {
+                  <p class="muted small">Nincs találat.</p>
+                } @else {
+                  <ul class="deck-rows" aria-label="Keresési találatok">
+                    @for (result of globalResults; track result.id) {
+                      <li>
+                        <button type="button" class="deck-row" (click)="openSearchResult(result)">
+                          <span class="top">
+                            <strong>{{ result.term }}</strong>
+                            <span class="badge" [attr.title]="'Pakli: ' + result.deckName">{{ result.deckName }}</span>
                           </span>
-                        </span>
-                        <span class="deck-meta">
-                          {{ deck.cardCount }} kártya
-                          @if (deck.dueCount > 0) {
-                            · <span class="due">{{ deck.dueCount }} esedékes</span>
+                          <span class="meta">{{ result.definition }}</span>
+                          @if (result.isLeech || result.suspension !== 'none' || result.tags) {
+                            <span class="chips">
+                              @if (result.isLeech) {
+                                <span class="badge b-leech">Nehéz szó</span>
+                              }
+                              @if (result.suspension === 'suspended') {
+                                <span class="badge b-paused">Felfüggesztve</span>
+                              } @else if (result.suspension === 'buried') {
+                                <span class="badge b-paused">Elnapolva holnapig</span>
+                              }
+                              @for (tag of tagList(result.tags); track tag) {
+                                <span class="badge">{{ tag }}</span>
+                              }
+                            </span>
                           }
-                        </span>
-                        <span class="mini-progress" aria-hidden="true"><span></span></span>
-                      </button>
-                    </li>
-                  }
+                        </button>
+                      </li>
+                    }
+                  </ul>
+                }
+              }
+            }
+
+            @if (isLoadingDecks) {
+              <div class="loading" role="status">
+                <div class="spinner"></div>
+              </div>
+            } @else {
+              @if (decks.length === 0) {
+                <div class="panel empty">
+                  <span class="empty-ic"><app-icon name="folder" /></span>
+                  <h2 class="h2">Még nincs paklid</h2>
+                  <p class="lead">Hozz létre egy újat, vagy másolj le egy kész paklit a közösből.</p>
+                  <div class="actions center">
+                    <button type="button" class="btn btn-primary" (click)="creating = true"><app-icon name="plus" /> Új pakli</button>
+                    <button type="button" class="btn" (click)="setSection('public')">Kész paklik böngészése</button>
+                  </div>
+                </div>
+              }
+              <ul class="deck-rows" [hidden]="globalActive">
+                @for (deck of decks; track deck.id) {
                   <li>
                     <button
                       type="button"
-                      class="deck-item deck-item-special"
-                      [class.active]="viewingLearned"
-                      [attr.aria-current]="viewingLearned ? 'true' : null"
-                      (click)="selectLearned(true)">
-                      <span class="deck-name">Megtanult szavak</span>
-                      <span class="deck-meta">{{ learnedTotal }} kártya az összes paklidból</span>
+                      class="deck-row"
+                      [class.is-on]="!viewingLearned && selectedDeckId === deck.id"
+                      [attr.aria-current]="!viewingLearned && selectedDeckId === deck.id ? 'true' : null"
+                      (click)="selectDeck(deck.id, true)">
+                      <span class="top">
+                        <strong>{{ deck.name }}</strong>
+                        @if (deck.isPublic && deck.share; as share) {
+                          <span class="badge" title="Ez a pakli megosztva van"><app-icon name="share" />v{{ share.version }}</span>
+                          @if (share.hasUnpublishedChanges) {
+                            <span class="badge b-learning" title="A legutóbbi megosztás óta módosult. Frissítsd a Beállítások és megosztás fülön.">Frissítésre vár</span>
+                          }
+                        }
+                        @if (deck.updateAvailable) {
+                          <span class="badge b-learning" [attr.title]="'A készítő újabb verziót tett közzé (v' + deck.latestSharedVersion + ')'">Új verzió: v{{ deck.latestSharedVersion }}</span>
+                        }
+                        @if (deck.exampleLevel) {
+                          <span class="badge">{{ deck.exampleLevel }}</span>
+                        }
+                      </span>
+                      <span class="meta">
+                        <span>{{ deck.cardCount }} kártya</span>
+                        @if (deck.dueCount > 0) {
+                          <span class="due">{{ deck.dueCount }} esedékes</span>
+                        } @else if (deck.cardCount > 0) {
+                          <span>Mára kész</span>
+                        }
+                      </span>
+                      <span class="prog">
+                        <span class="progress" aria-hidden="true"><i [style.width.%]="learnedPercent(deck)"></i></span>
+                        <span>{{ learnedPercent(deck) | number:'1.0-0' }}% megtanulva</span>
+                      </span>
                     </button>
                   </li>
-                </ul>
-              }
-            </aside>
+                }
+                <li>
+                  <button
+                    type="button"
+                    class="deck-row deck-row-special"
+                    [class.is-on]="viewingLearned"
+                    [attr.aria-current]="viewingLearned ? 'true' : null"
+                    (click)="selectLearned(true)">
+                    <span class="top"><app-icon name="check" /><strong>Megtanult szavak</strong></span>
+                    <span class="meta">{{ learnedTotal }} kártya az összes paklidból</span>
+                  </button>
+                </li>
+              </ul>
+            }
+          </aside>
 
-            <section class="deck-detail-panel" aria-live="polite">
-              @if (importMessage) {
-                <div role="status">
-                  <div>{{ importMessage }}</div>
+          <section class="panel deck-detail" aria-live="polite">
+            @if (importMessage) {
+              <div class="notice notice-info" role="status">
+                <app-icon name="info" />
+                <div>
+                  <span>{{ importMessage }}</span>
                   @if (importSkipped.length > 0) {
-                    <ul>
+                    <ul class="help">
                       @for (line of importSkipped; track $index) {
                         <li>{{ line }}</li>
                       }
                     </ul>
                   }
-                  <button type="button" aria-label="Bezárás" (click)="importMessage = null; importSkipped = []"></button>
                 </div>
-              }
+                <button type="button" class="icon-btn" aria-label="Bezárás" (click)="importMessage = null; importSkipped = []"><app-icon name="x" /></button>
+              </div>
+            }
 
-              @if (viewingLearned) {
-                <button type="button" class="back-link" (click)="closeDetail()">← Vissza a paklikhoz</button>
-                <div class="detail-head">
-                  <h2>Megtanult szavak</h2>
-                  <div>Az összes paklidból azok a kártyák, amelyeket már megtanultál.</div>
+            @if (viewingLearned) {
+              <button type="button" class="btn btn-ghost btn-sm back-btn" (click)="closeDetail()"><app-icon name="arrowL" /> Paklik</button>
+              <div class="dd-head">
+                <div class="ph-text">
+                  <h2 class="h2">Megtanult szavak</h2>
+                  <p class="muted">Az összes paklidból azok a kártyák, amelyeket már megtanultál.</p>
                 </div>
-                <div class="toolbar">
+              </div>
+              <div class="filter-row">
+                <div class="search-mini">
+                  <app-icon name="search" />
                   <input
                     type="search"
                     name="learnedSearch"
                     placeholder="Keresés a megtanult szavak között…"
                     aria-label="Keresés a megtanult szavak között"
                     [(ngModel)]="learnedSearch">
-                  <div class="dseg dseg-sm" role="group" aria-label="Nézet">
-                    <button type="button" class="dseg-btn" [class.active]="learnedDetailed" (click)="learnedDetailed = true">Részletes</button>
-                    <button type="button" class="dseg-btn" [class.active]="!learnedDetailed" (click)="learnedDetailed = false">Rövid</button>
-                  </div>
                 </div>
-                @if (isLoadingCards) {
-                  <div class="loading" role="status"><div class="spinner"></div></div>
-                } @else if (learnedCards.length === 0) {
-                  <div class="empty-box">
-                    <p>Még nincs megtanult szavad</p>
-                    <p>Ide kerül az a kártya, amire tanulás közben elég sokszor jól válaszoltál, vagy „Ismerem”-nek jelöltél.</p>
-                  </div>
-                } @else if (visibleLearned.length === 0) {
-                  <div class="empty-box"><p>Nincs a keresésnek megfelelő szó.</p></div>
-                } @else {
-                  <ul class="card-rows">
-                    @for (card of visibleLearned; track card.id) {
-                      <li class="card-row">
-                        <div class="card-main">
-                          <div class="card-term">{{ card.term }}</div>
-                          @if (learnedDetailed) {
-                            <div class="card-def">{{ card.definition }}</div>
-                            @if (card.targetMeanings) {
-                              <div class="card-tm">{{ card.targetMeanings }}</div>
-                            }
-                            @if (card.example) {
-                              <div class="card-ex">„{{ card.example }}”</div>
-                            }
-                            <div class="meta-grid">
-                              <span>Pakli: <strong>{{ card.deckName }}</strong></span>
-                              <span>Megtanulva: {{ formatLocalTime(card.learnedAt) }}</span>
-                              <span>Következő ismétlés: {{ formatLocalTime(card.nextReviewDate) }}</span>
-                              <span>Helyes: {{ card.correctCount }} · Hibás: {{ card.incorrectCount }}</span>
-                              <span>Sorozat: {{ card.streak }} · Időköz: {{ card.interval }} nap</span>
-                              @if (card.markedKnown) {
-                                <span>Ismertnek jelölve</span>
-                              }
-                            </div>
-                          }
-                        </div>
-                        <div class="card-actions">
-                          <button
-                            type="button"
-                            title="Visszateszi a kártyát a tanulandók közé"
-                            [disabled]="resettingLearnedCardId === card.id"
-                            (click)="resetLearned(card)">
-                            Mégse tudom
-                          </button>
-                        </div>
-                      </li>
-                    }
-                  </ul>
-                }
+                <div class="seg seg-sm" role="group" aria-label="Nézet">
+                  <button type="button" [class.is-on]="learnedDetailed" [attr.aria-pressed]="learnedDetailed" (click)="learnedDetailed = true">Részletes</button>
+                  <button type="button" [class.is-on]="!learnedDetailed" [attr.aria-pressed]="!learnedDetailed" (click)="learnedDetailed = false">Rövid</button>
+                </div>
+              </div>
+              @if (isLoadingCards) {
+                <div class="loading" role="status"><div class="spinner"></div></div>
+              } @else if (learnedCards.length === 0) {
+                <div class="empty">
+                  <span class="empty-ic"><app-icon name="check" /></span>
+                  <h3 class="h2">Még nincs megtanult szavad</h3>
+                  <p class="lead">Ide kerül az a kártya, amire tanulás közben elég sokszor jól válaszoltál, vagy „Ismerem”-nek jelöltél.</p>
+                </div>
+              } @else if (visibleLearned.length === 0) {
+                <p class="muted">Nincs a keresésnek megfelelő szó.</p>
               } @else {
-              @if (selectedDeck; as deck) {
-                <button type="button" class="back-link" (click)="closeDetail()">← Vissza a paklikhoz</button>
-                <div class="detail-head">
-                  <div>
-                    <div class="min-w-0">
-                      <h2>{{ deck.name }}</h2>
-                      @if (deck.description) {
-                        <p class="deck-description">{{ deck.description }}</p>
-                      }
-                      <div>
-                        <span>{{ deck.cardCount }} kártya</span>
-                        <span>· {{ deck.learnedCount }} megtanult</span>
-                        <span>· {{ deck.dueCount }} esedékes</span>
-                        @if (deck.isPublic && deck.share; as share) {
-                          <span class="chip chip-shared">Megosztva · v{{ share.version }} · {{ deck.exampleLevel ?? accountLevel }}</span>
-                          @if (share.hasUnpublishedChanges) {
-                            <span class="chip chip-pending">Frissítésre vár</span>
-                          }
+                <ul class="card-rows">
+                  @for (card of visibleLearned; track card.id) {
+                    <li class="card-row">
+                      <div class="card-main">
+                        <div class="card-term">{{ card.term }}</div>
+                        @if (card.targetMeanings) {
+                          <div class="card-tm">{{ card.targetMeanings }}</div>
                         }
-                        @if (deck.updateAvailable) {
-                          <span class="chip chip-pending">Új verzió: v{{ deck.latestSharedVersion }}</span>
+                        @if (learnedDetailed) {
+                          <div class="card-def">{{ card.definition }}</div>
+                          @if (card.example) {
+                            <div class="card-ex">„{{ card.example }}”</div>
+                          }
+                          <div class="meta-grid">
+                            <span>Pakli: <strong>{{ card.deckName }}</strong></span>
+                            <span>Megtanulva: {{ formatLocalTime(card.learnedAt) }}</span>
+                            <span>Következő ismétlés: {{ formatLocalTime(card.nextReviewDate) }}</span>
+                            <span>Helyes: {{ card.correctCount }} · Hibás: {{ card.incorrectCount }}</span>
+                            <span>Sorozat: {{ card.streak }} · Időköz: {{ card.interval }} nap</span>
+                            @if (card.markedKnown) {
+                              <span>Ismertnek jelölve</span>
+                            }
+                          </div>
                         }
                       </div>
-                    </div>
-                    <div>
-                      <button
-                        type="button"
-                        [disabled]="deck.cardCount === 0"
-                        [attr.title]="deck.cardCount === 0 ? 'Előbb vegyél fel kártyát' : 'Tanulás ezzel a paklival'"
-                        (click)="studyDeck.emit(deck.id)">
-                        Tanulás
-                      </button>
-                      <button type="button" (click)="openNewCard()">+ Új kártya</button>
-                    </div>
-                  </div>
-                  <div class="tabs" role="tablist">
-                    <button type="button" role="tab" class="dtab-btn" [class.active]="detailTab === 'cards'" [attr.aria-selected]="detailTab === 'cards'" (click)="detailTab = 'cards'">
-                      Kártyák <span class="dseg-count">{{ cards.length }}</span>
-                    </button>
-                    <button type="button" role="tab" class="dtab-btn" [class.active]="detailTab === 'settings'" [attr.aria-selected]="detailTab === 'settings'" (click)="openSettings()">
-                      Beállítások és megosztás
-                    </button>
+                      <div class="card-actions">
+                        <button
+                          type="button"
+                          class="btn btn-sm"
+                          title="Visszateszi a kártyát a tanulandók közé"
+                          [disabled]="resettingLearnedCardId === card.id"
+                          (click)="resetLearned(card)">
+                          <app-icon name="undo" /> Mégse tudom
+                        </button>
+                      </div>
+                    </li>
+                  }
+                </ul>
+              }
+            } @else {
+            @if (selectedDeck; as deck) {
+              <button type="button" class="btn btn-ghost btn-sm back-btn" (click)="closeDetail()"><app-icon name="arrowL" /> Paklik</button>
+              <div class="dd-head">
+                <div class="ph-text">
+                  <h2 class="h2">{{ deck.name }}</h2>
+                  @if (deck.description) {
+                    <p class="muted deck-description">{{ deck.description }}</p>
+                  }
+                  <div class="deck-facts">
+                    <span>{{ deck.cardCount }} kártya</span>
+                    <span>{{ deck.learnedCount }} megtanult</span>
+                    <span [class.due]="deck.dueCount > 0">{{ deck.dueCount }} esedékes</span>
+                    @if (deck.isPublic && deck.share; as share) {
+                      <span class="badge b-learned">Megosztva · v{{ share.version }} · {{ deck.exampleLevel ?? accountLevel }}</span>
+                      @if (share.hasUnpublishedChanges) {
+                        <span class="badge b-learning">Frissítésre vár</span>
+                      }
+                    }
+                    @if (deck.updateAvailable) {
+                      <span class="badge b-learning">Új verzió: v{{ deck.latestSharedVersion }}</span>
+                    }
                   </div>
                 </div>
+                <div class="actions">
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    [disabled]="deck.cardCount === 0"
+                    [attr.title]="deck.cardCount === 0 ? 'Előbb vegyél fel kártyát' : 'Tanulás ezzel a paklival'"
+                    (click)="studyDeck.emit(deck.id)">
+                    <app-icon name="play" /> Tanulás
+                  </button>
+                  <button type="button" class="btn" (click)="openNewCard()"><app-icon name="plus" /> Új kártya</button>
+                  <button type="button" class="btn" [disabled]="isImporting" (click)="openPasteImport()"><app-icon name="clipboard" /> Beillesztés</button>
+                </div>
+              </div>
+              <div class="tabs tabs-sm" role="tablist">
+                <button type="button" role="tab" [class.is-on]="detailTab === 'cards'" [attr.aria-selected]="detailTab === 'cards'" (click)="detailTab = 'cards'">
+                  Kártyák <span class="count">{{ cards.length }}</span>
+                </button>
+                <button type="button" role="tab" [class.is-on]="detailTab === 'settings'" [attr.aria-selected]="detailTab === 'settings'" (click)="openSettings()">
+                  Beállítások és megosztás
+                </button>
+              </div>
 
-                @if (detailTab === 'cards') {
-                  @if (cardEditorOpen) {
-                    <form class="editor" (ngSubmit)="saveCard()" aria-label="Kártya szerkesztő">
-                      <div>
-                        <h3>{{ editingCardId === null ? 'Új kártya' : 'Kártya szerkesztése' }}</h3>
-                        <button type="button" aria-label="Szerkesztő bezárása" (click)="closeEditor()"></button>
-                      </div>
-                      <div>
-                        <div>
+              @if (detailTab === 'cards') {
+                @if (cardEditorOpen) {
+                  <div class="overlay overlay-side">
+                    <div class="scrim"></div>
+                    <form class="dlg dlg-full editor" (ngSubmit)="saveCard()" role="dialog" aria-modal="true" aria-label="Kártya szerkesztő">
+                      <span class="dlg-grab" aria-hidden="true"></span>
+                      <header class="dlg-head">
+                        <div class="ph-text">
+                          <h3 class="h2">{{ editingCardId === null ? 'Új kártya' : 'Kártya szerkesztése' }}</h3>
+                          <p class="muted small">{{ deck.name }}</p>
+                        </div>
+                        <button type="button" class="icon-btn" aria-label="Szerkesztő bezárása" (click)="closeEditor()"><app-icon name="x" /></button>
+                      </header>
+                      <div class="dlg-body">
+                        <div class="field">
                           <label for="card-term">Szó vagy kifejezés</label>
                           <input
                             id="card-term"
@@ -479,31 +461,35 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             [(ngModel)]="term"
                             [disabled]="isSavingCard">
                         </div>
-                        <div>
+                        <div class="ai-strip">
+                          <app-icon name="sparkle" />
+                          <span>Az MI kitölti az angol definíciót és a magyar jelentést, ha még üresek.</span>
                           <button
                             type="button"
-                            class="w-md-auto"
+                            class="btn btn-sm"
                             (click)="autoFill()"
-                            [disabled]="!term.trim() || isSavingCard || isBusyAi"
-                            title="Az MI kitölti az angol definíciót és a magyar jelentést, ha még üresek">
+                            [disabled]="!term.trim() || isSavingCard || isBusyAi">
                             @if (isAutoFilling) {
                               <span class="spinner spinner-sm"></span>
                             }
                             Kitöltés MI-vel
                           </button>
                         </div>
-                        <div>
-                          <div>
+                        <div class="field">
+                          <div class="label-row">
                             <label for="card-definition">Angol definíció</label>
-                            <button type="button" (click)="generateDefinition()" [disabled]="isBusyAi || isSavingCard || !term.trim()">
+                            <button type="button" class="btn btn-ghost btn-sm" (click)="generateDefinition()" [disabled]="isBusyAi || isSavingCard || !term.trim()">
                               @if (isGeneratingDefinition) {
                                 <span class="spinner spinner-sm"></span>
+                              } @else {
+                                <app-icon name="sparkle" />
                               }
                               Generálás
                             </button>
                           </div>
                           <textarea
                             id="card-definition"
+                            class="textarea-short"
                             name="definition"
                             rows="2"
                             maxlength="500"
@@ -511,18 +497,21 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             (keydown.control.enter)="saveCard()"
                             [disabled]="isSavingCard || isGeneratingDefinition"></textarea>
                         </div>
-                        <div>
-                          <div>
+                        <div class="field">
+                          <div class="label-row">
                             <label for="card-meanings">Magyar jelentés</label>
-                            <button type="button" (click)="generateTargetMeaning()" [disabled]="isBusyAi || isSavingCard || !term.trim() || !definition.trim()">
+                            <button type="button" class="btn btn-ghost btn-sm" (click)="generateTargetMeaning()" [disabled]="isBusyAi || isSavingCard || !term.trim() || !definition.trim()">
                               @if (isGeneratingTargetMeaning) {
                                 <span class="spinner spinner-sm"></span>
+                              } @else {
+                                <app-icon name="sparkle" />
                               }
                               Generálás
                             </button>
                           </div>
                           <textarea
                             id="card-meanings"
+                            class="textarea-short"
                             name="targetMeanings"
                             rows="2"
                             maxlength="300"
@@ -530,12 +519,13 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             [(ngModel)]="targetMeanings"
                             (keydown.control.enter)="saveCard()"
                             [disabled]="isSavingCard || isGeneratingTargetMeaning"></textarea>
-                          <div>Több elfogadott alak vesszővel elválasztva.</div>
+                          <span class="help">Több elfogadott alak vesszővel elválasztva.</span>
                         </div>
-                        <div>
+                        <div class="field">
                           <label for="card-example">Példamondat (nem kötelező)</label>
                           <textarea
                             id="card-example"
+                            class="textarea-short"
                             name="example"
                             rows="2"
                             maxlength="500"
@@ -543,7 +533,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             (keydown.control.enter)="saveCard()"
                             [disabled]="isSavingCard"></textarea>
                         </div>
-                        <div>
+                        <div class="field">
                           <label for="card-tags">Címkék (nem kötelező)</label>
                           <input
                             id="card-tags"
@@ -553,54 +543,52 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             placeholder="ige, b2, utazás"
                             [(ngModel)]="tags"
                             [disabled]="isSavingCard">
-                          <div>Legfeljebb {{ maxTags }} címke, vesszővel elválasztva, egyenként legfeljebb {{ maxTagLength }} karakter.</div>
+                          <span class="help">Legfeljebb {{ maxTags }} címke, vesszővel elválasztva, egyenként legfeljebb {{ maxTagLength }} karakter.</span>
                         </div>
+                        @if (cardError) {
+                          <div class="notice notice-bad" role="alert"><app-icon name="warn" /><div>{{ cardError }}</div></div>
+                        }
                       </div>
-                      @if (cardError) {
-                        <div role="alert">{{ cardError }}</div>
-                      }
-                      <div>
-                        <button type="submit" [disabled]="isSavingCard || isBusyAi">
+                      <footer class="dlg-foot">
+                        <span class="help">Ctrl + Enter: mentés</span>
+                        <span class="spacer"></span>
+                        <button type="button" class="btn" [disabled]="isSavingCard" (click)="closeEditor()">
+                          {{ editingCardId === null ? 'Kész' : 'Mégse' }}
+                        </button>
+                        <button type="submit" class="btn btn-primary" [disabled]="isSavingCard || isBusyAi">
                           @if (isSavingCard) {
                             <span class="spinner spinner-sm"></span>
                           }
                           {{ editingCardId === null ? 'Kártya felvétele' : 'Mentés' }}
                         </button>
-                        <button type="button" [disabled]="isSavingCard" (click)="closeEditor()">
-                          {{ editingCardId === null ? 'Kész' : 'Mégse' }}
-                        </button>
-                        <span>Ctrl + Enter: mentés</span>
-                      </div>
+                      </footer>
                     </form>
-                  }
+                  </div>
+                }
 
-                  @if (isLoadingCards) {
-                    <div class="loading" role="status"><div class="spinner"></div></div>
-                  } @else if (cards.length === 0) {
-                    <div class="empty-box">
-                      <p>Ebben a pakliban még nincs kártya</p>
-                      <p>Vegyél fel kártyákat kézzel, tölts fel egy CSV-t, vagy másolj le egy kész paklit.</p>
-                      <div>
-                        <button type="button" (click)="openNewCard()">+ Első kártya felvétele</button>
-                        <button type="button" (click)="openSettings()">CSV importálása</button>
-                        <button type="button" (click)="setSection('public')">Kész paklik böngészése</button>
-                      </div>
+                @if (isLoadingCards) {
+                  <div class="loading" role="status"><div class="spinner"></div></div>
+                } @else if (cards.length === 0) {
+                  <div class="empty">
+                    <span class="empty-ic"><app-icon name="layers" /></span>
+                    <h3 class="h2">Ebben a pakliban még nincs kártya</h3>
+                    <p class="lead">Vegyél fel kártyákat kézzel, tölts fel egy CSV-t, vagy másolj le egy kész paklit.</p>
+                    <div class="actions center">
+                      <button type="button" class="btn btn-primary" (click)="openNewCard()"><app-icon name="plus" /> Első kártya felvétele</button>
+                      <button type="button" class="btn" (click)="openSettings()"><app-icon name="upload" /> CSV importálása</button>
+                      <button type="button" class="btn btn-ghost" (click)="setSection('public')">Kész paklik böngészése</button>
                     </div>
-                  } @else {
-                    <div class="toolbar">
-                      <input
-                        type="search"
-                        name="cardSearch"
-                        placeholder="Keresés a kártyák között…"
-                        aria-label="Keresés a kártyák között"
-                        [(ngModel)]="cardSearch">
-                      <div class="dseg dseg-sm" role="group" aria-label="Szűrés">
-                        <button type="button" class="dseg-btn" [class.active]="cardFilter === 'all'" (click)="cardFilter = 'all'">Mind</button>
-                        <button type="button" class="dseg-btn" [class.active]="cardFilter === 'open'" (click)="cardFilter = 'open'">Tanulandó</button>
-                        <button type="button" class="dseg-btn" [class.active]="cardFilter === 'learned'" (click)="cardFilter = 'learned'">Megtanult</button>
-                        <button type="button" class="dseg-btn" [class.active]="cardFilter === 'suspended'" (click)="cardFilter = 'suspended'">Szüneteltetett</button>
-                        <button type="button" class="dseg-btn" [class.active]="cardFilter === 'leech'" (click)="cardFilter = 'leech'">Nehéz</button>
-                      </div>
+                  </div>
+                } @else {
+                  <div class="filter-row">
+                    <div class="chips" role="group" aria-label="Szűrés">
+                      <button type="button" class="chip" [class.is-on]="cardFilter === 'all'" [attr.aria-pressed]="cardFilter === 'all'" (click)="cardFilter = 'all'">Mind</button>
+                      <button type="button" class="chip" [class.is-on]="cardFilter === 'open'" [attr.aria-pressed]="cardFilter === 'open'" (click)="cardFilter = 'open'">Tanulandó</button>
+                      <button type="button" class="chip" [class.is-on]="cardFilter === 'learned'" [attr.aria-pressed]="cardFilter === 'learned'" (click)="cardFilter = 'learned'">Megtanult</button>
+                      <button type="button" class="chip" [class.is-on]="cardFilter === 'suspended'" [attr.aria-pressed]="cardFilter === 'suspended'" (click)="cardFilter = 'suspended'">Szüneteltetett</button>
+                      <button type="button" class="chip" [class.is-on]="cardFilter === 'leech'" [attr.aria-pressed]="cardFilter === 'leech'" (click)="cardFilter = 'leech'">Nehéz</button>
+                    </div>
+                    <div class="filter-tools">
                       @if (deckTags.length > 0) {
                         <select class="tag-select" name="tagFilter" aria-label="Szűrés címkére" [(ngModel)]="tagFilter">
                           <option value="">Minden címke</option>
@@ -609,295 +597,342 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                           }
                         </select>
                       }
+                      <div class="search-mini">
+                        <app-icon name="search" />
+                        <input
+                          type="search"
+                          name="cardSearch"
+                          placeholder="Keresés a pakliban"
+                          aria-label="Keresés a kártyák között"
+                          [(ngModel)]="cardSearch">
+                      </div>
                     </div>
-                    @if (cardSearch.trim() || cardFilter !== 'all' || activeTagFilter) {
-                      <div>{{ visibleCards.length }} / {{ cards.length }} kártya</div>
-                    }
-                    @if (visibleCards.length === 0) {
-                      <div class="empty-box"><p>Nincs a szűrésnek megfelelő kártya.</p></div>
-                    } @else {
-                      <ul class="card-rows">
-                        @for (card of visibleCards; track card.id) {
-                          <li class="card-row" [class.is-editing]="editingCardId === card.id">
-                            <div class="card-main">
-                              <div class="card-term">
-                                {{ card.term }}
-                                @if (card.isLearned) {
-                                  <span class="chip chip-ok">Megtanult</span>
-                                }
-                                @if (card.isLeech) {
-                                  <span class="chip chip-leech" title="Sokszor elrontott szó. A küszöböt a Beállításokban állíthatod („Nehéz szó küszöbe”).">Nehéz szó</span>
-                                }
-                                @if (card.suspension === 'suspended') {
-                                  <span class="chip chip-paused">Felfüggesztve</span>
-                                } @else if (card.suspension === 'buried') {
-                                  <span class="chip chip-paused">Elnapolva holnapig</span>
-                                }
-                              </div>
-                              <div class="card-def">{{ card.definition }}</div>
-                              @if (card.targetMeanings) {
-                                <div class="card-tm">{{ card.targetMeanings }}</div>
+                  </div>
+                  @if (cardSearch.trim() || cardFilter !== 'all' || activeTagFilter) {
+                    <p class="help">{{ visibleCards.length }} / {{ cards.length }} kártya látszik</p>
+                  }
+                  @if (visibleCards.length === 0) {
+                    <p class="muted">Nincs a szűrésnek megfelelő kártya.</p>
+                  } @else {
+                    <ul class="card-rows">
+                      @for (card of visibleCards; track card.id) {
+                        <li class="card-row" [class.is-editing]="editingCardId === card.id">
+                          <div class="card-main">
+                            <div class="card-term">
+                              <button type="button" class="row-link" (click)="editCard(card)" [attr.title]="'Szerkesztés: ' + card.term">{{ card.term }}</button>
+                              @if (card.isLearned) {
+                                <span class="badge b-learned">Megtanult</span>
                               }
-                              @if (card.example) {
-                                <div class="card-ex">„{{ card.example }}”</div>
+                              @if (card.isLeech) {
+                                <span class="badge b-leech" title="Sokszor elrontott szó. A küszöböt a Beállításokban állíthatod („Nehéz szó küszöbe”).">Nehéz szó</span>
                               }
-                              @if (card.tags) {
-                                <div class="card-tags">
-                                  @for (tag of tagList(card.tags); track tag) {
-                                    <button type="button" class="chip chip-tag" [class.active]="tagFilter === tag" (click)="tagFilter = tagFilter === tag ? '' : tag" [attr.title]="'Szűrés erre a címkére: ' + tag">{{ tag }}</button>
-                                  }
-                                </div>
+                              @if (card.suspension === 'suspended') {
+                                <span class="badge b-paused">Felfüggesztve</span>
+                              } @else if (card.suspension === 'buried') {
+                                <span class="badge b-paused">Elnapolva holnapig</span>
                               }
                             </div>
-                            <div class="card-actions">
-                              <div [attr.title]="card.isLearned ? 'Megtanult szó. Kikapcsolva újra tanulandó lesz.' : 'Jelöld, ha már ismered, és nem akarod tanulni'">
+                            @if (card.targetMeanings) {
+                              <div class="card-tm">{{ card.targetMeanings }}</div>
+                            }
+                            <div class="card-def">{{ card.definition }}</div>
+                            @if (card.example) {
+                              <div class="card-ex">„{{ card.example }}”</div>
+                            }
+                            @if (card.tags) {
+                              <div class="chips card-tags">
+                                @for (tag of tagList(card.tags); track tag) {
+                                  <button type="button" class="chip chip-tag" [class.is-on]="tagFilter === tag" (click)="tagFilter = tagFilter === tag ? '' : tag" [attr.title]="'Szűrés erre a címkére: ' + tag">{{ tag }}</button>
+                                }
+                              </div>
+                            }
+                          </div>
+                          <div class="card-actions">
+                            <label class="mini-toggle" [attr.for]="'known-' + card.id" [attr.title]="card.isLearned ? 'Megtanult szó. Kikapcsolva újra tanulandó lesz.' : 'Jelöld, ha már ismered, és nem akarod tanulni'">
+                              <span class="switch sm">
                                 <input
                                   type="checkbox"
                                   role="switch"
                                   [id]="'known-' + card.id"
                                   [checked]="card.isLearned"
                                   [disabled]="markingKnownCardId === card.id"
-                                  (change)="setKnown(card, $event)">
-                                <label [attr.for]="'known-' + card.id">Ismerem</label>
-                              </div>
-                              @if (card.suspension === 'none') {
-                                <button
-                                  type="button"
-                                  class="icon-btn"
-                                  [disabled]="suspendingCardId === card.id"
-                                  (click)="setSuspension(card, 'buried')"
-                                  [attr.aria-label]="'Elnapolás holnapig: ' + card.term"
-                                  title="Elnapolás holnapig">
-                                  Elnapolás
-                                </button>
-                                <button
-                                  type="button"
-                                  class="icon-btn"
-                                  [disabled]="suspendingCardId === card.id"
-                                  (click)="setSuspension(card, 'suspended')"
-                                  [attr.aria-label]="'Felfüggesztés: ' + card.term"
-                                  title="Felfüggesztés, amíg vissza nem kapcsolod">
-                                  Felfüggesztés
-                                </button>
-                              } @else {
-                                <button
-                                  type="button"
-                                  class="icon-btn"
-                                  [disabled]="suspendingCardId === card.id"
-                                  (click)="setSuspension(card, 'none')"
-                                  [attr.aria-label]="'Visszakapcsolás a tanulásba: ' + card.term"
-                                  title="Visszakapcsolás a tanulásba">
-                                  Visszakapcsolás
-                                </button>
-                              }
-                              <button type="button" class="icon-btn" (click)="editCard(card)" [attr.aria-label]="'Szerkesztés: ' + card.term" title="Szerkesztés">
-                                Szerkesztés
+                                  (change)="setKnown(card, $event)"><span></span>
+                              </span>
+                              Ismerem
+                            </label>
+                            @if (card.suspension === 'none') {
+                              <button
+                                type="button"
+                                class="icon-btn"
+                                [disabled]="suspendingCardId === card.id"
+                                (click)="setSuspension(card, 'buried')"
+                                [attr.aria-label]="'Elnapolás holnapig: ' + card.term"
+                                title="Elnapolás holnapig">
+                                <app-icon name="clock" />
                               </button>
                               <button
                                 type="button"
-                                class="icon-btn icon-btn-danger"
-                                [disabled]="deletingCardId === card.id"
-                                (click)="deleteCard(card)"
-                                [attr.aria-label]="'Törlés: ' + card.term"
-                                title="Törlés">
-                                Törlés
+                                class="icon-btn"
+                                [disabled]="suspendingCardId === card.id"
+                                (click)="setSuspension(card, 'suspended')"
+                                [attr.aria-label]="'Felfüggesztés: ' + card.term"
+                                title="Felfüggesztés, amíg vissza nem kapcsolod">
+                                <app-icon name="pause" />
                               </button>
-                            </div>
-                          </li>
-                        }
-                      </ul>
-                    }
-                  }
-                } @else {
-                  <div class="settings">
-                    <section class="setting-block">
-                      <h3>Pakli neve</h3>
-                      <form (ngSubmit)="renameDeck(deck)">
-                        <input
-                          id="rename-deck"
-                          name="renameDraft"
-                          maxlength="100"
-                          autocomplete="off"
-                          aria-label="Pakli neve"
-                          [(ngModel)]="renameDraft"
-                          [disabled]="isRenaming">
-                        <button type="submit" [disabled]="isRenaming || !renameDraft.trim() || renameDraft.trim() === deck.name">
-                          @if (isRenaming) {
-                            <span class="spinner spinner-sm"></span>
-                          }
-                          Átnevezés
-                        </button>
-                      </form>
-                    </section>
-
-                    <section class="setting-block">
-                      <h3>Leírás</h3>
-                      <p>Rövid leírás a paklihoz. Megosztáskor a Közös paklik között is látszik, és a keresés is használja.</p>
-                      <form (ngSubmit)="saveDescription(deck)">
-                        <textarea
-                          id="deck-description"
-                          name="descriptionDraft"
-                          rows="3"
-                          maxlength="500"
-                          aria-label="Pakli leírása"
-                          [(ngModel)]="descriptionDraft"
-                          [disabled]="isSavingDescription"></textarea>
-                        <div>
-                          <button type="submit" [disabled]="isSavingDescription || descriptionDraft.trim() === (deck.description ?? '')">
-                            @if (isSavingDescription) {
-                              <span class="spinner spinner-sm"></span>
+                            } @else {
+                              <button
+                                type="button"
+                                class="icon-btn"
+                                [disabled]="suspendingCardId === card.id"
+                                (click)="setSuspension(card, 'none')"
+                                [attr.aria-label]="'Visszakapcsolás a tanulásba: ' + card.term"
+                                title="Visszakapcsolás a tanulásba">
+                                <app-icon name="play" />
+                              </button>
                             }
-                            Leírás mentése
-                          </button>
-                          <span>{{ descriptionDraft.length }}/500</span>
-                        </div>
-                      </form>
-                    </section>
-
-                    <section class="setting-block">
-                      <h3>Példamondatok szintje</h3>
-                      <p>Az MI ilyen nehézségű példamondatokat és definíciókat készít a paklihoz. Ha nem választasz, a fiókod szintje ({{ accountLevel }}) számít.</p>
-                      <div>
-                        <select
-                          name="exampleLevel"
-                          aria-label="Példamondatok szintje"
-                          [ngModel]="deck.exampleLevel ?? ''"
-                          (ngModelChange)="saveExampleLevel(deck, $event)"
-                          [disabled]="savingLevelDeckId === deck.id">
-                          <option value="">Fiók szintje ({{ accountLevel }})</option>
-                          @for (level of exampleLevels; track level) {
-                            <option [value]="level">{{ level }}</option>
-                          }
-                        </select>
-                        @if (savingLevelDeckId === deck.id) {
+                            <button type="button" class="icon-btn" (click)="editCard(card)" [attr.aria-label]="'Szerkesztés: ' + card.term" title="Szerkesztés">
+                              <app-icon name="edit" />
+                            </button>
+                            <button
+                              type="button"
+                              class="icon-btn icon-btn-danger"
+                              [disabled]="deletingCardId === card.id"
+                              (click)="deleteCard(card)"
+                              [attr.aria-label]="'Törlés: ' + card.term"
+                              title="Törlés">
+                              <app-icon name="trash" />
+                            </button>
+                          </div>
+                        </li>
+                      }
+                    </ul>
+                  }
+                }
+              } @else {
+                <div class="set-blocks">
+                  <section class="set-block">
+                    <h3>Pakli neve</h3>
+                    <form class="input-row" (ngSubmit)="renameDeck(deck)">
+                      <input
+                        id="rename-deck"
+                        name="renameDraft"
+                        maxlength="100"
+                        autocomplete="off"
+                        aria-label="Pakli neve"
+                        [(ngModel)]="renameDraft"
+                        [disabled]="isRenaming">
+                      <button type="submit" class="btn" [disabled]="isRenaming || !renameDraft.trim() || renameDraft.trim() === deck.name">
+                        @if (isRenaming) {
                           <span class="spinner spinner-sm"></span>
                         }
-                      </div>
-                    </section>
+                        Átnevezés
+                      </button>
+                    </form>
+                  </section>
 
-                    <section class="setting-block">
-                      <h3>Megosztás</h3>
+                  <section class="set-block">
+                    <h3>Leírás</h3>
+                    <p class="help">Rövid leírás a paklihoz. Megosztáskor a Közös paklik között is látszik, és a keresés is használja.</p>
+                    <form class="stack-sm" (ngSubmit)="saveDescription(deck)">
+                      <textarea
+                        id="deck-description"
+                        class="textarea-short"
+                        name="descriptionDraft"
+                        rows="3"
+                        maxlength="500"
+                        aria-label="Pakli leírása"
+                        [(ngModel)]="descriptionDraft"
+                        [disabled]="isSavingDescription"></textarea>
+                      <div class="row-gap">
+                        <button type="submit" class="btn btn-sm" [disabled]="isSavingDescription || descriptionDraft.trim() === (deck.description ?? '')">
+                          @if (isSavingDescription) {
+                            <span class="spinner spinner-sm"></span>
+                          }
+                          Leírás mentése
+                        </button>
+                        <span class="counter">{{ descriptionDraft.length }}/500</span>
+                      </div>
+                    </form>
+                  </section>
+
+                  <section class="set-block">
+                    <h3>Példamondatok szintje</h3>
+                    <div class="row-gap">
+                      <select
+                        class="level-select"
+                        name="exampleLevel"
+                        aria-label="Példamondatok szintje"
+                        [ngModel]="deck.exampleLevel ?? ''"
+                        (ngModelChange)="saveExampleLevel(deck, $event)"
+                        [disabled]="savingLevelDeckId === deck.id">
+                        <option value="">Fiók szintje ({{ accountLevel }})</option>
+                        @for (level of exampleLevels; track level) {
+                          <option [value]="level">{{ level }}</option>
+                        }
+                      </select>
+                      @if (savingLevelDeckId === deck.id) {
+                        <span class="spinner spinner-sm"></span>
+                      }
+                    </div>
+                    <p class="help">Az MI ilyen nehézségű példamondatokat és definíciókat készít a paklihoz. Ha nem választasz, a fiókod szintje ({{ accountLevel }}) számít.</p>
+                  </section>
+
+                  <section class="set-block">
+                    <h3>
+                      Megosztás
                       @if (deck.isPublic && deck.share; as share) {
-                        <p>
-                          <span class="chip chip-shared">Megosztva · v{{ share.version }}</span>
-                          A pakli látszik a <strong>Közös paklik</strong> között ({{ deck.exampleLevel ?? accountLevel }} szinttel). Mások megnézhetik és lemásolhatják, de a tiédet nem módosíthatják.
-                        </p>
-                        <dl class="share-stats">
-                          <div><dt>Verzió</dt><dd>v{{ share.version }}</dd></div>
-                          <div><dt>Megosztva</dt><dd>{{ formatLocalTime(share.sharedAt) }}</dd></div>
-                          <div><dt>Utoljára frissítve</dt><dd>{{ formatLocalTime(share.updatedAt) }}</dd></div>
-                          <div><dt>Lementették</dt><dd>{{ share.saveCount }} felhasználó</dd></div>
-                        </dl>
+                        <span class="badge b-learned">Megosztva · v{{ share.version }}</span>
+                      }
+                    </h3>
+                    @if (deck.isPublic && deck.share; as share) {
+                      <p class="help">
+                        A pakli látszik a <strong>Közös paklik</strong> között ({{ deck.exampleLevel ?? accountLevel }} szinttel). Mások megnézhetik és lemásolhatják, de a tiédet nem módosíthatják.
+                      </p>
+                      <dl class="share-state">
+                        <div><dt>Verzió</dt><dd>v{{ share.version }}</dd></div>
+                        <div><dt>Megosztva</dt><dd>{{ formatLocalTime(share.sharedAt) }}</dd></div>
+                        <div><dt>Utoljára frissítve</dt><dd>{{ formatLocalTime(share.updatedAt) }}</dd></div>
+                        <div><dt>Lementették</dt><dd>{{ share.saveCount }} felhasználó</dd></div>
+                      </dl>
+                      @if (share.hasUnpublishedChanges) {
+                        <div class="notice" role="status">
+                          <app-icon name="info" />
+                          <div>A legutóbbi megosztás óta módosítottad a paklit. A Közös paklik között még a v{{ share.version }} látszik.</div>
+                        </div>
+                      } @else {
+                        <p class="help">A megosztott verzió megegyezik a paklival. Ha módosítod, itt frissítheted a megosztást.</p>
+                      }
+                      <div class="actions">
                         @if (share.hasUnpublishedChanges) {
-                          <div role="status">
-                            A legutóbbi megosztás óta módosítottad a paklit. A Közös paklik között még a v{{ share.version }} látszik.
-                          </div>
                           <button
                             type="button"
+                            class="btn btn-primary btn-sm"
                             [disabled]="publishingDeckId === deck.id || deck.cardCount === 0"
                             (click)="publishUpdate(deck)">
                             @if (publishingDeckId === deck.id) {
                               <span class="spinner spinner-sm"></span>
+                            } @else {
+                              <app-icon name="upload" />
                             }
                             Megosztás frissítése (v{{ share.version + 1 }})
                           </button>
-                        } @else {
-                          <p>A megosztott verzió megegyezik a paklival. Ha módosítod, itt frissítheted a megosztást.</p>
                         }
-                        <button type="button" [disabled]="sharingDeckId === deck.id" (click)="toggleShare(deck)">
+                        <button type="button" class="btn btn-sm" [disabled]="sharingDeckId === deck.id" (click)="toggleShare(deck)">
                           @if (sharingDeckId === deck.id) {
                             <span class="spinner spinner-sm"></span>
                           }
                           Megosztás visszavonása
                         </button>
-                      } @else {
-                        <p>
-                          Megosztva a pakli bekerül a <strong>Közös paklik</strong> közé: mások megnézhetik és lemásolhatják, de az eredetit nem módosíthatják. A felhasználóneved is látszik mellette. A megosztás a pakli mostani állapotát teszi közzé, a későbbi módosításokat a „Megosztás frissítése" gombbal publikálhatod új verzióként. Bármikor visszavonhatod.
+                      </div>
+                    } @else {
+                      <p class="help">
+                        Megosztva a pakli bekerül a <strong>Közös paklik</strong> közé: mások megnézhetik és lemásolhatják, de az eredetit nem módosíthatják. A felhasználóneved is látszik mellette. A megosztás a pakli mostani állapotát teszi közzé, a későbbi módosításokat a „Megosztás frissítése" gombbal publikálhatod új verzióként. Bármikor visszavonhatod.
+                      </p>
+                      @if (deck.share; as past) {
+                        <p class="help">
+                          Ez a pakli korábban meg volt osztva (v{{ past.version }}, {{ past.saveCount }} mentés). Újra megosztva ezek az adatok megmaradnak.
                         </p>
-                        @if (deck.share; as past) {
-                          <p>
-                            Ez a pakli korábban meg volt osztva (v{{ past.version }}, {{ past.saveCount }} mentés). Újra megosztva ezek az adatok megmaradnak.
-                          </p>
-                        }
+                      }
+                      <div class="row-gap">
                         <button
                           type="button"
+                          class="btn btn-primary btn-sm"
                           [disabled]="sharingDeckId === deck.id || deck.cardCount === 0"
                           [attr.title]="deck.cardCount === 0 ? 'Üres paklit nem érdemes megosztani' : null"
                           (click)="toggleShare(deck)">
                           @if (sharingDeckId === deck.id) {
                             <span class="spinner spinner-sm"></span>
+                          } @else {
+                            <app-icon name="share" />
                           }
                           Pakli megosztása
                         </button>
                         @if (deck.cardCount === 0) {
-                          <span>Előbb vegyél fel kártyát.</span>
+                          <span class="help">Előbb vegyél fel kártyát.</span>
                         }
-                      }
-                    </section>
+                      </div>
+                    }
+                  </section>
 
-                    @if (deck.sourceVersion !== null) {
-                      <section class="setting-block">
-                        <h3>Forrás</h3>
-                        <p>Ezt a paklit a Közös paklik közül mentetted le (v{{ deck.sourceVersion }}). A tartalma nem változik, ha a készítő frissíti a megosztását.</p>
-                        @if (deck.updateAvailable && deck.sourceSharedDeckId !== null) {
-                          <p><span class="chip chip-pending">Új verzió: v{{ deck.latestSharedVersion }}</span> A készítő újabb verziót tett közzé.</p>
-                          <button type="button" [disabled]="copyingDeckId === deck.sourceSharedDeckId" (click)="saveNewVersion(deck)">
+                  @if (deck.sourceVersion !== null) {
+                    <section class="set-block">
+                      <h3>Forrás</h3>
+                      <p class="help">Ezt a paklit a Közös paklik közül mentetted le (v{{ deck.sourceVersion }}). A tartalma nem változik, ha a készítő frissíti a megosztását.</p>
+                      @if (deck.updateAvailable && deck.sourceSharedDeckId !== null) {
+                        <div class="notice" role="status">
+                          <app-icon name="info" />
+                          <div><span><strong>Új verzió: v{{ deck.latestSharedVersion }}.</strong> A készítő újabb verziót tett közzé.</span></div>
+                        </div>
+                        <div>
+                          <button type="button" class="btn btn-sm" [disabled]="copyingDeckId === deck.sourceSharedDeckId" (click)="saveNewVersion(deck)">
                             @if (copyingDeckId === deck.sourceSharedDeckId) {
                               <span class="spinner spinner-sm"></span>
                             }
                             Új verzió mentése új paklinak
                           </button>
+                        </div>
+                      }
+                    </section>
+                  }
+
+                  <section class="set-block">
+                    <h3>Import és export</h3>
+                    <p class="help">
+                      CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code> és <code>,tags</code> oszloppal), legfeljebb {{ maxImportRows }} sorral. A hibás sorok kimaradnak, a többi bekerül. Beillesztett szöveget (pl. Quizletből) is importálhatsz, ilyenkor az MI kitöltheti a definíciót és a példamondatot.
+                    </p>
+                    <div class="actions">
+                      <button type="button" class="btn btn-sm" [disabled]="isImporting" (click)="openPasteImport()"><app-icon name="clipboard" /> Beillesztés szövegből</button>
+                      <label class="btn btn-sm" [class.disabled]="isImporting">
+                        @if (isImporting) {
+                          <span class="spinner spinner-sm"></span>
+                        } @else {
+                          <app-icon name="upload" />
                         }
-                      </section>
-                    }
-
-                    <section class="setting-block">
-                      <h3>Import és export</h3>
-                      <p>
-                        CSV fájl <code>term,definition,example</code> fejléccel (opcionálisan <code>,targetMeanings</code> és <code>,tags</code> oszloppal), legfeljebb {{ maxImportRows }} sorral. A hibás sorok kimaradnak, a többi bekerül. Beillesztett szöveget (pl. Quizletből) is importálhatsz, ilyenkor az MI kitöltheti a definíciót és a példamondatot.
-                      </p>
-                      <div>
-                        <button type="button" [disabled]="isImporting" (click)="openPasteImport()">Beillesztés szövegből</button>
-                        <label [class.disabled]="isImporting">
-                          @if (isImporting) {
-                            <span class="spinner spinner-sm"></span>
-                          }
-                          CSV importálása
-                          <input type="file" accept=".csv,text/csv" [disabled]="isImporting" (change)="importDeck($event)">
-                        </label>
-                        <button type="button" [disabled]="isExporting || deck.cardCount === 0" (click)="exportDeck()">
-                          @if (isExporting) {
-                            <span class="spinner spinner-sm"></span>
-                          }
-                          Exportálás CSV-be
-                        </button>
-                        <button type="button" (click)="downloadCsvTemplate()">Minta CSV letöltése</button>
-                      </div>
-                    </section>
-
-                    <section class="setting-block danger-zone">
-                      <h3>Veszélyes terület</h3>
-                      <p>A pakli törlésével a kártyái és a hozzájuk tartozó tanulási adatok is véglegesen törlődnek.</p>
-                      <button type="button" [disabled]="deletingDeckId === deck.id" (click)="deleteDeck(deck)">
-                        Pakli törlése
+                        CSV importálása
+                        <input type="file" class="sr-only" accept=".csv,text/csv" [disabled]="isImporting" (change)="importDeck($event)">
+                      </label>
+                      <button type="button" class="btn btn-sm" [disabled]="isExporting || deck.cardCount === 0" (click)="exportDeck()">
+                        @if (isExporting) {
+                          <span class="spinner spinner-sm"></span>
+                        } @else {
+                          <app-icon name="download" />
+                        }
+                        Exportálás CSV-be
                       </button>
-                    </section>
-                  </div>
-                }
-              } @else if (!isLoadingDecks) {
-                <div class="empty-box empty-box-lg">
-                  <p>Válassz egy paklit</p>
-                  <p>Válassz paklit a bal oldali listából a kártyák szerkesztéséhez, vagy hozz létre egy újat.</p>
-                  <button type="button" (click)="creating = true">+ Új pakli</button>
+                      <button type="button" class="btn btn-ghost btn-sm" (click)="downloadCsvTemplate()">Minta CSV letöltése</button>
+                    </div>
+                  </section>
+
+                  <section class="set-block danger-block">
+                    <h3>Veszélyes terület</h3>
+                    <p class="help">A pakli törlésével a kártyái és a hozzájuk tartozó tanulási adatok is véglegesen törlődnek.</p>
+                    <div>
+                      <button type="button" class="btn btn-sm btn-danger-ghost" [disabled]="deletingDeckId === deck.id" (click)="deleteDeck(deck)">
+                        <app-icon name="trash" /> Pakli törlése
+                      </button>
+                    </div>
+                  </section>
                 </div>
               }
-              }
-            </section>
-          </div>
-        } @else {
-          <section aria-label="Közös paklik">
-            <p>Más felhasználók megosztott paklijai. Nézd meg a tartalmukat, és másold a sajátjaid közé, ha tetszik.</p>
-            <form class="toolbar" (ngSubmit)="searchPublicDecks()">
+            } @else if (!isLoadingDecks) {
+              <div class="empty">
+                <span class="empty-ic"><app-icon name="folder" /></span>
+                <h3 class="h2">Válassz egy paklit</h3>
+                <p class="lead">Válassz paklit a listából a kártyák szerkesztéséhez, vagy hozz létre egy újat.</p>
+                <div class="actions center">
+                  <button type="button" class="btn btn-primary" (click)="creating = true"><app-icon name="plus" /> Új pakli</button>
+                </div>
+              </div>
+            }
+            }
+          </section>
+        </div>
+      } @else {
+        <section class="stack public-section" aria-label="Közös paklik">
+          <p class="muted">Más felhasználók megosztott paklijai. Nézd meg a tartalmukat, és másold a sajátjaid közé, ha tetszik.</p>
+          <form class="filter-row public-filters" (ngSubmit)="searchPublicDecks()">
+            <div class="search-mini search-wide">
+              <app-icon name="search" />
               <input
                 type="search"
                 name="publicQuery"
@@ -905,6 +940,9 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                 aria-label="Keresés a közös paklik között"
                 [(ngModel)]="publicQuery"
                 (ngModelChange)="onPublicQueryChange()">
+            </div>
+            <div class="search-mini">
+              <app-icon name="user" />
               <input
                 type="search"
                 name="publicOwner"
@@ -913,7 +951,10 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                 aria-label="Szűrés a megosztó felhasználónevére"
                 [(ngModel)]="publicOwner"
                 (ngModelChange)="onPublicQueryChange()">
+            </div>
+            <div class="row-gap">
               <select
+                class="sort-select"
                 name="publicSort"
                 aria-label="Rendezés"
                 [(ngModel)]="publicSort"
@@ -927,315 +968,399 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
               </select>
               <button
                 type="button"
+                class="btn btn-sm"
                 [attr.aria-label]="publicDesc ? 'Csökkenő sorrend' : 'Növekvő sorrend'"
                 [attr.title]="publicDesc ? 'Csökkenő sorrend (váltás növekvőre)' : 'Növekvő sorrend (váltás csökkenőre)'"
                 (click)="togglePublicSortDirection()">
                 {{ publicDesc ? '↓ Csökkenő' : '↑ Növekvő' }}
               </button>
-              <div class="dseg dseg-sm dseg-wrap" role="group" aria-label="Szint">
-                <button type="button" class="dseg-btn" [class.active]="publicLevelFilter === ''" (click)="publicLevelFilter = ''">Mind</button>
-                @for (level of exampleLevels; track level) {
-                  <button type="button" class="dseg-btn" [class.active]="publicLevelFilter === level" (click)="publicLevelFilter = level">{{ level }}</button>
-                }
-              </div>
-            </form>
+            </div>
+            <div class="seg seg-sm" role="group" aria-label="Szint">
+              <button type="button" [class.is-on]="publicLevelFilter === ''" [attr.aria-pressed]="publicLevelFilter === ''" (click)="publicLevelFilter = ''">Mind</button>
+              @for (level of exampleLevels; track level) {
+                <button type="button" [class.is-on]="publicLevelFilter === level" [attr.aria-pressed]="publicLevelFilter === level" (click)="publicLevelFilter = level">{{ level }}</button>
+              }
+            </div>
+          </form>
 
-            @if (isLoadingPublic && publicDecks.length === 0) {
-              <div class="loading" role="status"><div class="spinner"></div></div>
-            } @else if (filteredPublicDecks().length === 0) {
-              <div class="empty-box">
-                <p>{{ hasPublicFilter() ? 'Nincs találat' : 'Még nincs közös pakli' }}</p>
-                <p>
-                  {{ hasPublicFilter() ? 'Próbálj másik keresőszót, felhasználónevet vagy szintet.' : 'Oszd meg az első paklidat a saját paklid Beállítások és megosztás fülén.' }}
-                </p>
-              </div>
-            } @else {
-              <div class="public-grid">
-                @for (deck of filteredPublicDecks(); track deck.id) {
-                  <article class="public-card" [class.open]="previewDeckId === deck.id">
-                    <div>
-                      <h3>{{ deck.name }}</h3>
-                      @if (deck.exampleLevel) {
-                        <span class="chip chip-level" [attr.title]="deck.levelIsAutomatic ? 'Automatikus szint: a készítő fiókszintje (' + deck.exampleLevel + ')' : 'A pakli példamondatai ' + deck.exampleLevel + ' szintre készültek'">
-                          {{ deck.exampleLevel }}
-                        </span>
-                      }
-                    </div>
-                    @if (deck.description) {
-                      <p class="deck-description">{{ deck.description }}</p>
+          @if (isLoadingPublic && publicDecks.length === 0) {
+            <div class="loading" role="status"><div class="spinner"></div></div>
+          } @else if (filteredPublicDecks().length === 0) {
+            <div class="panel empty">
+              <span class="empty-ic"><app-icon name="users" /></span>
+              <h2 class="h2">{{ hasPublicFilter() ? 'Nincs találat' : 'Még nincs közös pakli' }}</h2>
+              <p class="lead">
+                {{ hasPublicFilter() ? 'Próbálj másik keresőszót, felhasználónevet vagy szintet.' : 'Oszd meg az első paklidat a saját paklid Beállítások és megosztás fülén.' }}
+              </p>
+            </div>
+          } @else {
+            <div class="pub-grid">
+              @for (deck of filteredPublicDecks(); track deck.id) {
+                <article class="panel pub-card" [class.open]="previewDeckId === deck.id">
+                  <div class="pub-top">
+                    <strong>{{ deck.name }}</strong>
+                    @if (deck.exampleLevel) {
+                      <span class="badge" [attr.title]="deck.levelIsAutomatic ? 'Automatikus szint: a készítő fiókszintje (' + deck.exampleLevel + ')' : 'A pakli példamondatai ' + deck.exampleLevel + ' szintre készültek'">
+                        {{ deck.exampleLevel }}
+                      </span>
                     }
-                    <div>
-                      {{ deck.cardCount }} kártya · készítette:
+                  </div>
+                  @if (deck.description) {
+                    <p class="muted deck-description">{{ deck.description }}</p>
+                  }
+                  <div class="pub-meta">
+                    <span class="owner">
+                      <span class="avatar" aria-hidden="true">{{ (deck.ownerUsername || '?').charAt(0).toUpperCase() }}</span>
                       <button
                         type="button"
-                        class="owner-link"
+                        class="link-btn"
                         [attr.title]="'Csak ' + deck.ownerUsername + ' paklijainak mutatása'"
                         (click)="filterByOwner(deck.ownerUsername)">{{ deck.ownerUsername }}</button>
-                      @if (hasDeckNamed(deck.name)) {
-                        <span class="chip" title="Már van ilyen nevű paklid">Már van ilyen paklid</span>
-                      }
-                    </div>
-                    <div class="deck-facts">
-                      <span class="chip" title="A megosztott pakli verziója">v{{ deck.version }}</span>
-                      <span>Megosztva: {{ formatLocalTime(deck.sharedAt) }}</span>
-                      @if (deck.version > 1) {
-                        <span>Frissítve: {{ formatLocalTime(deck.updatedAt) }}</span>
-                      }
-                      <span>{{ deck.saveCount }} mentés</span>
-                      @if (deck.alreadySaved) {
-                        <span class="chip chip-saved" title="Ezt a paklit már lementetted magadhoz">Már mentetted</span>
-                      }
-                    </div>
-                    <div>
-                      <button type="button" [attr.aria-expanded]="previewDeckId === deck.id" (click)="togglePreview(deck)">
-                        {{ previewDeckId === deck.id ? 'Előnézet bezárása' : 'Előnézet' }}
-                      </button>
-                      <button type="button" [disabled]="copyingDeckId === deck.id" (click)="copyDeck(deck)">
-                        @if (copyingDeckId === deck.id) {
-                          <span class="spinner spinner-sm"></span>
-                        }
-                        Másolás a paklijaim közé
-                      </button>
-                    </div>
-                    @if (previewDeckId === deck.id) {
-                      @if (isLoadingPreview) {
-                        <div class="loading" role="status"><div class="spinner spinner-sm"></div></div>
-                      } @else if (previewCards.length === 0) {
-                        <div>Ebben a pakliban nincs kártya.</div>
-                      } @else {
-                        <ul class="preview-list">
-                          @for (card of previewCards; track card.id) {
-                            <li>
-                              <strong>{{ card.term }}</strong>
-                              <span> – {{ card.definition }}</span>
-                              @if (card.targetMeanings) {
-                                <div>{{ card.targetMeanings }}</div>
-                              }
-                            </li>
-                          }
-                        </ul>
-                      }
+                    </span>
+                    <span><app-icon name="layers" />{{ deck.cardCount }} kártya</span>
+                    <span><app-icon name="users" />{{ deck.saveCount }} mentés</span>
+                  </div>
+                  <div class="pub-meta">
+                    <span><app-icon name="calendar" />v{{ deck.version }} · megosztva {{ formatLocalTime(deck.sharedAt) }}</span>
+                    @if (deck.version > 1) {
+                      <span>Frissítve: {{ formatLocalTime(deck.updatedAt) }}</span>
                     }
-                  </article>
+                  </div>
+                  @if (deck.alreadySaved || hasDeckNamed(deck.name)) {
+                    <div class="chips">
+                      @if (deck.alreadySaved) {
+                        <span class="badge b-learned" title="Ezt a paklit már lementetted magadhoz">Már mentetted</span>
+                      }
+                      @if (hasDeckNamed(deck.name)) {
+                        <span class="badge" title="Már van ilyen nevű paklid">Már van ilyen paklid</span>
+                      }
+                    </div>
+                  }
+                  <div class="actions">
+                    <button type="button" class="btn btn-sm" [attr.aria-expanded]="previewDeckId === deck.id" (click)="togglePreview(deck)">
+                      <app-icon name="eye" /> {{ previewDeckId === deck.id ? 'Előnézet bezárása' : 'Előnézet' }}
+                    </button>
+                    <button type="button" class="btn btn-sm btn-primary" [disabled]="copyingDeckId === deck.id" (click)="copyDeck(deck)">
+                      @if (copyingDeckId === deck.id) {
+                        <span class="spinner spinner-sm"></span>
+                      } @else {
+                        <app-icon name="copy" />
+                      }
+                      Másolás a paklijaim közé
+                    </button>
+                  </div>
+                  @if (previewDeckId === deck.id) {
+                    @if (isLoadingPreview) {
+                      <div class="loading" role="status"><div class="spinner spinner-sm"></div></div>
+                    } @else if (previewCards.length === 0) {
+                      <p class="muted">Ebben a pakliban nincs kártya.</p>
+                    } @else {
+                      <ul class="preview-list">
+                        @for (card of previewCards; track card.id) {
+                          <li class="sample">
+                            <div>
+                              <strong class="term-cell">{{ card.term }}</strong>
+                              @if (card.targetMeanings) {
+                                <br><span class="muted">{{ card.targetMeanings }}</span>
+                              }
+                            </div>
+                            <p class="def">{{ card.definition }}</p>
+                          </li>
+                        }
+                      </ul>
+                    }
+                  }
+                </article>
+              }
+            </div>
+          }
+        </section>
+      }
+    </div>
+
+    @if (creating) {
+      <div class="overlay">
+        <div class="scrim" (click)="toggleCreate()"></div>
+        <form class="dlg" (ngSubmit)="createDeck()" role="dialog" aria-modal="true" aria-labelledby="create-title">
+          <span class="dlg-grab" aria-hidden="true"></span>
+          <header class="dlg-head">
+            <div class="ph-text"><h2 class="h2" id="create-title">Új pakli</h2></div>
+            <button type="button" class="icon-btn" aria-label="Bezárás" (click)="toggleCreate()"><app-icon name="x" /></button>
+          </header>
+          <div class="dlg-body">
+            <div class="field">
+              <label for="deckName">A pakli neve</label>
+              <input
+                id="deckName"
+                name="deckName"
+                maxlength="100"
+                placeholder="pl. Utazás, Munka, B2 igék"
+                autocomplete="off"
+                [(ngModel)]="newDeckName"
+                [disabled]="isSavingDeck">
+            </div>
+            <div class="field">
+              <label for="deckDescription">Leírás (nem kötelező)</label>
+              <textarea
+                id="deckDescription"
+                class="textarea-short"
+                name="deckDescription"
+                rows="2"
+                maxlength="500"
+                placeholder="Miről szól a pakli? Mások ebben is kereshetnek."
+                [(ngModel)]="newDeckDescription"
+                [disabled]="isSavingDeck"></textarea>
+            </div>
+            <div class="field">
+              <label for="deckLevel">Mondatszint</label>
+              <select
+                id="deckLevel"
+                name="deckLevel"
+                [(ngModel)]="newDeckLevel"
+                [disabled]="isSavingDeck">
+                @for (level of exampleLevels; track level) {
+                  <option [value]="level">{{ level }}{{ level === accountLevel ? ' (fiók szintje)' : '' }}</option>
                 }
-              </div>
-            }
-          </section>
-        }
+              </select>
+              <span class="help">Az MI ilyen nehézségű definíciókat és példamondatokat készít a paklihoz. Később a pakli beállításaiban átállíthatod.</span>
+            </div>
+          </div>
+          <footer class="dlg-foot">
+            <button type="button" class="btn" (click)="toggleCreate()">Mégse</button>
+            <button type="submit" class="btn btn-primary" [disabled]="isSavingDeck || !newDeckName.trim()">
+              @if (isSavingDeck) {
+                <span class="spinner spinner-sm"></span>
+              }
+              Létrehozás
+            </button>
+          </footer>
+        </form>
       </div>
-    </main>
+    }
 
     @if (pasteOpen) {
-      <div class="confirm-backdrop" (click)="requestClosePaste()">
-        <div class="confirm-dialog paste-dialog" role="dialog" aria-modal="true" aria-labelledby="paste-title" (click)="$event.stopPropagation()">
-          <div>
-            <h2 id="paste-title">Beillesztés szövegből</h2>
-            <button type="button" aria-label="Bezárás" (click)="requestClosePaste()"></button>
-          </div>
-          <p>
-            Soronként egy szót másolj be. Ha megvan már a magyar jelentés (például Quizlet exportból), írd a szó után az elválasztó jel mögé: az lesz a <strong>magyar jelentés</strong>.
-            Ha <strong>csak angol szavaid vannak</strong>, az is jó: kapcsold be lent a „Magyar jelentés készítése MI-vel” opciót.
-            Az angol definíciót és a példamondatot is kitöltetheted MI-vel.
-          </p>
+      <div class="overlay">
+        <div class="scrim" (click)="requestClosePaste()"></div>
+        <section class="dlg dlg-xl dlg-full paste-dialog" role="dialog" aria-modal="true" aria-labelledby="paste-title">
+          <span class="dlg-grab" aria-hidden="true"></span>
+          <header class="dlg-head">
+            <div class="ph-text">
+              <h2 class="h2" id="paste-title">Beillesztés szövegből</h2>
+              @if (selectedDeck; as target) {
+                <p class="muted small">Cél: {{ target.name }}</p>
+              }
+            </div>
+            <button type="button" class="icon-btn" aria-label="Bezárás" (click)="requestClosePaste()"><app-icon name="x" /></button>
+          </header>
+          <div class="dlg-body">
+            <p class="help">
+              Soronként egy szót másolj be. Ha megvan már a magyar jelentés (például Quizlet exportból), írd a szó után az elválasztó jel mögé: az lesz a <strong>magyar jelentés</strong>.
+              Ha <strong>csak angol szavaid vannak</strong>, az is jó: kapcsold be lent a „Magyar jelentés készítése MI-vel” opciót.
+              Az angol definíciót és a példamondatot is kitöltetheted MI-vel.
+            </p>
 
-          <label for="paste-text">Szöveg</label>
-          <textarea
-            id="paste-text"
-            rows="6"
-            [(ngModel)]="pasteText"
-            [disabled]="pasteAiRunning || pasteSaving"
-            placeholder="Magyar jelentéssel:&#10;within walking distance&#9;csak pár percnyire van gyalog&#10;&#10;Vagy csak angol szavak (a jelentést az MI írja):&#10;ability&#10;benefit"></textarea>
+            <div class="field">
+              <label for="paste-text">Szöveg</label>
+              <textarea
+                id="paste-text"
+                class="mono"
+                rows="6"
+                [(ngModel)]="pasteText"
+                [disabled]="pasteAiRunning || pasteSaving"
+                placeholder="Magyar jelentéssel:&#10;within walking distance&#9;csak pár percnyire van gyalog&#10;&#10;Vagy csak angol szavak (a jelentést az MI írja):&#10;ability&#10;benefit"></textarea>
+            </div>
 
-          <div>
-            <div>
-              <div>Szó és jelentés között</div>
-              <div>
-                <input type="radio" name="pasteTermSep" id="ts-tab" value="tab" [(ngModel)]="pasteTermSep">
-                <label for="ts-tab">Tabulátor</label>
+            <div class="sep-grid">
+              <div class="field">
+                <span class="label">Szó és jelentés között</span>
+                <div class="radio-row">
+                  <label><input type="radio" name="pasteTermSep" id="ts-tab" value="tab" [(ngModel)]="pasteTermSep"> Tabulátor</label>
+                  <label><input type="radio" name="pasteTermSep" id="ts-comma" value="comma" [(ngModel)]="pasteTermSep"> Vessző</label>
+                  <label><input type="radio" name="pasteTermSep" id="ts-custom" value="custom" [(ngModel)]="pasteTermSep"> Egyéni</label>
+                  <input type="text" class="paste-sep-input" name="pasteTermCustom" [(ngModel)]="pasteTermCustom" (focus)="pasteTermSep = 'custom'" placeholder="pl. -" aria-label="Egyéni szó és jelentés közti elválasztó">
+                </div>
               </div>
-              <div>
-                <input type="radio" name="pasteTermSep" id="ts-comma" value="comma" [(ngModel)]="pasteTermSep">
-                <label for="ts-comma">Vessző</label>
-              </div>
-              <div>
-                <input type="radio" name="pasteTermSep" id="ts-custom" value="custom" [(ngModel)]="pasteTermSep">
-                <label for="ts-custom">Egyéni</label>
-                <input type="text" class="paste-sep-input" name="pasteTermCustom" [(ngModel)]="pasteTermCustom" (focus)="pasteTermSep = 'custom'" placeholder="pl. -" aria-label="Egyéni szó és jelentés közti elválasztó">
+              <div class="field">
+                <span class="label">Sorok között</span>
+                <div class="radio-row">
+                  <label><input type="radio" name="pasteRowSep" id="rs-newline" value="newline" [(ngModel)]="pasteRowSep"> Új sor</label>
+                  <label><input type="radio" name="pasteRowSep" id="rs-semicolon" value="semicolon" [(ngModel)]="pasteRowSep"> Pontosvessző</label>
+                  <label><input type="radio" name="pasteRowSep" id="rs-custom" value="custom" [(ngModel)]="pasteRowSep"> Egyéni</label>
+                  <input type="text" class="paste-sep-input" name="pasteRowCustom" [(ngModel)]="pasteRowCustom" (focus)="pasteRowSep = 'custom'" placeholder="pl. \\n\\n" aria-label="Egyéni sorok közti elválasztó">
+                </div>
               </div>
             </div>
-            <div>
-              <div>Sorok között</div>
-              <div>
-                <input type="radio" name="pasteRowSep" id="rs-newline" value="newline" [(ngModel)]="pasteRowSep">
-                <label for="rs-newline">Új sor</label>
-              </div>
-              <div>
-                <input type="radio" name="pasteRowSep" id="rs-semicolon" value="semicolon" [(ngModel)]="pasteRowSep">
-                <label for="rs-semicolon">Pontosvessző</label>
-              </div>
-              <div>
-                <input type="radio" name="pasteRowSep" id="rs-custom" value="custom" [(ngModel)]="pasteRowSep">
-                <label for="rs-custom">Egyéni</label>
-                <input type="text" class="paste-sep-input" name="pasteRowCustom" [(ngModel)]="pasteRowCustom" (focus)="pasteRowSep = 'custom'" placeholder="pl. \\n\\n" aria-label="Egyéni sorok közti elválasztó">
-              </div>
-            </div>
-          </div>
 
-          <div>
-            <input type="checkbox" id="paste-auto" name="pasteAuto" [(ngModel)]="pasteAuto">
-            <label for="paste-auto">MI automatikus kitöltés beolvasáskor</label>
-          </div>
-          <div>
-            <input type="checkbox" id="paste-simplify" name="pasteSimplify" [(ngModel)]="pasteSimplify">
-            <label for="paste-simplify">Magyar jelentés készítése és egyszerűsítése MI-vel</label>
-          </div>
-          <p>
-            @if (pasteSimplify) {
-              Ha egy sorban <strong>nincs magyar jelentés</strong>, az MI megírja (2–4 rövid, gyakori jelentés). Ha van, a hosszú listát lerövidíti. A kitöltés után a táblában bármit átírhatsz.
-            } @else {
-              Kapcsold be, ha csak angol szavaid vannak, és az MI-vel írnál hozzájuk magyar jelentést. Ha már van jelentés, így rövidebbé teheted.
+            <div>
+              <label class="row-toggle" for="paste-auto">
+                <span class="t"><span>MI automatikus kitöltés beolvasáskor</span></span>
+                <span class="switch"><input type="checkbox" id="paste-auto" name="pasteAuto" [(ngModel)]="pasteAuto"><span></span></span>
+              </label>
+              <label class="row-toggle" for="paste-simplify">
+                <span class="t">
+                  <span>Magyar jelentés készítése és egyszerűsítése MI-vel</span>
+                  <small>
+                    @if (pasteSimplify) {
+                      Ha egy sorban nincs magyar jelentés, az MI megírja (2–4 rövid, gyakori jelentés). Ha van, a hosszú listát lerövidíti. A kitöltés után a táblában bármit átírhatsz.
+                    } @else {
+                      Kapcsold be, ha csak angol szavaid vannak, és az MI-vel írnál hozzájuk magyar jelentést. Ha már van jelentés, így rövidebbé teheted.
+                    }
+                  </small>
+                </span>
+                <span class="switch"><input type="checkbox" id="paste-simplify" name="pasteSimplify" [(ngModel)]="pasteSimplify"><span></span></span>
+              </label>
+            </div>
+            <p class="help">
+              Definíció és példamondat{{ pasteSimplify ? ' (és magyar jelentés)' : '' }} készül a pakli szintjén ({{ pasteLevel }}), {{ aiFillBatchSize }} szavanként egy MI-hívásban.
+              Mai keret: {{ aiFillRemaining ?? '…' }} / {{ aiFillLimit }} (a korlát jelenleg nincs érvényben).
+            </p>
+
+            <div>
+              <button type="button" class="btn" [disabled]="!pasteText.trim() || pasteAiRunning || pasteSaving" (click)="parsePaste()">
+                <app-icon [name]="pasteAuto ? 'sparkle' : 'refresh'" />
+                {{ pasteAuto ? 'Beolvasás és MI-kitöltés' : 'Sorok beolvasása' }}
+              </button>
+            </div>
+
+            @if (pasteError) {
+              <div class="notice notice-bad" role="alert"><app-icon name="warn" /><div>{{ pasteError }}</div></div>
             }
-          </p>
-          <p>
-            Definíció és példamondat{{ pasteSimplify ? ' (és magyar jelentés)' : '' }} készül a pakli szintjén ({{ pasteLevel }}), {{ aiFillBatchSize }} szavanként egy MI-hívásban.
-            Mai keret: {{ aiFillRemaining ?? '…' }} / {{ aiFillLimit }} (a korlát jelenleg nincs érvényben).
-          </p>
-
-          <div>
-            <button type="button" [disabled]="!pasteText.trim() || pasteAiRunning || pasteSaving" (click)="parsePaste()">
-              {{ pasteAuto ? 'Beolvasás és MI-kitöltés' : 'Sorok beolvasása' }}
-            </button>
-          </div>
-
-          @if (pasteError) {
-            <div role="alert">{{ pasteError }}</div>
-          }
-          @if (pasteRows.length > 0 && !pasteSimplify && pasteNoMeaningCount > 0 && !pasteAiRunning) {
-            <div role="status">
-              <span>{{ pasteNoMeaningCount }} sorban nincs magyar jelentés. Az MI megírhatja őket.</span>
-              <button type="button" (click)="fillPasteMeanings()" [disabled]="pasteSaving">Magyar jelentés készítése MI-vel</button>
-            </div>
-          }
-          @if (pasteRows.length > slowImportRows) {
-            <div role="status">
-              {{ pasteRows.length }} sort importálnál. {{ slowImportRows }} sor fölött lassú lehet a beolvasás, az MI-kitöltés és a mentés, és a napi MI-keret is hamar elfogyhat. Érdemes több részletben importálni.
-            </div>
-          }
-          @if (pasteTrimmedCount > 0) {
-            <div role="status">{{ pasteTrimmedCount }} sor szövege túl hosszú volt, ezért le lett vágva (a szó 100, a magyar jelentés 300 karakterig).</div>
-          }
-
-          @if (pasteRows.length > 0) {
-            <div>
-              <div>
-                <strong>{{ pasteRows.length }} sor</strong>
-                @if (pasteMissingCount > 0) {
-                  · <span>{{ pasteMissingCount }} sorból hiányzik a definíció</span>
-                } @else {
-                  · minden sorban van definíció
-                }
+            @if (pasteRows.length > 0 && !pasteSimplify && pasteNoMeaningCount > 0 && !pasteAiRunning) {
+              <div class="ai-strip" role="status">
+                <app-icon name="sparkle" />
+                <span>{{ pasteNoMeaningCount }} sorban nincs magyar jelentés. Az MI megírhatja őket.</span>
+                <button type="button" class="btn btn-sm" (click)="fillPasteMeanings()" [disabled]="pasteSaving">Magyar jelentés készítése MI-vel</button>
               </div>
-              <div>
+            }
+            @if (pasteRows.length > slowImportRows) {
+              <div class="notice" role="status">
+                <app-icon name="warn" />
+                <div>{{ pasteRows.length }} sort importálnál. {{ slowImportRows }} sor fölött lassú lehet a beolvasás, az MI-kitöltés és a mentés, és a napi MI-keret is hamar elfogyhat. Érdemes több részletben importálni.</div>
+              </div>
+            }
+            @if (pasteTrimmedCount > 0) {
+              <div class="notice" role="status"><app-icon name="info" /><div>{{ pasteTrimmedCount }} sor szövege túl hosszú volt, ezért le lett vágva (a szó 100, a magyar jelentés 300 karakterig).</div></div>
+            }
+
+            @if (pasteRows.length > 0) {
+              <div class="pv-head">
+                <span>
+                  <strong>{{ pasteRows.length }} sor</strong>
+                  @if (pasteMissingCount > 0) {
+                    · <span class="due">{{ pasteMissingCount }} sorból hiányzik a definíció</span>
+                  } @else {
+                    · minden sorban van definíció
+                  }
+                </span>
                 @if (pasteAiRunning) {
-                  <button type="button" (click)="cancelPasteAi()">Megszakítás</button>
+                  <button type="button" class="btn btn-sm" (click)="cancelPasteAi()">Megszakítás</button>
                 } @else {
-                  <button type="button" [disabled]="pasteSaving || pasteAiEligibleCount === 0" (click)="startPasteAi()">
-                    Hiányzók kitöltése MI-vel
+                  <button type="button" class="btn btn-sm" [disabled]="pasteSaving || pasteAiEligibleCount === 0" (click)="startPasteAi()">
+                    <app-icon name="sparkle" /> Hiányzók kitöltése MI-vel
                   </button>
                 }
               </div>
-            </div>
 
-            @if (pasteAiRunning || pasteAiTotal > 0) {
-              <div>
-                <div role="progressbar" aria-label="MI-kitöltés folyamata" [attr.aria-valuenow]="pasteAiDone" aria-valuemin="0" [attr.aria-valuemax]="pasteAiTotal">
-                  <div></div>
+              @if (pasteAiRunning || pasteAiTotal > 0) {
+                <div class="stack-sm">
+                  <div class="progress" [class.striped]="pasteAiRunning" role="progressbar" aria-label="MI-kitöltés folyamata" [attr.aria-valuenow]="pasteAiDone" aria-valuemin="0" [attr.aria-valuemax]="pasteAiTotal">
+                    <i [style.width.%]="pasteAiTotal ? (pasteAiDone * 100 / pasteAiTotal) : 0"></i>
+                  </div>
+                  <span class="help">
+                    MI: {{ pasteAiDone }}/{{ pasteAiTotal }} sor feldolgozva{{ pasteAiRunning ? '…' : '' }}
+                    @if (pasteAiFailedCount > 0) {
+                      · <span class="due">{{ pasteAiFailedCount }} sor kitöltetlen maradt (részletek a sorok mellett)</span>
+                    }
+                  </span>
                 </div>
-                <div>
-                  MI: {{ pasteAiDone }}/{{ pasteAiTotal }} sor feldolgozva{{ pasteAiRunning ? '…' : '' }}
-                  @if (pasteAiFailedCount > 0) {
-                    · <span>{{ pasteAiFailedCount }} sor kitöltetlen maradt (részletek a sorok mellett)</span>
-                  }
-                </div>
+              }
+
+              <div class="table-wrap">
+                <table class="paste-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Szó</th>
+                      <th scope="col">Definíció</th>
+                      <th scope="col">Példamondat</th>
+                      <th scope="col">Magyar jelentés</th>
+                      <th scope="col"><span class="sr-only">Törlés</span></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of pasteRows; track row; let i = $index) {
+                      <tr>
+                        <td><input type="text" name="pt{{ i }}" maxlength="100" [(ngModel)]="row.term" aria-label="Szó"></td>
+                        <td>
+                          <textarea rows="2" name="pd{{ i }}" maxlength="500" [(ngModel)]="row.definition" [class.is-invalid]="!row.definition.trim()" aria-label="Definíció"></textarea>
+                          @if (row.aiError) {
+                            <div class="field-error">{{ row.aiError }}</div>
+                          } @else if (row.definition.trim() && rowIssue(row)) {
+                            <div class="field-error">{{ rowIssue(row) }}</div>
+                          }
+                        </td>
+                        <td><textarea rows="2" name="pe{{ i }}" maxlength="500" [(ngModel)]="row.example" aria-label="Példamondat"></textarea></td>
+                        <td><input type="text" name="pm{{ i }}" maxlength="300" [(ngModel)]="row.targetMeanings" aria-label="Magyar jelentés"></td>
+                        <td><button type="button" class="icon-btn icon-btn-danger" aria-label="Sor törlése" title="Sor törlése" (click)="removePasteRow(i)"><app-icon name="x" /></button></td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
               </div>
             }
+          </div>
 
-            <div class="paste-table-wrap">
-              <table class="paste-table">
-                <thead>
-                  <tr>
-                    <th scope="col">Szó</th>
-                    <th scope="col">Definíció</th>
-                    <th scope="col">Példamondat</th>
-                    <th scope="col">Magyar jelentés</th>
-                    <th scope="col"><span>Törlés</span></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  @for (row of pasteRows; track row; let i = $index) {
-                    <tr>
-                      <td><input type="text" name="pt{{ i }}" maxlength="100" [(ngModel)]="row.term" aria-label="Szó"></td>
-                      <td>
-                        <textarea rows="2" name="pd{{ i }}" maxlength="500" [(ngModel)]="row.definition" [class.is-invalid]="!row.definition.trim()" aria-label="Definíció"></textarea>
-                        @if (row.aiError) {
-                          <div>{{ row.aiError }}</div>
-                        } @else if (row.definition.trim() && rowIssue(row)) {
-                          <div>{{ rowIssue(row) }}</div>
-                        }
-                      </td>
-                      <td><textarea rows="2" name="pe{{ i }}" maxlength="500" [(ngModel)]="row.example" aria-label="Példamondat"></textarea></td>
-                      <td><input type="text" name="pm{{ i }}" maxlength="300" [(ngModel)]="row.targetMeanings" aria-label="Magyar jelentés"></td>
-                      <td><button type="button" aria-label="Sor törlése" (click)="removePasteRow(i)">✕</button></td>
-                    </tr>
-                  }
-                </tbody>
-              </table>
-            </div>
-          }
-
-          <div>
-            <span>
+          <footer class="dlg-foot">
+            <span class="help">
               @if (pasteRows.length > maxImportRows) {
                 Legfeljebb {{ maxImportRows }} sor importálható egyszerre.
               } @else if (pasteRows.length > 0 && !canSavePaste && !pasteAiRunning) {
                 A mentéshez minden sorban kell szó és definíció.
               }
             </span>
-            <div>
-              <button type="button" [disabled]="pasteSaving" (click)="requestClosePaste()">Mégse</button>
-              <button type="button" [disabled]="!canSavePaste" (click)="savePaste()">
-                @if (pasteSaving) {
-                  <span class="spinner spinner-sm"></span>
-                }
-                Mentés{{ pasteRows.length > 0 ? ' (' + pasteRows.length + ' kártya)' : '' }}
-              </button>
-            </div>
-          </div>
-        </div>
+            <span class="spacer"></span>
+            <button type="button" class="btn" [disabled]="pasteSaving" (click)="requestClosePaste()">Mégse</button>
+            <button type="button" class="btn btn-primary" [disabled]="!canSavePaste" (click)="savePaste()">
+              @if (pasteSaving) {
+                <span class="spinner spinner-sm"></span>
+              }
+              Mentés{{ pasteRows.length > 0 ? ' (' + pasteRows.length + ' kártya)' : '' }}
+            </button>
+          </footer>
+        </section>
       </div>
     }
 
     @if (pendingConfirm; as confirmation) {
-      <div class="confirm-backdrop" (click)="pendingConfirm = null">
-        <div class="confirm-dialog" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text" (click)="$event.stopPropagation()">
-          <h2 id="confirm-title">{{ confirmation.title }}</h2>
-          <p id="confirm-text">{{ confirmation.message }}</p>
-          <div>
-            <button type="button" (click)="pendingConfirm = null">Mégse</button>
+      <div class="overlay confirm-overlay">
+        <div class="scrim" (click)="pendingConfirm = null"></div>
+        <section class="dlg dlg-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+          <span class="dlg-grab" aria-hidden="true"></span>
+          <header class="dlg-head">
+            <div class="ph-text"><h2 class="h2" id="confirm-title">{{ confirmation.title }}</h2></div>
+          </header>
+          <div class="dlg-body">
+            <p id="confirm-text">{{ confirmation.message }}</p>
+          </div>
+          <footer class="dlg-foot">
+            <button type="button" class="btn" (click)="pendingConfirm = null">Mégse</button>
             <button
               type="button"
+              class="btn"
+              [class.btn-danger]="confirmation.danger"
+              [class.btn-primary]="!confirmation.danger"
               (click)="runConfirm()">
               {{ confirmation.confirmLabel }}
             </button>
-          </div>
-        </div>
+          </footer>
+        </section>
       </div>
     }
 
     @if (toastMessage) {
-      <div class="toast-box" role="status" aria-live="polite">
+      <div class="toast" role="status" aria-live="polite">
+        <app-icon name="check" />
         <span>{{ toastMessage }}</span>
-        <button type="button" aria-label="Bezárás" (click)="toastMessage = null"></button>
+        <button type="button" class="toast-x" aria-label="Bezárás" (click)="toastMessage = null"><app-icon name="x" /></button>
       </div>
     }
   `,
