@@ -278,7 +278,7 @@ const PAGE_SIZE = 25;
               </section>
             </div>
 
-            <section class="panel" aria-labelledby="stats-practice">
+            <section class="panel practice-panel" aria-labelledby="stats-practice">
               <div class="chart-head">
                 <h2 class="h2" id="stats-practice">Nyelvtan és mondatok</h2>
                 <span>nem számít az ismétlésbe, a sorozatba és a tanulási időbe</span>
