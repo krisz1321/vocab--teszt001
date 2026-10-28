@@ -605,3 +605,46 @@ textarea.answer-input { min-height: 56px; font-size: 19px; padding: 12px 16px; r
   .free-study-actions { grid-template-columns: 1fr 1fr; }
   .free-flip-button { grid-column: 1 / -1; grid-row: 1; }
 }
+
+/* ---------- Nyelvtan és Mondatok ---------- */
+.tense-cols { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+@container main (min-width: 760px) { .tense-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.tense-group { display: flex; flex-direction: column; gap: 8px; }
+.tense-group h3 { font-family: var(--f-body); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
+.check-row { display: flex; gap: 12px; align-items: flex-start; text-align: left; width: 100%; padding: 11px 14px; border: 1px solid var(--border); border-radius: var(--r-sm); background: var(--surface); cursor: pointer; color: var(--text); }
+.check-row:hover { border-color: var(--muted); }
+.check-row:disabled { opacity: .6; cursor: not-allowed; }
+.check-row.is-on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.cbox { width: 22px; height: 22px; border-radius: 7px; border: 1.5px solid var(--border); display: grid; place-items: center; flex: none; margin-top: 1px; background: var(--surface); }
+.check-row.is-on .cbox { background: var(--active-bg); border-color: var(--active-bg); color: var(--active-ink); }
+.cbox .ic { width: 15px; height: 15px; stroke-width: 2.6; }
+.check-row .t { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.check-row small { color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+.form-panel { display: flex; flex-direction: column; gap: 6px; }
+.form-panel .form-grid + .row-toggle { margin-top: 6px; border-top: 1px solid var(--border); }
+.count-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; max-width: 520px; }
+.count-tile { display: flex; flex-direction: column; align-items: center; padding: 12px 4px 10px; border: 2px solid transparent; border-radius: var(--r); background: var(--tile); cursor: pointer; color: var(--text); }
+.count-tile:nth-child(1) { --tile: var(--t1); }
+.count-tile:nth-child(2) { --tile: var(--t2); }
+.count-tile:nth-child(3) { --tile: var(--t3); }
+.count-tile:nth-child(4) { --tile: var(--t4); }
+.count-tile strong { font-family: var(--f-display); font-size: 30px; line-height: 1.05; font-weight: 800; }
+.count-tile span { font-size: 12.5px; color: var(--muted); font-weight: 600; }
+.count-tile.is-on { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.count-tile:disabled { opacity: .6; cursor: not-allowed; }
+.task-card { display: flex; flex-direction: column; gap: 16px; }
+@container main (min-width: 700px) { .task-card { padding: 28px 32px; } }
+.task-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.task-title { font-family: var(--f-display); font-size: 22px; line-height: 1.3; font-weight: var(--w-display); letter-spacing: var(--ls-display); text-wrap: balance; }
+.term-inline { font-family: var(--f-display); white-space: nowrap; background: linear-gradient(var(--mark), var(--mark)) 0 88% / 100% 40% no-repeat; }
+.translation { padding-top: 10px; border-top: 1px dashed var(--border); font-size: 14px; }
+.word-cards { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.word-card { display: flex; align-items: center; gap: 8px; padding: 10px 6px 10px 14px; border-radius: var(--r-sm); background: var(--t3); }
+.word-card:nth-child(4n+2) { background: var(--t2); }
+.word-card:nth-child(4n+3) { background: var(--t1); }
+.word-card:nth-child(4n+4) { background: var(--t4); }
+.word-card > div { display: flex; flex-direction: column; flex: 1; min-width: 0; line-height: 1.3; }
+.wc-term { font-family: var(--f-display); font-size: 17px; font-weight: var(--w-display); }
+.word-card .muted { font-size: 13px; }
+.word-card .icon-btn { color: var(--text); }
+.word-card .icon-btn:hover { background: color-mix(in srgb, var(--surface) 55%, transparent); }
