@@ -97,7 +97,7 @@ const PAGE_SIZE = 25;
                       </div>
                       <div class="meter" role="progressbar" aria-label="Napi új kártya cél"
                         [attr.aria-valuenow]="v.goalPercent" aria-valuemin="0" aria-valuemax="100">
-                        <div class="meter-bar" [style.width.%]="v.goalPercent"></div>
+                        <div class="meter-bar"></div>
                       </div>
                     </div>
                   }
@@ -125,7 +125,7 @@ const PAGE_SIZE = 25;
                       <div class="fs-3 fw-semibold lh-1 mt-1">{{ s.learnedCards }}<span class="kpi-of"> / {{ s.totalCards }}</span></div>
                       <div class="meter mt-2" role="progressbar" aria-label="Megtanult szavak aránya"
                         [attr.aria-valuenow]="v.learnedPercent" aria-valuemin="0" aria-valuemax="100">
-                        <div class="meter-bar" [style.width.%]="v.learnedPercent"></div>
+                        <div class="meter-bar"></div>
                       </div>
                     </div>
                   </div>
@@ -192,7 +192,7 @@ const PAGE_SIZE = 25;
                       <span>H</span><span></span><span>Sze</span><span></span><span>P</span><span></span><span></span>
                     </div>
                     <div class="heat-scroll">
-                      <div class="heat-grid" [style.grid-template-columns]="'repeat(' + v.heat.columns.length + ', minmax(0, 1fr))'">
+                      <div class="heat-grid">
                         @for (column of v.heat.columns; track $index) {
                           <div class="heat-col">
                             <div class="heat-month">{{ column.monthLabel }}</div>
@@ -286,7 +286,7 @@ const PAGE_SIZE = 25;
                   <div class="maturity-bar mb-3" role="img" [attr.aria-label]="maturitySummary(v)">
                     @for (segment of v.maturity; track segment.key) {
                       @if (segment.count > 0 && segment.key !== 'new') {
-                        <div class="maturity-seg" [attr.data-kind]="segment.key" [style.flex-grow]="segment.count"
+                        <div class="maturity-seg" [attr.data-kind]="segment.key"
                           [attr.title]="segment.label + ': ' + segment.count"></div>
                       }
                     }
@@ -346,7 +346,7 @@ const PAGE_SIZE = 25;
                                   </div>
                                   <div class="meter mt-1" role="progressbar" [attr.aria-label]="group.title + ': hibás ' + row.label.toLowerCase()"
                                     [attr.aria-valuenow]="row.percent" aria-valuemin="0" aria-valuemax="100">
-                                    <div class="meter-bar meter-bad" [style.width.%]="row.percent"></div>
+                                    <div class="meter-bar meter-bad"></div>
                                   </div>
                                 </li>
                               }
@@ -397,7 +397,7 @@ const PAGE_SIZE = 25;
                             </div>
                             <div class="meter mt-1" role="progressbar" [attr.aria-label]="row.label + ' helyes válaszai'"
                               [attr.aria-valuenow]="row.percent ?? 0" aria-valuemin="0" aria-valuemax="100">
-                              <div class="meter-bar" [style.width.%]="row.percent ?? 0"></div>
+                              <div class="meter-bar"></div>
                             </div>
                           </li>
                         }
@@ -432,7 +432,7 @@ const PAGE_SIZE = 25;
                         </div>
                         <div class="meter mt-1" role="progressbar" [attr.aria-label]="deck.name + ' megtanult szavai'"
                           [attr.aria-valuenow]="deck.learnedPercent" aria-valuemin="0" aria-valuemax="100">
-                          <div class="meter-bar" [style.width.%]="deck.learnedPercent"></div>
+                          <div class="meter-bar"></div>
                         </div>
                       </div>
                     }
@@ -541,8 +541,8 @@ const PAGE_SIZE = 25;
                             <div class="d-flex align-items-center gap-2 mt-1 small">
                               <div class="word-ratio flex-grow-1" role="img"
                                 [attr.aria-label]="card.correctCount + ' helyes, ' + card.incorrectCount + ' hibás válasz'">
-                                <span class="word-ratio-ok" [style.flex-grow]="card.correctCount"></span>
-                                <span class="word-ratio-bad" [style.flex-grow]="card.incorrectCount"></span>
+                                <span class="word-ratio-ok"></span>
+                                <span class="word-ratio-bad"></span>
                               </div>
                               <span class="text-body-secondary text-nowrap">{{ card.correctCount }} helyes · {{ card.incorrectCount }} hiba ({{ card.errorPercent }}%)</span>
                             </div>
@@ -573,9 +573,9 @@ const PAGE_SIZE = 25;
           <div class="bar-col" [attr.title]="bar.title">
             <div class="bar-plot">
               @if (bar.value > 0 && !dense) {
-                <span class="bar-value" [style.bottom]="'calc(' + bar.height + '% + 2px)'">{{ bar.value }}</span>
+                <span class="bar-value">{{ bar.value }}</span>
               }
-              <div class="bar" [class.bar-zero]="bar.value === 0" [style.height.%]="bar.height"></div>
+              <div class="bar" [class.bar-zero]="bar.value === 0"></div>
             </div>
             <div class="bar-label">{{ bar.label }}</div>
           </div>
@@ -583,130 +583,6 @@ const PAGE_SIZE = 25;
       </div>
     </ng-template>
   `,
-  styles: [
-    `
-      .meter { height: 0.45rem; border-radius: 999px; background: var(--app-surface-2); overflow: hidden; }
-      .meter-bar { height: 100%; border-radius: 999px; background: var(--app-primary); }
-      .kpi-of { font-size: 1rem; font-weight: 500; color: var(--app-muted); }
-      .delta-up { color: var(--app-success); font-weight: 600; }
-      .delta-down { color: var(--app-danger); font-weight: 600; }
-      .min-w-0 { min-width: 0; }
-      @media (max-width: 767.98px) {
-        .kpi .fs-3 { font-size: 1.35rem !important; }
-      }
-
-      .suggestion {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.65rem 0.9rem;
-        border-radius: var(--app-radius);
-        border: 1px solid color-mix(in srgb, var(--app-primary) 35%, transparent);
-        background: color-mix(in srgb, var(--app-primary) 10%, var(--app-surface));
-      }
-      .suggestion-warning {
-        border-color: color-mix(in srgb, var(--app-danger) 40%, transparent);
-        background: color-mix(in srgb, var(--app-danger) 9%, var(--app-surface));
-      }
-      .suggestion-success {
-        border-color: color-mix(in srgb, var(--app-success) 40%, transparent);
-        background: color-mix(in srgb, var(--app-success) 10%, var(--app-surface));
-      }
-
-      /* Oszlopdiagram */
-      .bar-chart { display: flex; align-items: flex-end; gap: 0.35rem; }
-      .bar-chart-dense { gap: 0.15rem; }
-      .bar-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
-      .bar-plot { position: relative; width: 100%; height: 8rem; display: flex; align-items: flex-end; justify-content: center; }
-      .bar {
-        width: 100%;
-        max-width: 2.25rem;
-        min-height: 3px;
-        background-color: var(--app-primary);
-        border-radius: 0.2rem 0.2rem 0 0;
-      }
-      .bar-zero { background-color: var(--app-border); }
-      .bar-value { position: absolute; left: 0; right: 0; text-align: center; font-size: 0.75rem; font-weight: 600; }
-      .bar-label { margin-top: 0.35rem; min-height: 1.1em; font-size: 0.75rem; color: var(--app-muted); text-align: center; white-space: nowrap; }
-      @media (max-width: 575.98px) {
-        .bar-plot { height: 6.5rem; }
-        .bar-label { font-size: 0.7rem; }
-      }
-
-      /* Aktivitási naptár */
-      .heat-wrap { display: flex; gap: 0.5rem; }
-      .heat-days {
-        display: grid;
-        grid-template-rows: 1rem repeat(7, 1.35rem);
-        gap: 3px;
-        font-size: 0.7rem;
-        color: var(--app-muted);
-      }
-      .heat-days span { display: flex; align-items: center; }
-      .heat-days::before { content: ''; }
-      .heat-scroll { flex: 1 1 auto; min-width: 0; overflow-x: auto; }
-      .heat-grid { display: grid; gap: 3px; }
-      .heat-col { display: grid; grid-template-rows: 1rem repeat(7, 1.35rem); gap: 3px; }
-      .heat-month { width: 0; font-size: 0.7rem; color: var(--app-muted); line-height: 1rem; white-space: nowrap; overflow: visible; }
-      .heat-cell {
-        display: inline-block;
-        width: 100%;
-        height: 1.35rem;
-        border-radius: 3px;
-        background: var(--app-surface-2);
-        border: 1px solid var(--app-border);
-      }
-      .heat-empty { background: transparent; border-color: transparent; }
-      .heat-cell[data-level='1'] { background: color-mix(in srgb, var(--app-primary) 25%, var(--app-surface)); border-color: transparent; }
-      .heat-cell[data-level='2'] { background: color-mix(in srgb, var(--app-primary) 48%, var(--app-surface)); border-color: transparent; }
-      .heat-cell[data-level='3'] { background: color-mix(in srgb, var(--app-primary) 72%, var(--app-surface)); border-color: transparent; }
-      .heat-cell[data-level='4'] { background: var(--app-primary); border-color: transparent; }
-      .heat-legend { display: inline-flex; align-items: center; gap: 3px; }
-      .heat-legend .heat-cell { width: 0.9rem; height: 0.9rem; }
-
-      /* Trend */
-      .trend { width: 100%; height: auto; display: block; }
-      .trend-grid { stroke: var(--app-border); stroke-width: 1; }
-      .trend-text { fill: var(--app-muted); font-size: 11px; }
-      @media (max-width: 575.98px) { .trend-text { font-size: 19px; } }
-      .trend-line { fill: none; stroke: var(--app-primary); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
-      .trend-dot { fill: var(--app-surface); stroke: var(--app-primary); stroke-width: 2.5; }
-      .trend-line[data-series="composition"] { stroke: var(--app-success); stroke-dasharray: 6 4; }
-      .trend-dot[data-series="composition"] { stroke: var(--app-success); }
-      .trend-key { width: 0.9rem; height: 3px; border-radius: 2px; background: var(--app-primary); }
-      .trend-key[data-series="composition"] { background: var(--app-success); }
-      .meter-bad { background: var(--app-danger); }
-
-      /* Tudásszintek */
-      .maturity-bar { display: flex; height: 1.1rem; border-radius: 999px; overflow: hidden; background: var(--app-surface-2); gap: 2px; }
-      .maturity-seg, .maturity-dot { background: var(--app-border); }
-      .maturity-dot { display: inline-block; flex: 0 0 auto; width: 0.8rem; height: 0.8rem; border-radius: 3px; }
-      [data-kind='new'] { background: color-mix(in srgb, var(--app-muted) 45%, var(--app-surface)); }
-      [data-kind='learning'] { background: var(--app-accent); }
-      [data-kind='young'] { background: color-mix(in srgb, var(--app-primary) 55%, var(--app-surface)); }
-      [data-kind='mature'] { background: var(--app-primary); }
-      [data-kind='suspended'] { background: repeating-linear-gradient(135deg, var(--app-border), var(--app-border) 3px, var(--app-surface-2) 3px, var(--app-surface-2) 6px); }
-
-      /* Paklik, szólista */
-      .deck-row + .deck-row { margin-top: 0.9rem; }
-      .leech-card { border-left: 4px solid var(--app-danger) !important; }
-      .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-      .chip {
-        border: 1px solid var(--app-border);
-        background: var(--app-surface);
-        color: var(--app-text);
-        border-radius: 999px;
-        padding: 0.25rem 0.7rem;
-        font-size: 0.85rem;
-      }
-      .chip.is-active { background: rgba(var(--app-primary-rgb), 0.13); border-color: var(--app-primary); color: var(--app-primary); font-weight: 600; }
-      .chip-count { color: var(--app-muted); font-weight: 500; margin-left: 0.15rem; }
-      .word-row { padding: 0.65rem 0; border-top: 1px solid var(--app-border); }
-      .word-ratio { display: flex; height: 0.4rem; border-radius: 999px; overflow: hidden; background: var(--app-surface-2); min-width: 3rem; }
-      .word-ratio-ok { background: var(--app-success); }
-      .word-ratio-bad { background: var(--app-danger); }
-    `,
-  ],
 })
 export class StatsComponent implements OnInit {
   private readonly http = inject(HttpClient);

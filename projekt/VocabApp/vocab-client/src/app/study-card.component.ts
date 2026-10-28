@@ -148,7 +148,6 @@ interface StudyModeOption {
   id: StudyMode;
   label: string;
   description: string;
-  icon: string;
   note?: string;
 }
 
@@ -182,7 +181,6 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                 [class.is-active]="tileMode === option.id"
                 [attr.aria-checked]="tileMode === option.id"
                 (click)="pickTile(option.id)">
-                <span class="mode-tile-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="option.icon" /></svg></span>
                 <span class="mode-tile-text">
                   <strong>{{ option.label }}</strong>
                   <small>{{ option.description }}</small>
@@ -232,12 +230,10 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                 (click)="openModePicker()"
                 [disabled]="!canChangeMode"
                 [title]="canChangeMode || isInteractionLocked ? 'Mód váltása' : 'Előbb fejezd be ezt a kártyát, utána válthatsz módot.'">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="activeModeOption.icon" /></svg>
                 <span class="mode-chip-label">{{ activeModeOption.label }}</span>
                 @if (activeDirectionLabel) {
                   <span class="mode-chip-sub">· {{ activeDirectionLabel }}</span>
                 }
-                <svg class="icon mode-chip-caret" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
               </button>
               <button
                 type="button"
@@ -260,7 +256,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                     [attr.aria-valuenow]="newCardsIntroducedToday"
                     aria-valuemin="0"
                     [attr.aria-valuemax]="dailyNewCardGoal">
-                    <div class="progress-bar" [style.width.%]="dailyGoalPercent"></div>
+                    <div class="progress-bar"></div>
                   </div>
                 }
                 <span class="session-meta">{{ sessionSummary }}</span>
@@ -376,7 +372,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                       [attr.aria-valuenow]="newCardsIntroducedToday"
                       aria-valuemin="0"
                       [attr.aria-valuemax]="dailyNewCardGoal">
-                      <div class="progress-bar" [style.width.%]="dailyGoalPercent"></div>
+                      <div class="progress-bar"></div>
                     </div>
                     <span class="session-meta">Új szavak ma: {{ newCardsIntroducedToday }}/{{ dailyNewCardGoal }}</span>
                   </div>
@@ -452,7 +448,6 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                 class="card border-0 free-study-face"
                 [class.is-dragging]="isFreeDragging"
                 [class.is-exiting]="freeSwipeAnimating"
-                [style.transform]="freeCardTransform"
                 (pointerdown)="onFreePointerDown($event)"
                 (pointermove)="onFreePointerMove($event)"
                 (pointerup)="onFreePointerUp($event)"
@@ -571,7 +566,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                     [attr.aria-pressed]="automaticAiCheck"
                     [attr.aria-label]="automaticAiCheck ? 'Automatikus MI-ellenőrzés kikapcsolása' : 'Automatikus MI-ellenőrzés bekapcsolása'"
                     [attr.title]="automaticAiCheck ? 'Automatikus MI-ellenőrzés: bekapcsolva (kattints a kikapcsoláshoz)' : 'Automatikus MI-ellenőrzés: kikapcsolva (kattints a bekapcsoláshoz)'">
-                    <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4l1.8 4.7L17.5 10.5l-4.7 1.8L11 17l-1.8-4.7L4.5 10.5l4.7-1.8z"/><path d="M18 3v4M16 5h4"/>@if (!automaticAiCheck) {<path d="M4 20L20 4"/>}</svg>
+                    MI-ellenőrzés
                   </button>
                   <button
                     type="button"
@@ -580,7 +575,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                     (click)="suspendCurrentCard('buried')"
                     aria-label="Elnapolás holnapig"
                     title="Elnapolás holnapig: a kártya holnapig nem jelenik meg">
-                    <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                    Elnapolás
                   </button>
                   <button
                     type="button"
@@ -589,7 +584,7 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
                     (click)="suspendCurrentCard('suspended')"
                     aria-label="Felfüggesztés"
                     title="Felfüggesztés: a kártya addig nem jelenik meg, amíg a pakli kártyalistájában vissza nem kapcsolod">
-                    <svg class="icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+                    Felfüggesztés
                   </button>
                 </div>
               </div>
@@ -1127,44 +1122,6 @@ const emptyAnswerMessage = 'A válasz nem lehet üres.';
       </div>
     </main>
   `,
-  styles: [`
-    .free-card-word, .free-card-definition, .free-card-example { overflow-wrap: anywhere; }
-    [data-next-card] { scroll-margin-bottom: 5rem; }
-    .free-study-shell { position: relative; max-width: 880px; margin: 0 auto; }
-    .free-study-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; }
-    .free-study-kicker { display: block; color: var(--app-muted); font-size: .78rem; letter-spacing: .04em; text-transform: uppercase; }
-    .free-study-progress { color: var(--app-muted); font-size: .85rem; }
-    .free-settings-button { border: 1px solid var(--app-border); }
-    .free-settings-panel { position: absolute; z-index: 5; top: 3.5rem; right: 0; width: min(20rem, calc(100vw - 2rem)); padding: 1rem; border: 1px solid var(--app-border); border-radius: .75rem; background: var(--app-surface); box-shadow: 0 .75rem 2rem rgba(0, 0, 0, .25); }
-    .free-settings-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; }
-    .free-setting-row { display: flex; align-items: center; gap: .6rem; padding: .42rem 0; font-size: .9rem; cursor: pointer; }
-    .free-setting-row input { width: 1rem; height: 1rem; accent-color: var(--app-primary); }
-    .suspend-btn { display: inline-flex; align-items: center; justify-content: center; padding: .3rem .45rem; line-height: 1; }
-    .free-study-stage { position: relative; min-height: 25rem; }
-    .free-study-face { min-height: 25rem; touch-action: pan-y; user-select: none; display: flex; position: relative; z-index: 2; border: 1px solid var(--app-border) !important; border-radius: var(--app-radius-lg); background: linear-gradient(145deg, var(--app-surface), color-mix(in srgb, var(--app-primary) 6%, var(--app-surface))); box-shadow: var(--app-shadow) !important; transition: transform .22s ease, box-shadow .22s ease; cursor: grab; }
-    .free-study-face.is-dragging { transition: none; cursor: grabbing; }
-    .free-study-face.is-exiting { transition: transform .18s ease-out; }
-    .free-study-face > .card-body { flex: 1 1 auto; }
-    .example-term { padding: .05em .4em; border-radius: .35rem; background: color-mix(in srgb, var(--app-primary) 28%, transparent); color: var(--app-primary); font-weight: 700; }
-    .free-card-hint { color: var(--app-muted); font-size: .76rem; letter-spacing: .08em; text-transform: uppercase; }
-    .free-card-word { max-width: 100%; margin: 1rem 0 .5rem; color: var(--app-text); font-size: clamp(2rem, 7vw, 4rem); line-height: 1.1; overflow-wrap: anywhere; }
-    .free-card-definition { max-width: 42rem; margin: .4rem 0; color: var(--app-text); font-size: 1.12rem; }
-    .free-card-example { max-width: 42rem; margin: .4rem 0; color: var(--app-muted); font-style: italic; }
-    .free-card-hint-bottom { margin-top: auto; }
-    .free-swipe-label { position: absolute; z-index: 3; top: 1.5rem; padding: .5rem .8rem; border: 2px solid currentColor; border-radius: .5rem; font-weight: 700; opacity: 0; transition: opacity .12s ease; pointer-events: none; }
-    .free-swipe-label.is-visible { opacity: 1; }
-    .free-swipe-label-left { left: 1.5rem; color: var(--app-danger); transform: rotate(-8deg); }
-    .free-swipe-label-right { right: 1.5rem; color: var(--app-success); transform: rotate(8deg); }
-    .free-study-actions { display: grid; grid-template-columns: 1fr auto 1fr; gap: .75rem; align-items: center; margin-top: 1rem; }
-    .free-action { display: inline-flex; align-items: center; justify-content: center; gap: .6rem; min-height: 3.2rem; border: 1px solid; border-radius: var(--app-radius); font-weight: 600; }
-    .free-action-no { color: var(--app-danger); border-color: color-mix(in srgb, var(--app-danger) 40%, transparent); background: color-mix(in srgb, var(--app-danger) 10%, var(--app-surface)); }
-    .free-action-yes { color: var(--app-success); border-color: color-mix(in srgb, var(--app-success) 40%, transparent); background: color-mix(in srgb, var(--app-success) 10%, var(--app-surface)); }
-    .free-action span:first-child, .free-action span:last-child { font-size: 1.25rem; }
-    .free-flip-button { min-height: 2.8rem; }
-    .free-study-footer { display: flex; justify-content: space-between; margin-top: .35rem; }
-    @media (max-width: 575.98px) { .free-study-toolbar { align-items: flex-start; } .free-study-progress { display: none; } .free-study-stage, .free-study-face { min-height: 22rem; } .free-study-actions { grid-template-columns: 1fr 1fr; } .free-flip-button { grid-column: 1 / -1; grid-row: 1; } .free-action { min-height: 3rem; } }
-    @media (prefers-reduced-motion: reduce) { .free-study-face, .free-swipe-label { transition: none; } }
-  `],
 })
 export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, DoCheck {
   @Input() initialDeckId: number | null = null;
@@ -1316,10 +1273,10 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   }
 
   readonly modeOptions: StudyModeOption[] = [
-    { id: 'meaning', label: 'Fordítás', description: 'Látod a szót, és beírod a jelentését.', icon: 'M7 7h13M16 3l4 4-4 4M17 17H4M8 13l-4 4 4 4' },
-    { id: 'definition', label: 'Magyarázd el angolul', description: 'Saját szavaiddal elmagyarázod, mit jelent; az MI értékeli.', icon: 'M4 6h16M4 12h11M4 18h7' },
-    { id: 'recognition', label: 'Találd ki a szót', description: 'Körülírást kapsz, és kitalálod az angol szót.', icon: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2.1h5c0-.9.4-1.6 1-2.1A6 6 0 0 0 12 3Z' },
-    { id: 'free', label: 'Kártyázás', description: 'Lapozgatás: megfordítod, és jelölöd, tudod-e.', icon: 'M8 4h11a1 1 0 0 1 1 1v11M4 8h11a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z', note: 'Nem számít az ismétlésbe' },
+    { id: 'meaning', label: 'Fordítás', description: 'Látod a szót, és beírod a jelentését.' },
+    { id: 'definition', label: 'Magyarázd el angolul', description: 'Saját szavaiddal elmagyarázod, mit jelent; az MI értékeli.' },
+    { id: 'recognition', label: 'Találd ki a szót', description: 'Körülírást kapsz, és kitalálod az angol szót.' },
+    { id: 'free', label: 'Kártyázás', description: 'Lapozgatás: megfordítod, és jelölöd, tudod-e.', note: 'Nem számít az ismétlésbe' },
   ];
 
   // Fordításnál a kérdés és a válasz nyelve is számít, magyarázatnál a válasz mindig angol, ezért ott csak a kérdés nyelve.
@@ -1524,11 +1481,6 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
 
   get isFreeDragging(): boolean {
     return this.freePointerId !== null;
-  }
-
-  get freeCardTransform(): string {
-    const rotation = Math.max(-12, Math.min(12, this.freeSwipeX / 18));
-    return `translate3d(${this.freeSwipeX}px, 0, 0) rotate(${rotation}deg)`;
   }
 
   get freeShowingTerm(): boolean {

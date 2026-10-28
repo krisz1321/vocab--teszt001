@@ -148,12 +148,6 @@ interface LangBlock {
       </div>
     }
   `,
-  styles: [`
-    .speech-options { display: grid; gap: 1.25rem; }
-    .speech-options.is-disabled { opacity: .55; }
-    .speech-lang { padding: .85rem 1rem; border: 1px solid var(--app-border); border-radius: .75rem; background: var(--app-surface); }
-    .speech-sliders { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); }
-  `],
 })
 export class SpeechSettingsComponent {
   readonly speech = inject(SpeechService);

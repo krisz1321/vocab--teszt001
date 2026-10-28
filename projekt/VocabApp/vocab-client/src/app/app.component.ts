@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, effect, HostListener, inject, OnInit, ViewChild } from '@angular/core';
+import { Component, effect, inject, OnInit, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { finalize } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
@@ -11,8 +11,6 @@ import { SpeechSettingsComponent } from './speech-settings.component';
 import { StudyCardComponent } from './study-card.component';
 import { GrammarComponent } from './grammar.component';
 import { CompositionComponent } from './composition.component';
-import { ThemePickerComponent } from './theme-picker.component';
-import { ThemeMode, ThemeService } from './theme.service';
 
 type AppView = 'study' | 'grammar' | 'composition' | 'stats' | 'decks' | 'profile' | 'settings';
 type NavGroup = 'practice' | 'overview';
@@ -71,13 +69,12 @@ interface AiModelOption {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, FormsModule, StudyCardComponent, GrammarComponent, CompositionComponent, StatsComponent, DecksComponent, ThemePickerComponent, SpeechSettingsComponent, MuteButtonComponent],
+  imports: [CommonModule, FormsModule, StudyCardComponent, GrammarComponent, CompositionComponent, StatsComponent, DecksComponent, SpeechSettingsComponent, MuteButtonComponent],
   template: `
     @if (!session.isLoggedIn()) {
       <div class="auth-shell">
         <header class="auth-top">
-          <span class="brand"><span class="brand-mark">V</span>VocabApp</span>
-          <app-theme-picker />
+          <span class="brand">VocabApp</span>
         </header>
         <main class="container d-flex pb-5">
           <div class="auth-card">
@@ -173,7 +170,7 @@ interface AiModelOption {
     } @else {
       <div class="app-shell">
         <aside class="app-sidebar" aria-label="Fő navigáció">
-          <span class="brand"><span class="brand-mark">V</span>VocabApp</span>
+          <span class="brand">VocabApp</span>
           @for (group of navGroups; track group.id) {
             <span class="nav-group-label">{{ group.label }}</span>
             @for (item of group.items; track item.id) {
@@ -183,7 +180,6 @@ interface AiModelOption {
                 [class.is-active]="view === item.id"
                 [attr.aria-current]="view === item.id ? 'page' : null"
                 (click)="goTo(item.id)">
-                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="item.icon" /></svg>
                 {{ item.label }}
               </button>
             }
@@ -195,12 +191,10 @@ interface AiModelOption {
             [class.is-active]="view === 'settings'"
             [attr.aria-current]="view === 'settings' ? 'page' : null"
             (click)="goTo('settings')">
-            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="settingsIcon" /></svg>
             Beállítások
           </button>
           <div class="sidebar-tools">
             <app-mute-button [compact]="true" />
-            <app-theme-picker class="from-sidebar" [compact]="true" />
           </div>
           <div class="sidebar-user" [class.is-active]="view === 'profile'">
             <button
@@ -210,7 +204,7 @@ interface AiModelOption {
               (click)="goTo('profile')"
               title="Profil">
               @if (hasAvatar && avatarUrl) {
-                <img [src]="avatarUrl" alt="" class="avatar-sm" (error)="hasAvatar = false">
+                <img [src]="avatarUrl" alt="" width="40" height="40" class="avatar-sm" (error)="hasAvatar = false">
               } @else {
                 <span class="avatar-sm">{{ initial() }}</span>
               }
@@ -219,65 +213,9 @@ interface AiModelOption {
                 <span class="streak-chip" title="Napi sorozat" [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">{{ studyDayStreak }} nap</span>
               </span>
             </button>
-            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="logout()" aria-label="Kijelentkezés" title="Kijelentkezés">
-              <svg class="icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path [attr.d]="logoutIcon" /></svg>
-            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" (click)="logout()">Kijelentkezés</button>
           </div>
         </aside>
-
-        <header class="app-topbar">
-          <span class="brand"><span class="brand-mark">V</span>VocabApp</span>
-          <div class="d-flex align-items-center gap-2">
-            <span class="streak-chip" title="Napi sorozat" [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">{{ studyDayStreak }} nap</span>
-            <app-mute-button [compact]="true" />
-            <button
-              type="button"
-              class="btn p-0 border-0 rounded-circle"
-              (click)="toggleAccountMenu()"
-              aria-haspopup="menu"
-              [attr.aria-expanded]="accountMenuOpen"
-              aria-label="Fiók menü">
-              @if (hasAvatar && avatarUrl) {
-                <img [src]="avatarUrl" alt="" class="avatar-sm" (error)="hasAvatar = false">
-              } @else {
-                <span class="avatar-sm">{{ initial() }}</span>
-              }
-            </button>
-          </div>
-        </header>
-        @if (accountMenuOpen) {
-          <div class="account-menu-backdrop" (click)="closeAccountMenu()"></div>
-          <div class="account-menu" role="menu" aria-label="Fiók">
-            <div class="account-menu-head">
-              @if (hasAvatar && avatarUrl) {
-                <img [src]="avatarUrl" alt="" class="avatar-sm" (error)="hasAvatar = false">
-              } @else {
-                <span class="avatar-sm">{{ initial() }}</span>
-              }
-              <span class="who">
-                <strong>{{ savedDisplayName || profileEmail || session.email() }}</strong>
-                <span class="text-body-secondary small">Napi sorozat: {{ studyDayStreak }} nap</span>
-              </span>
-            </div>
-            <button type="button" class="account-menu-item" role="menuitem" [class.is-active]="view === 'profile'" (click)="goTo('profile')">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="profileIcon" /></svg>
-              Profil
-            </button>
-            <button type="button" class="account-menu-item" role="menuitem" [class.is-active]="view === 'settings'" (click)="goTo('settings')">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="settingsIcon" /></svg>
-              Beállítások
-            </button>
-            <div class="seg my-2" role="group" aria-label="Világos vagy sötét">
-              @for (m of themeModes; track m.id) {
-                <button type="button" [class.is-active]="theme.mode() === m.id" [attr.aria-pressed]="theme.mode() === m.id" (click)="theme.setMode(m.id)">{{ m.label }}</button>
-              }
-            </div>
-            <button type="button" class="account-menu-item is-danger" role="menuitem" (click)="closeAccountMenu(); logout()">
-              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="logoutIcon" /></svg>
-              Kijelentkezés
-            </button>
-          </div>
-        }
 
         <div class="app-content">
       @if (errorMessage) {
@@ -304,11 +242,6 @@ interface AiModelOption {
           @if (profileMessage) {
             <div class="alert alert-success" role="alert">{{ profileMessage }}</div>
           }
-          <section class="mb-4">
-            <h2 class="h5 mb-3">Megjelenés</h2>
-            <p class="text-body-secondary">Válassz kinézetet, és hogy világos vagy sötét változatban használod. A beállítás ezen az eszközön megmarad.</p>
-            <app-theme-picker [inline]="true" />
-          </section>
           <section class="mb-4">
             <h2 class="h5 mb-3">Hang és felolvasás</h2>
             <p class="text-body-secondary">A tanulás közben a kártyák angol és magyar szövegei felolvashatók a hangszóró gombbal. Itt állíthatod be, mit és milyen hangon olvasson fel.</p>
@@ -557,19 +490,18 @@ interface AiModelOption {
               <img
                 [src]="avatarUrl"
                 alt=""
+                width="96"
+                height="96"
                 class="rounded-circle border"
-                style="width: 6rem; height: 6rem; object-fit: cover;"
                 (error)="hasAvatar = false">
             } @else {
               <span
-                class="rounded-circle border d-inline-flex align-items-center justify-content-center bg-secondary text-white fs-3"
-                style="width: 6rem; height: 6rem;">
+                class="rounded-circle border d-inline-flex align-items-center justify-content-center bg-secondary text-white fs-3">
                 {{ initial() }}
               </span>
             }
             <span
               class="rounded-circle border d-inline-flex flex-column align-items-center justify-content-center flex-shrink-0"
-              style="width: 6rem; height: 6rem;"
               title="Napi sorozat"
               [attr.aria-label]="'Napi sorozat: ' + studyDayStreak">
               <span class="fs-3 fw-semibold lh-1">{{ studyDayStreak }}</span>
@@ -676,56 +608,27 @@ interface AiModelOption {
         </main>
       }
         </div>
-        <nav class="app-tabbar" aria-label="Fő navigáció">
-          @for (item of navItems; track item.id) {
-            <button
-              type="button"
-              class="tab-btn"
-              [class.is-active]="view === item.id"
-              [attr.aria-current]="view === item.id ? 'page' : null"
-              (click)="goTo(item.id)">
-              <span class="tab-icon"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="item.icon" /></svg></span>
-              <span class="tab-label">{{ item.label }}</span>
-            </button>
-          }
-        </nav>
       </div>
     }
   `,
-  styles: [`
-    .advanced-settings { border: 1px solid var(--app-border); border-radius: .75rem; padding: .75rem 1rem; }
-    .advanced-settings > summary { cursor: pointer; }
-    .advanced-settings[open] > summary { margin-bottom: .25rem; }
-  `],
 })
 export class AppComponent implements OnInit {
   private readonly http = inject(HttpClient);
   readonly session = inject(AuthSessionService);
 
-  readonly theme = inject(ThemeService);
-
   view: AppView = 'study';
-  // A Profil és a Beállítások nincs itt: asztalon a felhasználói kártya és a külön menüpont, mobilon a fiókmenü nyitja.
-  readonly navItems: { id: AppView; label: string; icon: string; group: NavGroup }[] = [
-    { id: 'study', label: 'Tanulás', icon: 'M3 7l9-4 9 4-9 4-9-4Zm0 5l9 4 9-4M3 17l9 4 9-4', group: 'practice' },
-    { id: 'grammar', label: 'Nyelvtan', icon: 'M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z', group: 'practice' },
-    { id: 'composition', label: 'Mondatok', icon: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2ZM8 8h8M8 12h5', group: 'practice' },
-    { id: 'stats', label: 'Statisztika', icon: 'M5 20V10M12 20V4M19 20v-7', group: 'overview' },
-    { id: 'decks', label: 'Paklik', icon: 'M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z', group: 'overview' },
+  // A Profil és a Beállítások nincs itt: a felhasználói kártya és a külön menüpont nyitja.
+  readonly navItems: { id: AppView; label: string; group: NavGroup }[] = [
+    { id: 'study', label: 'Tanulás', group: 'practice' },
+    { id: 'grammar', label: 'Nyelvtan', group: 'practice' },
+    { id: 'composition', label: 'Mondatok', group: 'practice' },
+    { id: 'stats', label: 'Statisztika', group: 'overview' },
+    { id: 'decks', label: 'Paklik', group: 'overview' },
   ];
   readonly navGroups = [
     { id: 'practice', label: 'Gyakorlás' },
     { id: 'overview', label: 'Áttekintés' },
   ].map(group => ({ ...group, items: this.navItems.filter(item => item.group === group.id) }));
-  readonly themeModes: { id: ThemeMode; label: string }[] = [
-    { id: 'light', label: 'Világos' },
-    { id: 'dark', label: 'Sötét' },
-    { id: 'system', label: 'Rendszer' },
-  ];
-  readonly profileIcon = 'M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0';
-  readonly settingsIcon = 'M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6';
-  readonly logoutIcon = 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9';
-  accountMenuOpen = false;
   mode: AuthMode = 'login';
   email = '';
   registerUsername = '';
@@ -977,17 +880,7 @@ export class AppComponent implements OnInit {
     );
   }
 
-  toggleAccountMenu(): void {
-    this.accountMenuOpen = !this.accountMenuOpen;
-  }
-
-  @HostListener('document:keydown.escape')
-  closeAccountMenu(): void {
-    this.accountMenuOpen = false;
-  }
-
   goTo(view: AppView): void {
-    this.accountMenuOpen = false;
     if (view !== 'decks' && !this.confirmLeaveDecks()) {
       return;
     }
@@ -1368,7 +1261,6 @@ export class AppComponent implements OnInit {
     this.studySettingsRequest++;
     this.studySettingsLoaded = false;
     this.isLoadingStudySettings = false;
-    this.accountMenuOpen = false;
     this.userId = null;
   }
 

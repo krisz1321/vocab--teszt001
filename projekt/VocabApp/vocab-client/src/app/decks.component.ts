@@ -318,7 +318,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             · <span class="due">{{ deck.dueCount }} esedékes</span>
                           }
                         </span>
-                        <span class="mini-progress" aria-hidden="true"><span [style.width.%]="learnedPercent(deck)"></span></span>
+                        <span class="mini-progress" aria-hidden="true"><span></span></span>
                       </button>
                     </li>
                   }
@@ -682,7 +682,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                                   (click)="setSuspension(card, 'buried')"
                                   [attr.aria-label]="'Elnapolás holnapig: ' + card.term"
                                   title="Elnapolás holnapig">
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+                                  Elnapolás
                                 </button>
                                 <button
                                   type="button"
@@ -691,7 +691,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                                   (click)="setSuspension(card, 'suspended')"
                                   [attr.aria-label]="'Felfüggesztés: ' + card.term"
                                   title="Felfüggesztés, amíg vissza nem kapcsolod">
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>
+                                  Felfüggesztés
                                 </button>
                               } @else {
                                 <button
@@ -701,11 +701,11 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                                   (click)="setSuspension(card, 'none')"
                                   [attr.aria-label]="'Visszakapcsolás a tanulásba: ' + card.term"
                                   title="Visszakapcsolás a tanulásba">
-                                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4l13 8-13 8Z"/></svg>
+                                  Visszakapcsolás
                                 </button>
                               }
                               <button type="button" class="icon-btn" (click)="editCard(card)" [attr.aria-label]="'Szerkesztés: ' + card.term" title="Szerkesztés">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                                Szerkesztés
                               </button>
                               <button
                                 type="button"
@@ -714,7 +714,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                                 (click)="deleteCard(card)"
                                 [attr.aria-label]="'Törlés: ' + card.term"
                                 title="Törlés">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+                                Törlés
                               </button>
                             </div>
                           </li>
@@ -731,7 +731,6 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                           id="rename-deck"
                           name="renameDraft"
                           class="form-control flex-grow-1"
-                          style="min-width: 12rem; width: auto;"
                           maxlength="100"
                           autocomplete="off"
                           aria-label="Pakli neve"
@@ -777,7 +776,6 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                       <div class="d-flex flex-wrap gap-2 align-items-center">
                         <select
                           class="form-select"
-                          style="width: auto;"
                           name="exampleLevel"
                           aria-label="Példamondatok szintje"
                           [ngModel]="deck.exampleLevel ?? ''"
@@ -929,7 +927,6 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                 (ngModelChange)="onPublicQueryChange()">
               <input
                 class="form-control"
-                style="flex: 0 1 12rem;"
                 type="search"
                 name="publicOwner"
                 maxlength="30"
@@ -939,7 +936,6 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                 (ngModelChange)="onPublicQueryChange()">
               <select
                 class="form-select"
-                style="width: auto;"
                 name="publicSort"
                 aria-label="Rendezés"
                 [(ngModel)]="publicSort"
@@ -1177,7 +1173,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
             @if (pasteAiRunning || pasteAiTotal > 0) {
               <div class="mb-2">
                 <div class="progress" role="progressbar" aria-label="MI-kitöltés folyamata" [attr.aria-valuenow]="pasteAiDone" aria-valuemin="0" [attr.aria-valuemax]="pasteAiTotal">
-                  <div class="progress-bar" [class.progress-bar-striped]="pasteAiRunning" [class.progress-bar-animated]="pasteAiRunning" [style.width.%]="pasteAiTotal ? (pasteAiDone * 100 / pasteAiTotal) : 0"></div>
+                  <div class="progress-bar" [class.progress-bar-striped]="pasteAiRunning" [class.progress-bar-animated]="pasteAiRunning"></div>
                 </div>
                 <div class="small text-body-secondary mt-1">
                   MI: {{ pasteAiDone }}/{{ pasteAiTotal }} sor feldolgozva{{ pasteAiRunning ? '…' : '' }}
@@ -1270,102 +1266,6 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
       </div>
     }
   `,
-  styles: [`
-    .min-w-0 { min-width: 0; }
-    /* A .dseg* szegmensgombok, a párbeszédablakok és a toast stílusa a src/styles.scss-ben van (8 kB-os budget). */
-    .dtab-btn { border: 0; background: transparent; color: var(--app-muted); font-family: inherit; font-size: .95rem; font-weight: 600; cursor: pointer; flex: 0 0 auto; }
-
-    .deck-layout { display: grid; grid-template-columns: minmax(16rem, 21rem) minmax(0, 1fr); gap: 1.25rem; align-items: start; }
-    .deck-list-panel, .deck-detail-panel { background: var(--app-surface); border: 1px solid var(--app-border); border-radius: var(--app-radius); padding: 1rem; }
-    .deck-list-panel { position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
-    .panel-title { font-size: .8rem; letter-spacing: .06em; text-transform: uppercase; color: var(--app-muted); font-weight: 700; }
-    .create-box { padding: .75rem; margin-bottom: .75rem; border: 1px dashed var(--app-border); border-radius: var(--app-radius-sm); background: var(--app-surface-2); }
-    .deck-list[hidden] { display: none; }
-    .deck-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .4rem; }
-    .deck-item { width: 100%; display: flex; flex-direction: column; gap: .2rem; text-align: left; padding: .65rem .8rem; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); background: transparent; color: var(--app-text); cursor: pointer; transition: border-color .15s, background .15s; }
-    .deck-item:hover { border-color: var(--app-primary); background: var(--app-surface-2); }
-    .deck-item.active { border-color: var(--app-primary); background: color-mix(in srgb, var(--app-primary) 12%, transparent); box-shadow: inset 3px 0 0 var(--app-primary); }
-    .deck-item-special { border-style: dashed; }
-    .deck-name { font-weight: 650; }
-    .deck-meta { font-size: .8rem; color: var(--app-muted); }
-    .deck-meta .due { color: var(--app-primary); font-weight: 600; }
-    .mini-progress { display: block; height: .25rem; margin-top: .2rem; border-radius: 999px; background: var(--app-border); overflow: hidden; }
-    .mini-progress > span { display: block; height: 100%; background: var(--app-success); }
-
-    .chip { display: inline-block; padding: .1rem .5rem; border-radius: 999px; font-size: .72rem; font-weight: 600; border: 1px solid var(--app-border); color: var(--app-muted); white-space: nowrap; }
-    .chip-shared { color: var(--app-primary); border-color: color-mix(in srgb, var(--app-primary) 45%, transparent); background: color-mix(in srgb, var(--app-primary) 10%, transparent); }
-    .chip-ok { color: var(--app-success); border-color: color-mix(in srgb, var(--app-success) 45%, transparent); background: color-mix(in srgb, var(--app-success) 10%, transparent); margin-left: .35rem; }
-    .chip-leech { color: var(--app-danger); border-color: color-mix(in srgb, var(--app-danger) 45%, transparent); background: color-mix(in srgb, var(--app-danger) 10%, transparent); margin-left: .35rem; }
-    .chip-paused { color: var(--app-muted); margin-left: .35rem; }
-    .chip-level { color: var(--app-primary); border-color: color-mix(in srgb, var(--app-primary) 45%, transparent); }
-    .chip-pending { color: var(--app-text); border: 1px dashed var(--app-primary); background: transparent; }
-    .chip-saved { color: var(--app-success); border-color: color-mix(in srgb, var(--app-success) 45%, transparent); background: color-mix(in srgb, var(--app-success) 10%, transparent); }
-    .owner-link { padding: 0; border: 0; background: none; color: var(--app-primary); font-weight: 600; cursor: pointer; }
-    .owner-link:hover { text-decoration: underline; }
-    .deck-facts { display: flex; flex-wrap: wrap; align-items: center; gap: .25rem .75rem; }
-    .share-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: .5rem .75rem; margin: 0 0 1rem; }
-    .share-stats dt { font-weight: 600; color: var(--app-muted); }
-    .share-stats dd { margin: 0; }
-
-    .back-link { display: inline-block; margin-bottom: .75rem; padding: 0; border: 0; background: none; color: var(--app-primary); font-weight: 600; }
-    .detail-head { margin-bottom: 1rem; }
-    .tabs { display: flex; gap: .25rem; margin-top: 1rem; border-bottom: 1px solid var(--app-border); overflow-x: auto; }
-    .dtab-btn { display: inline-flex; flex-direction: row; align-items: center; gap: .3rem; padding: .55rem .9rem; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
-    .dtab-btn.active { color: var(--app-primary); border-bottom-color: var(--app-primary); }
-    .dtab-btn:not(.active):hover { color: var(--app-text); }
-
-    .toolbar { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: 1rem 0 .75rem; }
-    .toolbar .form-control { flex: 1 1 14rem; min-width: 0; }
-
-    .editor { padding: 1rem; margin-bottom: 1rem; border: 1px solid var(--app-primary); border-radius: var(--app-radius-sm); background: color-mix(in srgb, var(--app-primary) 5%, var(--app-surface)); }
-    .card-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); overflow: hidden; }
-    .card-row { display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem; padding: .75rem .9rem; border-top: 1px solid var(--app-border); background: var(--app-surface); }
-    .card-row:first-child { border-top: 0; }
-    .card-row:hover { background: var(--app-surface-2); }
-    .card-row.is-editing { background: color-mix(in srgb, var(--app-primary) 10%, var(--app-surface)); }
-    .card-main { min-width: 0; flex: 1 1 auto; }
-    .card-term { font-weight: 700; }
-    .card-def { margin-top: .1rem; }
-    .card-tm { margin-top: .15rem; color: var(--app-primary); font-weight: 600; font-size: .92rem; }
-    .card-tags { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .3rem; }
-    .chip-tag { background: transparent; cursor: pointer; font-weight: 500; }
-    .chip-tag:hover, .chip-tag.active { color: var(--app-primary); border-color: var(--app-primary); }
-    .tag-select { width: auto; max-width: 11rem; }
-    .card-ex { margin-top: .15rem; color: var(--app-muted); font-style: italic; font-size: .9rem; }
-    .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .1rem .75rem; margin-top: .5rem; font-size: .8rem; color: var(--app-muted); }
-    .card-actions { display: flex; align-items: center; gap: .5rem; flex-shrink: 0; }
-    .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 2.1rem; height: 2.1rem; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); background: transparent; color: var(--app-text); cursor: pointer; }
-    .icon-btn:hover { border-color: var(--app-primary); color: var(--app-primary); }
-    .icon-btn-danger:hover { border-color: var(--app-danger); color: var(--app-danger); }
-    .icon-btn:disabled { opacity: .5; cursor: not-allowed; }
-
-    .settings { display: flex; flex-direction: column; gap: 1rem; }
-    .setting-block { padding: 1rem; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); }
-    .danger-zone { border-color: color-mix(in srgb, var(--app-danger) 45%, var(--app-border)); }
-
-    .deck-description { color: var(--app-muted); white-space: pre-line; }
-    .public-card .deck-description { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-    .empty-box { padding: 1.25rem; border: 1px dashed var(--app-border); border-radius: var(--app-radius-sm); background: var(--app-surface-2); }
-    .empty-box-lg { padding: 2.5rem 1.5rem; text-align: center; }
-
-    .public-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr)); gap: .9rem; align-items: start; }
-    .public-card { padding: 1rem; border: 1px solid var(--app-border); border-radius: var(--app-radius); background: var(--app-surface); }
-    .public-card.open { grid-column: 1 / -1; border-color: var(--app-primary); }
-    .preview-list { list-style: none; margin: 1rem 0 0; padding: 0; max-height: 18rem; overflow-y: auto; border-top: 1px solid var(--app-border); }
-    .preview-list li { padding: .5rem 0; border-bottom: 1px solid var(--app-border); }
-
-    @media (max-width: 991.98px) {
-      .deck-layout { grid-template-columns: minmax(0, 1fr); }
-      .deck-list-panel { position: static; max-height: none; }
-      .deck-layout:not(.show-detail) .deck-detail-panel { display: none; }
-      .deck-layout.show-detail .deck-list-panel { display: none; }
-    }
-    @media (max-width: 575.98px) {
-      .card-row { flex-direction: column; }
-      .card-actions { width: 100%; justify-content: space-between; }
-    }
-    @media (min-width: 768px) { .w-md-auto { width: auto !important; } }
-  `],
 })
 export class DecksComponent implements OnInit, OnDestroy {
   @Output() readonly studyDeck = new EventEmitter<number>();

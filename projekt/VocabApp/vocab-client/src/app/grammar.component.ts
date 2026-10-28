@@ -235,7 +235,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                 [attr.aria-valuenow]="progressPercent"
                 aria-valuemin="0"
                 aria-valuemax="100">
-                <div class="progress-bar" [style.width.%]="progressPercent"></div>
+                <div class="progress-bar"></div>
               </div>
               <span class="session-meta">{{ selectedTenses.length }} igeidő · {{ checkedCount > 0 ? correctCount + ' / ' + checkedCount + ' helyes' : 'még nincs ellenőrzött mondat' }}</span>
             </div>
@@ -374,12 +374,6 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
       </div>
     </main>
   `,
-  styles: [`
-    .grammar-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; }
-    .grammar-term { font-size: 1.6rem; font-weight: var(--app-heading-weight, 700); }
-    .grammar-task { padding: .75rem 1rem; border-radius: var(--app-radius-sm); background: var(--app-surface-2); }
-    .grammar-example { padding: .6rem .9rem; border-left: 3px solid var(--app-primary); background: var(--app-surface-2); border-radius: var(--app-radius-sm); }
-  `],
 })
 export class GrammarComponent implements OnInit {
   @Output() openDecks = new EventEmitter<void>();

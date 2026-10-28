@@ -336,14 +336,6 @@ const MAX_TEXT_LENGTH = 500;
       </div>
     </main>
   `,
-  styles: [`
-    .composition-words { display: grid; gap: .5rem; }
-    .composition-word { padding: .5rem .75rem; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); background: var(--app-surface-2); }
-    .composition-word.is-found { border-color: var(--bs-success); }
-    .composition-mark { width: 1rem; text-align: center; color: var(--app-muted); }
-    .composition-word.is-found .composition-mark { color: var(--bs-success); }
-    .composition-note { padding: .6rem .9rem; border-left: 3px solid var(--app-primary); background: var(--app-surface-2); border-radius: var(--app-radius-sm); }
-  `],
 })
 export class CompositionComponent implements OnInit {
   @Output() openDecks = new EventEmitter<void>();
