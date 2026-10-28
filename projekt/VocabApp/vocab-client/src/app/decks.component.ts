@@ -191,7 +191,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                   (ngModelChange)="onGlobalSearchChange()">
                 @if (globalActive) {
                   @if (isGlobalSearching && globalResults.length === 0) {
-                    <div role="status"><div></div></div>
+                    <div class="loading" role="status"><div class="spinner spinner-sm"></div></div>
                   } @else if (globalResults.length === 0) {
                     <p>Nincs találat.</p>
                   } @else {
@@ -261,7 +261,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                   <div>
                     <button type="submit" [disabled]="isSavingDeck || !newDeckName.trim()">
                       @if (isSavingDeck) {
-                        <span></span>
+                        <span class="spinner spinner-sm"></span>
                       }
                       Létrehozás
                     </button>
@@ -271,8 +271,8 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
               }
 
               @if (isLoadingDecks) {
-                <div role="status">
-                  <div></div>
+                <div class="loading" role="status">
+                  <div class="spinner"></div>
                 </div>
               } @else {
                 @if (decks.length === 0) {
@@ -367,7 +367,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                   </div>
                 </div>
                 @if (isLoadingCards) {
-                  <div role="status"><div></div></div>
+                  <div class="loading" role="status"><div class="spinner"></div></div>
                 } @else if (learnedCards.length === 0) {
                   <div class="empty-box">
                     <p>Még nincs megtanult szavad</p>
@@ -487,7 +487,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             [disabled]="!term.trim() || isSavingCard || isBusyAi"
                             title="Az MI kitölti az angol definíciót és a magyar jelentést, ha még üresek">
                             @if (isAutoFilling) {
-                              <span></span>
+                              <span class="spinner spinner-sm"></span>
                             }
                             Kitöltés MI-vel
                           </button>
@@ -497,7 +497,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             <label for="card-definition">Angol definíció</label>
                             <button type="button" (click)="generateDefinition()" [disabled]="isBusyAi || isSavingCard || !term.trim()">
                               @if (isGeneratingDefinition) {
-                                <span></span>
+                                <span class="spinner spinner-sm"></span>
                               }
                               Generálás
                             </button>
@@ -516,7 +516,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             <label for="card-meanings">Magyar jelentés</label>
                             <button type="button" (click)="generateTargetMeaning()" [disabled]="isBusyAi || isSavingCard || !term.trim() || !definition.trim()">
                               @if (isGeneratingTargetMeaning) {
-                                <span></span>
+                                <span class="spinner spinner-sm"></span>
                               }
                               Generálás
                             </button>
@@ -562,7 +562,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                       <div>
                         <button type="submit" [disabled]="isSavingCard || isBusyAi">
                           @if (isSavingCard) {
-                            <span></span>
+                            <span class="spinner spinner-sm"></span>
                           }
                           {{ editingCardId === null ? 'Kártya felvétele' : 'Mentés' }}
                         </button>
@@ -575,7 +575,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                   }
 
                   @if (isLoadingCards) {
-                    <div role="status"><div></div></div>
+                    <div class="loading" role="status"><div class="spinner"></div></div>
                   } @else if (cards.length === 0) {
                     <div class="empty-box">
                       <p>Ebben a pakliban még nincs kártya</p>
@@ -723,7 +723,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                           [disabled]="isRenaming">
                         <button type="submit" [disabled]="isRenaming || !renameDraft.trim() || renameDraft.trim() === deck.name">
                           @if (isRenaming) {
-                            <span></span>
+                            <span class="spinner spinner-sm"></span>
                           }
                           Átnevezés
                         </button>
@@ -745,7 +745,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         <div>
                           <button type="submit" [disabled]="isSavingDescription || descriptionDraft.trim() === (deck.description ?? '')">
                             @if (isSavingDescription) {
-                              <span></span>
+                              <span class="spinner spinner-sm"></span>
                             }
                             Leírás mentése
                           </button>
@@ -770,7 +770,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                           }
                         </select>
                         @if (savingLevelDeckId === deck.id) {
-                          <span></span>
+                          <span class="spinner spinner-sm"></span>
                         }
                       </div>
                     </section>
@@ -797,7 +797,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                             [disabled]="publishingDeckId === deck.id || deck.cardCount === 0"
                             (click)="publishUpdate(deck)">
                             @if (publishingDeckId === deck.id) {
-                              <span></span>
+                              <span class="spinner spinner-sm"></span>
                             }
                             Megosztás frissítése (v{{ share.version + 1 }})
                           </button>
@@ -806,7 +806,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         }
                         <button type="button" [disabled]="sharingDeckId === deck.id" (click)="toggleShare(deck)">
                           @if (sharingDeckId === deck.id) {
-                            <span></span>
+                            <span class="spinner spinner-sm"></span>
                           }
                           Megosztás visszavonása
                         </button>
@@ -825,7 +825,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                           [attr.title]="deck.cardCount === 0 ? 'Üres paklit nem érdemes megosztani' : null"
                           (click)="toggleShare(deck)">
                           @if (sharingDeckId === deck.id) {
-                            <span></span>
+                            <span class="spinner spinner-sm"></span>
                           }
                           Pakli megosztása
                         </button>
@@ -843,7 +843,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                           <p><span class="chip chip-pending">Új verzió: v{{ deck.latestSharedVersion }}</span> A készítő újabb verziót tett közzé.</p>
                           <button type="button" [disabled]="copyingDeckId === deck.sourceSharedDeckId" (click)="saveNewVersion(deck)">
                             @if (copyingDeckId === deck.sourceSharedDeckId) {
-                              <span></span>
+                              <span class="spinner spinner-sm"></span>
                             }
                             Új verzió mentése új paklinak
                           </button>
@@ -860,14 +860,14 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                         <button type="button" [disabled]="isImporting" (click)="openPasteImport()">Beillesztés szövegből</button>
                         <label [class.disabled]="isImporting">
                           @if (isImporting) {
-                            <span></span>
+                            <span class="spinner spinner-sm"></span>
                           }
                           CSV importálása
                           <input type="file" accept=".csv,text/csv" [disabled]="isImporting" (change)="importDeck($event)">
                         </label>
                         <button type="button" [disabled]="isExporting || deck.cardCount === 0" (click)="exportDeck()">
                           @if (isExporting) {
-                            <span></span>
+                            <span class="spinner spinner-sm"></span>
                           }
                           Exportálás CSV-be
                         </button>
@@ -941,7 +941,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
             </form>
 
             @if (isLoadingPublic && publicDecks.length === 0) {
-              <div role="status"><div></div></div>
+              <div class="loading" role="status"><div class="spinner"></div></div>
             } @else if (filteredPublicDecks().length === 0) {
               <div class="empty-box">
                 <p>{{ hasPublicFilter() ? 'Nincs találat' : 'Még nincs közös pakli' }}</p>
@@ -992,14 +992,14 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                       </button>
                       <button type="button" [disabled]="copyingDeckId === deck.id" (click)="copyDeck(deck)">
                         @if (copyingDeckId === deck.id) {
-                          <span></span>
+                          <span class="spinner spinner-sm"></span>
                         }
                         Másolás a paklijaim közé
                       </button>
                     </div>
                     @if (previewDeckId === deck.id) {
                       @if (isLoadingPreview) {
-                        <div role="status"><div></div></div>
+                        <div class="loading" role="status"><div class="spinner spinner-sm"></div></div>
                       } @else if (previewCards.length === 0) {
                         <div>Ebben a pakliban nincs kártya.</div>
                       } @else {
@@ -1205,7 +1205,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
               <button type="button" [disabled]="pasteSaving" (click)="requestClosePaste()">Mégse</button>
               <button type="button" [disabled]="!canSavePaste" (click)="savePaste()">
                 @if (pasteSaving) {
-                  <span></span>
+                  <span class="spinner spinner-sm"></span>
                 }
                 Mentés{{ pasteRows.length > 0 ? ' (' + pasteRows.length + ' kártya)' : '' }}
               </button>

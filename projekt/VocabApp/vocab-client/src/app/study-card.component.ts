@@ -298,8 +298,8 @@ const emptyAnswerMessage = 'Írj be valamit.';
                 </div>
               }
               @if (isLoadingDecks) {
-                <div role="status">
-                  <div></div>
+                <div class="loading" role="status">
+                  <div class="spinner"></div>
                   <p>Paklik betöltése…</p>
                 </div>
               } @else {
@@ -380,8 +380,8 @@ const emptyAnswerMessage = 'Írj be valamit.';
         }
 
         @if (studying && isLoadingCard) {
-          <div role="status">
-            <div></div>
+          <div class="loading" role="status">
+            <div class="spinner"></div>
             <p>Kártya betöltése…</p>
           </div>
         }
@@ -456,7 +456,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     @if (freeFront === 'other' && !card.targetMeanings?.trim()) {
                       <button type="button" (click)="generateFreeMeaning()" (pointerdown)="$event.stopPropagation()" (pointerup)="$event.stopPropagation()" [disabled]="isGeneratingFreeMeaning">
                         @if (isGeneratingFreeMeaning) {
-                          <span></span>
+                          <span class="spinner spinner-sm"></span>
                         }
                         Magyar jelentés generálása
                       </button>
@@ -472,7 +472,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     @if (freeFront === 'term' && !card.targetMeanings?.trim()) {
                       <button type="button" (click)="generateFreeMeaning()" (pointerdown)="$event.stopPropagation()" (pointerup)="$event.stopPropagation()" [disabled]="isGeneratingFreeMeaning">
                         @if (isGeneratingFreeMeaning) {
-                          <span></span>
+                          <span class="spinner spinner-sm"></span>
                         }
                         Magyar jelentés generálása
                       </button>
@@ -519,7 +519,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   </button>
                   <button type="button" (click)="confirmRestartFree()" [disabled]="isClearingFreeMarks">
                     @if (isClearingFreeMarks) {
-                      <span></span>
+                      <span class="spinner spinner-sm"></span>
                     }
                     Törlés
                   </button>
@@ -624,7 +624,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                         (click)="checkMeaningAnswer()"
                         [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isSubmitting || updatedProgress !== null">
                         @if (isSubmitting) {
-                          <span></span>
+                          <span class="spinner spinner-sm"></span>
                         }
                         Válasz ellenőrzése
                       </button>
@@ -662,7 +662,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     }
                     @if (isValidating) {
                       <p role="status">
-                        <span></span>
+                        <span class="spinner spinner-sm"></span>
                         Az MI ellenőrzi a választ…
                       </p>
                     }
@@ -704,7 +704,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                       (click)="generateTargetMeaning()"
                       [disabled]="isGeneratingTargetMeaning || isSavingTargetMeaning">
                       @if (isGeneratingTargetMeaning) {
-                        <span></span>
+                        <span class="spinner spinner-sm"></span>
                       }
                       Generálás
                     </button>
@@ -713,7 +713,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                       (click)="saveTargetMeaning()"
                       [disabled]="!targetMeaningsDraft.trim() || isGeneratingTargetMeaning || isSavingTargetMeaning">
                       @if (isSavingTargetMeaning) {
-                        <span></span>
+                        <span class="spinner spinner-sm"></span>
                       }
                       Mentés
                     </button>
@@ -739,7 +739,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     (click)="validateAnswer()"
                     [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isValidating || isSubmitting || updatedProgress !== null || definitionPenaltyPending !== null || validationResult !== null">
                     @if (isValidating || isSubmitting) {
-                      <span></span>
+                      <span class="spinner spinner-sm"></span>
                     }
                     Válasz ellenőrzése
                   </button>
@@ -759,7 +759,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     (click)="generateDefinition()"
                     [disabled]="isGeneratingDefinition || definitionPenaltyPending !== null || isSubmitting || isValidating || (updatedProgress === null && secondsUntilAnswer > 0)">
                     @if (isGeneratingDefinition) {
-                      <span></span>
+                      <span class="spinner spinner-sm"></span>
                     }
                     MI-definíció
                   </button>
@@ -768,7 +768,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     (click)="generateExample()"
                     [disabled]="isGeneratingExample">
                     @if (isGeneratingExample) {
-                      <span></span>
+                      <span class="spinner spinner-sm"></span>
                     }
                     MI-példamondat
                   </button>
@@ -796,8 +796,8 @@ const emptyAnswerMessage = 'Írj be valamit.';
                 }
               } @else {
                 @if (isLoadingPrompt) {
-                  <div role="status">
-                    <div></div>
+                  <div class="loading" role="status">
+                    <div class="spinner"></div>
                     <p>Körülírás készítése…</p>
                   </div>
                 } @else if (promptDefinition) {
@@ -849,7 +849,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                       (click)="checkRecognitionAnswer()"
                       [disabled]="!answer.trim() || secondsUntilAnswer > 0 || isLoadingPrompt || isCheckingRecognition || isSubmitting || updatedProgress !== null">
                       @if (isCheckingRecognition || isSubmitting) {
-                        <span></span>
+                        <span class="spinner spinner-sm"></span>
                       }
                       Válasz ellenőrzése
                     </button>
@@ -868,7 +868,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                         [disabled]="isLoadingExtraDefinition || isCheckingRecognition"
                         aria-label="Másik definíció kérése" title="Másik definíció kérése">
                         @if (isLoadingExtraDefinition) {
-                          <span></span>
+                          <span class="spinner spinner-sm"></span>
                         } @else {
                           Másik definíció
                         }
@@ -911,7 +911,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                       (click)="generateExample()"
                       [disabled]="isGeneratingExample">
                       @if (isGeneratingExample) {
-                        <span></span>
+                        <span class="spinner spinner-sm"></span>
                       }
                       MI-példamondat
                     </button>
@@ -975,7 +975,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                       (click)="explainWhyWrong()"
                       [disabled]="isExplaining || isSubmitting">
                       @if (isExplaining) {
-                        <span></span>
+                        <span class="spinner spinner-sm"></span>
                       }
                       Miért volt rossz?
                     </button>
@@ -995,7 +995,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     (click)="submitAppeal()"
                     [disabled]="!appealReason.trim() || isAppealing || isSubmitting">
                     @if (isAppealing) {
-                      <span></span>
+                      <span class="spinner spinner-sm"></span>
                     }
                     Indoklás elküldése
                   </button>
@@ -1029,7 +1029,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                   (click)="askFollowUp()"
                   [disabled]="!followUpQuestion.trim() || isExplaining || isSubmitting">
                   @if (isExplaining) {
-                    <span></span>
+                    <span class="spinner spinner-sm"></span>
                   }
                   Kérdés küldése
                 </button>
@@ -1043,7 +1043,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                           data-next-card
                     [disabled]="isSubmitting || isAppealing">
                     @if (isSubmitting) {
-                      <span></span>
+                      <span class="spinner spinner-sm"></span>
                     }
                     Következő kártya
                   </button>

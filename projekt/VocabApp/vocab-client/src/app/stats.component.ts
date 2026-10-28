@@ -31,8 +31,8 @@ const PAGE_SIZE = 25;
         </header>
 
         @if (isLoading()) {
-          <div role="status">
-            <div></div>
+          <div class="loading" role="status">
+            <div class="spinner"></div>
             <p>Statisztika betöltése…</p>
           </div>
         }

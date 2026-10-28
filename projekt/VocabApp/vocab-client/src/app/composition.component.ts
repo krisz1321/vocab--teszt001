@@ -81,7 +81,7 @@ const MAX_TEXT_LENGTH = 500;
           <form (ngSubmit)="start()">
             <div>
               @if (isLoadingDecks) {
-                <div role="status"><div></div></div>
+                <div class="loading" role="status"><div class="spinner"></div></div>
               } @else {
                 @if (decks.length === 0) {
                   <div role="status">
@@ -166,7 +166,7 @@ const MAX_TEXT_LENGTH = 500;
                 }
                 <button type="submit" [disabled]="isLoadingCards">
                   @if (isLoadingCards) {
-                    <span aria-hidden="true"></span>
+                    <span class="spinner spinner-sm" aria-hidden="true"></span>
                   }
                   Indítás
                 </button>
@@ -235,13 +235,13 @@ const MAX_TEXT_LENGTH = 500;
                 <div>
                   <button type="button" [disabled]="!text.trim() || isBusy" (click)="check()">
                     @if (isChecking) {
-                      <span aria-hidden="true"></span>
+                      <span class="spinner spinner-sm" aria-hidden="true"></span>
                     }
                     Ellenőrzés
                   </button>
                   <button type="button" [disabled]="isBusy" (click)="loadHint()" title="Magyar szöveg, amit lefordíthatsz angolra">
                     @if (isLoadingHint) {
-                      <span aria-hidden="true"></span>
+                      <span class="spinner spinner-sm" aria-hidden="true"></span>
                     }
                     {{ hint ? 'Másik tipp' : 'Tipp' }}
                   </button>
@@ -295,7 +295,7 @@ const MAX_TEXT_LENGTH = 500;
                     @if (example === null) {
                       <button type="button" [disabled]="isBusy" (click)="loadExample()">
                         @if (isLoadingExample) {
-                          <span aria-hidden="true"></span>
+                          <span class="spinner spinner-sm" aria-hidden="true"></span>
                         }
                         Mutass egy példát
                       </button>
@@ -303,7 +303,7 @@ const MAX_TEXT_LENGTH = 500;
                     @if (!result.isCorrect) {
                       <button type="button" [disabled]="isBusy" (click)="acceptManually()">
                         @if (isAccepting) {
-                          <span aria-hidden="true"></span>
+                          <span class="spinner spinner-sm" aria-hidden="true"></span>
                         }
                         Márpedig jó volt
                       </button>

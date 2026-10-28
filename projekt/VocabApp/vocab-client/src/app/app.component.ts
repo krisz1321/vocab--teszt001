@@ -248,7 +248,7 @@ interface AiModelOption {
             @if (!studySettingsLoaded) {
               <div role="status">
                 @if (isLoadingStudySettings) {
-                  <span aria-hidden="true"></span>
+                  <span class="spinner spinner-sm" aria-hidden="true"></span>
                   A beállítások betöltése…
                 } @else {
                   Nem sikerült betölteni a beállításokat, ezért most nem tudsz menteni.

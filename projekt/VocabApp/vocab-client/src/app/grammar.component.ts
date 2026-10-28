@@ -107,7 +107,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
               <h2>Igeidők</h2>
               <p>Minden szónál véletlenszerűen kapsz egyet a bejelölt igeidők közül. A választásod mentődik.</p>
               @if (isLoadingTenses) {
-                <div role="status"><div></div></div>
+                <div class="loading" role="status"><div class="spinner"></div></div>
               } @else {
                 <div role="group" aria-label="Gyorsválasztás">
                   <button type="button" [disabled]="isSavingTenses" (click)="selectAll()">Mind</button>
@@ -156,7 +156,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
             <div>
               <h2>Szavak</h2>
               @if (isLoadingDecks) {
-                <div role="status"><div></div></div>
+                <div class="loading" role="status"><div class="spinner"></div></div>
               } @else {
                 @if (decks.length === 0) {
                   <div role="status">
@@ -206,7 +206,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                   type="submit"
                   [disabled]="selectedTenses.length === 0 || isLoadingTenses || isSavingTenses || isLoadingCards">
                   @if (isLoadingCards) {
-                    <span aria-hidden="true"></span>
+                    <span class="spinner spinner-sm" aria-hidden="true"></span>
                   }
                   Kezdés
                 </button>
@@ -271,13 +271,13 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                 <div>
                   <button type="button" [disabled]="!sentence.trim() || isBusy" (click)="check()">
                     @if (isChecking) {
-                      <span aria-hidden="true"></span>
+                      <span class="spinner spinner-sm" aria-hidden="true"></span>
                     }
                     Ellenőrzés
                   </button>
                   <button type="button" [disabled]="isBusy" (click)="loadHint()" title="Magyar mondat, amit lefordíthatsz angolra">
                     @if (isLoadingHint) {
-                      <span aria-hidden="true"></span>
+                      <span class="spinner spinner-sm" aria-hidden="true"></span>
                     }
                     {{ hint ? 'Másik tipp' : 'Tipp' }}
                   </button>
@@ -331,7 +331,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                     @if (example === null) {
                       <button type="button" [disabled]="isBusy" (click)="loadExample()">
                         @if (isLoadingExample) {
-                          <span aria-hidden="true"></span>
+                          <span class="spinner spinner-sm" aria-hidden="true"></span>
                         }
                         Mutass egy példát
                       </button>
@@ -339,7 +339,7 @@ const TENSE_GROUPS: { id: TenseGroup; label: string }[] = [
                     @if (!result.isCorrect) {
                       <button type="button" [disabled]="isBusy" (click)="acceptManually()">
                         @if (isAccepting) {
-                          <span aria-hidden="true"></span>
+                          <span class="spinner spinner-sm" aria-hidden="true"></span>
                         }
                         Márpedig jó volt
                       </button>
