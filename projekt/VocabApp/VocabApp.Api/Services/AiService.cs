@@ -19,6 +19,12 @@ public sealed class AiService(
 {
     private const string OffTopicText = "Ez nem kapcsolódik a tárgyhoz.";
 
+    // A tanulónak szóló magyar visszajelzések közös stílusa (a promptok végére fűzve).
+    private const string HungarianFeedbackStyle =
+        " Write the Hungarian text in plain, natural, spoken-style Hungarian and address the learner informally (te form). " +
+        "Be brief and concrete: say what is wrong and how to fix it. " +
+        "No filler praise or exclamations (for example no \"Remek munka!\"), no stiff or bureaucratic phrasing, and no grammar jargon unless it is needed.";
+
     private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true
@@ -441,7 +447,7 @@ public sealed class AiService(
             "tense; when the term is a stative verb that does not normally take a continuous form, a continuous " +
             "tense is incorrect and the feedback explains why. grammarCorrect: the sentence is grammatical English; " +
             "ignore capitalisation and the final punctuation mark. A short or simple but correct sentence is " +
-            "acceptable; the feedback may then suggest a richer sentence." + translationRule +
+            "acceptable; the feedback may then suggest a richer sentence." + HungarianFeedbackStyle + translationRule +
             $" Return only a JSON object with exactly {(card.GrammarShowTranslation ? "six" : "five")} properties: " +
             "termUsedCorrectly (boolean), tenseCorrect (boolean), grammarCorrect (boolean), " +
             "feedback (a non-empty Hungarian string of at most three sentences addressed to the learner), " +
@@ -648,7 +654,7 @@ public sealed class AiService(
             "grammatical English; ignore capitalisation and the final punctuation mark. coherent: the text has at " +
             "most two sentences and, when it has two, they are clearly connected: they describe the same situation " +
             "or the second continues the first; two unrelated sentences are not coherent. A simple but correct text " +
-            "is acceptable; the feedback may then suggest a richer one." + translationRule +
+            "is acceptable; the feedback may then suggest a richer one." + HungarianFeedbackStyle + translationRule +
             $" Return only a JSON object with exactly {(task.ShowTranslation ? "six" : "five")} properties: " +
             "words (an array with exactly one object per term, each with the integer index copied from the input " +
             "and the boolean usedCorrectly), grammarCorrect (boolean), coherent (boolean), " +
@@ -1176,14 +1182,14 @@ public sealed class AiService(
                   "englishAnswer (a string of at most 500 characters). When isCorrect is true, englishAnswer is the " +
                   "learner's own sentence rewritten as one English sentence, not a new definition. For the term " +
                   "\"cat\", the Hungarian answer \"egy háziállat ami dorombol\" can be correct, and englishAnswer " +
-                  "can be \"A pet that purrs.\" When isCorrect is false, englishAnswer is an empty string."
+                  "can be \"A pet that purrs.\" When isCorrect is false, englishAnswer is an empty string." + HungarianFeedbackStyle
                 : "The learner is paraphrasing the reference definition and must answer in English. Compare the " +
                   "learner's answer with the reference definition semantically. Accept minor grammar and spelling " +
                   "errors, but reject a substantially wrong or opposite meaning. An answer in Hungarian is incorrect " +
                   "even when its meaning matches; in that case isCorrect is false and the feedback asks the learner " +
                   "to write the paraphrase in English. Return only a JSON object with exactly three properties: " +
                   "isCorrect (boolean), feedback (a non-empty Hungarian string of at most two sentences), and " +
-                  "englishAnswer (an empty string)."
+                  "englishAnswer (an empty string)." + HungarianFeedbackStyle
             : request.ToEnglish
                 ? "The learner was shown the Hungarian meaning (referenceDefinition) of an English word and had to " +
                   "type that English word. The English word on the card is the term. isCorrect is true only when the " +
@@ -1195,11 +1201,11 @@ public sealed class AiService(
                   "An answer in Hungarian, an answer with a different or opposite meaning, and an answer that is " +
                   "not a real English word have both flags false. Return only a JSON object with exactly three " +
                   "properties: isCorrect (boolean), isSynonym (boolean), and feedback (a non-empty Hungarian string " +
-                  "of at most two sentences)."
+                  "of at most two sentences)." + HungarianFeedbackStyle
                 : "Compare the learner's answer with the reference definition semantically. Accept minor grammar and " +
                   "spelling errors, but reject a substantially wrong or opposite meaning. Return only a JSON object " +
                   "with exactly two properties: isCorrect (boolean) and feedback (a non-empty Hungarian string of at " +
-                  "most two sentences).";
+                  "most two sentences)." + HungarianFeedbackStyle;
         var userPrompt = JsonSerializer.Serialize(new
         {
             request.Term,
@@ -1284,7 +1290,7 @@ public sealed class AiService(
             "For the term \"cat\", the Hungarian answer \"egy háziállat ami dorombol\" can be accepted when the justification " +
             "shows that this meaning matches the reference. " +
             "Return only a JSON object with exactly two properties: accepted (boolean) and feedback (a non-empty Hungarian " +
-            "string of at most two sentences).";
+            "string of at most two sentences)." + HungarianFeedbackStyle;
         var userPrompt = JsonSerializer.Serialize(new
         {
             request.Term,
@@ -1335,7 +1341,7 @@ public sealed class AiService(
             "Refuse topics that are independent of this word and of language learning. Space travel and other unrelated subjects are not allowed. " +
             "Return only a JSON object with exactly two properties: onTopic (boolean) and text (a non-empty Hungarian string of at most 1500 characters). " +
             "When the latest question is unrelated, onTopic is false and text is exactly: Ez nem kapcsolódik a tárgyhoz. " +
-            "When onTopic is true, text answers in Hungarian.";
+            "When onTopic is true, text answers in Hungarian." + HungarianFeedbackStyle;
         var userPrompt = JsonSerializer.Serialize(new
         {
             term = request.Term.Trim(),
