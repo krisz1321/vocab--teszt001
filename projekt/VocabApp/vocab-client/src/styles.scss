@@ -456,7 +456,7 @@ app-icon { display: contents; }
 /* ---------- Szó kiemelővel (kártya, belépés) ---------- */
 .term { font-family: var(--f-display); font-size: 40px; line-height: 1.1; font-weight: 800; letter-spacing: var(--ls-display); overflow-wrap: anywhere; margin: 0; }
 @container main (min-width: 700px) { .term { font-size: 54px; } }
-.term-mark { background: linear-gradient(var(--mark), var(--mark)) 0 86% / 100% 38% no-repeat; padding: 0 .06em; }
+.term-mark { padding: 0 .06em; }
 .ipa { font-family: var(--f-mono); color: var(--muted); font-size: 14px; }
 
 /* ---------- Belépés ---------- */
