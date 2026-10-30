@@ -6,8 +6,6 @@ namespace VocabApp.Api.Data;
 
 public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public const int SeedDeckId = 1;
-
     public DbSet<AiCache> AiCaches => Set<AiCache>();
     public DbSet<Card> Cards => Set<Card>();
     public DbSet<CardConfusion> CardConfusions => Set<CardConfusion>();
@@ -30,6 +28,12 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     {
         base.OnModelCreating(modelBuilder);
 
+        // Kis- és nagybetű-független, ékezetérzékeny. Kifejezetten megadva, mert egy magyar nyelvű telepítés alapértéke
+        // a Hungarian_CI_AS lenne, ami az "sz", "cs" stb. betűket egy betűnek veszi, és így a részszöveg-keresés téveszt.
+        modelBuilder.UseCollation("Latin1_General_100_CI_AS");
+
+        // Több kaszkádútvonal nem vezethet ugyanahhoz a táblához, ezért a Users-ből a Decks-en és a Cards-on át futó ág
+        // maradt kaszkádolt. A többi idegen kulcs NO ACTION, ezek rendbetétele a DeleteCascade osztály dolga.
         var cache = modelBuilder.Entity<AiCache>();
         cache.Property(c => c.PromptHash).IsRequired().HasMaxLength(64);
         cache.Property(c => c.ResponseText).IsRequired();
@@ -37,7 +41,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         var user = modelBuilder.Entity<User>();
         user.Property(u => u.Email).IsRequired().HasMaxLength(256);
-        user.Property(u => u.Username).IsRequired().HasMaxLength(Usernames.MaxLength).UseCollation("NOCASE");
+        user.Property(u => u.Username).IsRequired().HasMaxLength(Usernames.MaxLength);
         user.Property(u => u.PasswordHash).IsRequired();
         user.Property(u => u.DisplayName).HasMaxLength(80);
         user.Property(u => u.DailyNewCardGoal).HasDefaultValue(20);
@@ -105,7 +109,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         savedExample.Property(item => item.DefinitionKey).IsRequired().HasMaxLength(500);
         savedExample.Property(item => item.Level).IsRequired().HasMaxLength(2).HasDefaultValue(ExampleLevels.Default);
         savedExample.Property(item => item.Sentence).IsRequired().HasMaxLength(500);
-        savedExample.HasIndex(item => new { item.TermKey, item.DefinitionKey, item.Level, item.Sentence }).IsUnique();
+        // A négy oszlop együtt meghaladná az indexkulcs 1700 bájtos korlátját, ezért az egyediség a lenyomatukon van.
+        savedExample.Property<byte[]>("KeyHash")
+            .IsRequired()
+            .HasMaxLength(32)
+            .HasComputedColumnSql(
+                "CONVERT(binary(32), HASHBYTES('SHA2_256', [TermKey] + N'|' + [DefinitionKey] + N'|' + [Level] + N'|' + [Sentence]))",
+                stored: true);
+        savedExample.HasIndex("KeyHash").IsUnique();
+        savedExample.HasIndex(item => new { item.TermKey, item.DefinitionKey });
 
         var savedDefinition = modelBuilder.Entity<SavedDefinition>();
         savedDefinition.Property(item => item.TermKey).IsRequired().HasMaxLength(100);
@@ -120,7 +132,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         deck.HasOne(d => d.SourceSharedDeck)
             .WithMany()
             .HasForeignKey(d => d.SourceSharedDeckId)
-            .OnDelete(DeleteBehavior.SetNull);
+            .OnDelete(DeleteBehavior.NoAction);
         deck.HasIndex(d => d.SourceSharedDeckId);
 
         var sharedDeck = modelBuilder.Entity<SharedDeck>();
@@ -134,7 +146,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany()
             .HasForeignKey(s => s.OwnerId)
             .IsRequired()
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
         sharedDeck.HasOne(s => s.SourceDeck)
             .WithOne(d => d.SharedDeck)
             .HasForeignKey<SharedDeck>(s => s.SourceDeckId)
@@ -165,7 +177,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany()
             .HasForeignKey(s => s.UserId)
             .IsRequired()
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
 
         var card = modelBuilder.Entity<Card>();
         card.Property(c => c.Term).IsRequired().HasMaxLength(100);
@@ -191,7 +203,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany()
             .HasForeignKey(item => item.UserId)
             .IsRequired()
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
         confusion.HasOne(item => item.Card)
             .WithMany()
             .HasForeignKey(item => item.CardId)
@@ -201,7 +213,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany()
             .HasForeignKey(item => item.ConfusedWithCardId)
             .IsRequired()
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
 
         var freeMark = modelBuilder.Entity<FreeStudyMark>();
         freeMark.HasIndex(mark => new { mark.UserId, mark.CardId }).IsUnique();
@@ -209,7 +221,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany()
             .HasForeignKey(mark => mark.UserId)
             .IsRequired()
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
         freeMark.HasOne(mark => mark.Card)
             .WithMany()
             .HasForeignKey(mark => mark.CardId)
@@ -224,7 +236,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany()
             .HasForeignKey(attempt => attempt.UserId)
             .IsRequired()
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
         grammarAttempt.HasOne(attempt => attempt.Card)
             .WithMany()
             .HasForeignKey(attempt => attempt.CardId)
@@ -237,7 +249,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .WithMany()
             .HasForeignKey(attempt => attempt.UserId)
             .IsRequired()
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.NoAction);
         compositionAttempt.HasMany(attempt => attempt.Words)
             .WithOne(word => word.Attempt)
             .HasForeignKey(word => word.AttemptId)
@@ -251,7 +263,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         var progress = modelBuilder.Entity<CardProgress>();
         progress.HasIndex(cp => cp.CardId).IsUnique();
-        progress.Property(cp => cp.NextReviewDate).HasDefaultValueSql("CURRENT_TIMESTAMP");
+        progress.Property(cp => cp.NextReviewDate).HasDefaultValueSql("SYSUTCDATETIME()");
         progress.Property(cp => cp.EaseFactor).HasDefaultValue(2.5f);
         progress.Property(cp => cp.Interval).HasDefaultValue(0);
         progress.Property(cp => cp.Streak).HasDefaultValue(0);
@@ -265,36 +277,5 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             table.HasCheckConstraint("CK_CardProgress_IncorrectCount", "IncorrectCount >= 0");
             table.HasCheckConstraint("CK_CardProgress_EaseFactor", "EaseFactor > 0");
         });
-
-        card.HasData(
-            new Card { Id = 1, DeckId = SeedDeckId, Term = "serendipity", Definition = "The chance occurrence of a pleasant or useful discovery.", Example = "Finding that quiet bookshop was pure serendipity." },
-            new Card { Id = 2, DeckId = SeedDeckId, Term = "resilient", Definition = "Able to recover quickly from difficulty or change.", Example = "The resilient team adapted after the setback." },
-            new Card { Id = 3, DeckId = SeedDeckId, Term = "ubiquitous", Definition = "Present or seeming to be present everywhere.", Example = "Smartphones have become ubiquitous in daily life." },
-            new Card { Id = 4, DeckId = SeedDeckId, Term = "concise", Definition = "Giving much information clearly in very few words.", Example = "Her concise summary captured every important point." },
-            new Card { Id = 5, DeckId = SeedDeckId, Term = "empathy", Definition = "The ability to understand and share another person's feelings.", Example = "Good mentors listen with patience and empathy." },
-            new Card { Id = 6, DeckId = SeedDeckId, Term = "diligent", Definition = "Showing careful and persistent effort in work or study.", Example = "A diligent student reviews notes every evening." },
-            new Card { Id = 7, DeckId = SeedDeckId, Term = "ambiguous", Definition = "Open to more than one interpretation; not clearly defined.", Example = "The contract clause was too ambiguous to enforce." },
-            new Card { Id = 8, DeckId = SeedDeckId, Term = "pragmatic", Definition = "Dealing with problems in a practical, realistic way.", Example = "She took a pragmatic approach and fixed the most urgent issue first." },
-            new Card { Id = 9, DeckId = SeedDeckId, Term = "reluctant", Definition = "Unwilling or hesitant to do something.", Example = "He was reluctant to speak in front of the class." },
-            new Card { Id = 10, DeckId = SeedDeckId, Term = "substantial", Definition = "Of considerable importance, size, or worth.", Example = "The project needs a substantial amount of extra time." },
-            new Card { Id = 11, DeckId = SeedDeckId, Term = "feasible", Definition = "Possible and practical to do successfully.", Example = "Building a small prototype first is a feasible plan." },
-            new Card { Id = 12, DeckId = SeedDeckId, Term = "candid", Definition = "Honest and direct, even when the truth is uncomfortable.", Example = "Please be candid about what still does not work." },
-            new Card { Id = 13, DeckId = SeedDeckId, Term = "persist", Definition = "Continue firmly despite difficulty or opposition.", Example = "If you persist with daily practice, the words will stick." },
-            new Card { Id = 14, DeckId = SeedDeckId, Term = "versatile", Definition = "Able to adapt to many different functions or activities.", Example = "English is a versatile skill across many careers." },
-            new Card { Id = 15, DeckId = SeedDeckId, Term = "meticulous", Definition = "Showing great attention to detail; very careful and precise.", Example = "Her meticulous notes made revision much easier." });
-
-        var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
-        progress.HasData(
-            Enumerable.Range(1, 15).Select(id => new CardProgress
-            {
-                Id = id,
-                CardId = id,
-                NextReviewDate = seedDate,
-                EaseFactor = 2.5f,
-                Interval = 0,
-                Streak = 0,
-                IncorrectCount = 0,
-                CorrectCount = 0
-            }));
     }
 }

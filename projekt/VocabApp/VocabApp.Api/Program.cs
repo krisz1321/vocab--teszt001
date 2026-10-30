@@ -38,7 +38,7 @@ public class Program
 
         var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("ConnectionStrings:DefaultConnection is required.");
-        builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite(connectionString));
+        builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connectionString));
 
         builder.Services.AddCors(options =>
         {

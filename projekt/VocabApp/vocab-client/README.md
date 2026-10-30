@@ -1,6 +1,6 @@
 # VocabApp kliens
 
-A VocabApp Angular 19 kliense. Az API a `../VocabApp.Api` mappában van (ASP.NET Core, SQLite).
+A VocabApp Angular 19 kliense. Az API a `../VocabApp.Api` mappában van (ASP.NET Core, SQL Server).
 
 ## Indítás
 

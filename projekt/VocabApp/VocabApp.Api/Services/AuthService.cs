@@ -3,7 +3,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Data.Sqlite;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using VocabApp.Api.Data;
@@ -21,6 +21,8 @@ public sealed class AuthService(
     private const int MaxEmailLength = 256;
     private const int MaxDisplayNameLength = 80;
     private const int MaxAvatarBytes = 1024 * 1024;
+    private const int UniqueIndexViolation = 2601;
+    private const int UniqueConstraintViolation = 2627;
     private const string InvalidCredentials = "Hibás email vagy jelszó.";
     private const string UsernameTaken = "Ez a felhasználónév már foglalt.";
     private const string InvalidAvatar = "Csak JPEG, PNG vagy WebP kép tölthető fel, legfeljebb 1 MB.";
@@ -165,8 +167,11 @@ public sealed class AuthService(
             return false;
         }
 
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await DeleteCascade.BeforeUserDeleteAsync(dbContext, userId, cancellationToken);
         dbContext.Users.Remove(user);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         DeleteAvatarFiles(userId);
         return true;
     }
@@ -468,9 +473,8 @@ public sealed class AuthService(
     {
         for (Exception? current = exception.InnerException; current is not null; current = current.InnerException)
         {
-            if (current is SqliteException sqlite
-                && sqlite.SqliteErrorCode == 19
-                && sqlite.Message.Contains($"Users.{column}", StringComparison.OrdinalIgnoreCase))
+            if (current is SqlException { Number: UniqueIndexViolation or UniqueConstraintViolation } sql
+                && sql.Message.Contains($"IX_Users_{column}", StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
@@ -483,7 +487,7 @@ public sealed class AuthService(
     {
         for (Exception? current = exception.InnerException; current is not null; current = current.InnerException)
         {
-            if (current is SqliteException sqlite && sqlite.SqliteErrorCode == 19)
+            if (current is SqlException { Number: UniqueIndexViolation or UniqueConstraintViolation })
             {
                 return true;
             }

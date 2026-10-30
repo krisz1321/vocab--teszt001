@@ -373,8 +373,11 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             return false;
         }
 
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await DeleteCascade.BeforeCardDeleteAsync(dbContext, cardId, cancellationToken);
         dbContext.Cards.Remove(card);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return true;
     }
 

@@ -115,8 +115,11 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             return false;
         }
 
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        await DeleteCascade.BeforeDeckDeleteAsync(dbContext, deckId, cancellationToken);
         dbContext.Decks.Remove(deck);
         await dbContext.SaveChangesAsync(cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
         return true;
     }
 
@@ -303,8 +306,8 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
             row.UpdatedAt = Utc(row.UpdatedAt);
         }
 
-        // A szűrés és a rendezés a memóriában fut: az SQLite ToLower()/LIKE és a rendezés csak az ASCII betűket
-        // kezeli kis- és nagybetű-függetlenül, így a nagy ékezetes betűvel kezdődő nevek (pl. "Ősz") nem találódnának meg.
+        // A szűrés és a rendezés a memóriában fut, hogy a keresés a kis- és nagybetűt ékezetes betűknél is azonosnak
+        // vegye (pl. "Ősz"), és a sorrend a magyar ábécét kövesse, az adatbázis kollációjától függetlenül.
         IEnumerable<PublicDeckDto> result = rows;
 
         var term = query?.Trim();
@@ -705,7 +708,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         }
     }
 
-    // A SQLite visszaolvasáskor Unspecified idővel tér vissza: a JSON-ba "Z"-vel megy ki, hogy a böngésző helyi időre váltson.
+    // Az adatbázis visszaolvasáskor Unspecified idővel tér vissza: a JSON-ba "Z"-vel megy ki, hogy a böngésző helyi időre váltson.
     private static DateTime Utc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc);
 
     private static IEnumerable<PublicDeckDto> Sort(IEnumerable<PublicDeckDto> decks, string? sort, bool descending)

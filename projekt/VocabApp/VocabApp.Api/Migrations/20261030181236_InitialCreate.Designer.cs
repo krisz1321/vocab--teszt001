@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VocabApp.Api.Data;
@@ -11,29 +12,36 @@ using VocabApp.Api.Data;
 namespace VocabApp.Api.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261007194740_TargetMeaningsMax300")]
-    partial class TargetMeaningsMax300
+    [Migration("20261030181236_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.21");
+            modelBuilder
+                .UseCollation("Latin1_General_100_CI_AS")
+                .HasAnnotation("ProductVersion", "8.0.21")
+                .HasAnnotation("Relational:MaxIdentifierLength", 128);
+
+            SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
             modelBuilder.Entity("VocabApp.Api.Models.AiCache", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("PromptHash")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("ResponseText")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("Id");
 
@@ -47,184 +55,66 @@ namespace VocabApp.Api.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("DeckId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Definition")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Example")
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Tags")
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("TargetMeanings")
                         .HasMaxLength(300)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("Term")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("DeckId");
 
                     b.ToTable("Cards");
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            DeckId = 1,
-                            Definition = "The chance occurrence of a pleasant or useful discovery.",
-                            Example = "Finding that quiet bookshop was pure serendipity.",
-                            Term = "serendipity"
-                        },
-                        new
-                        {
-                            Id = 2,
-                            DeckId = 1,
-                            Definition = "Able to recover quickly from difficulty or change.",
-                            Example = "The resilient team adapted after the setback.",
-                            Term = "resilient"
-                        },
-                        new
-                        {
-                            Id = 3,
-                            DeckId = 1,
-                            Definition = "Present or seeming to be present everywhere.",
-                            Example = "Smartphones have become ubiquitous in daily life.",
-                            Term = "ubiquitous"
-                        },
-                        new
-                        {
-                            Id = 4,
-                            DeckId = 1,
-                            Definition = "Giving much information clearly in very few words.",
-                            Example = "Her concise summary captured every important point.",
-                            Term = "concise"
-                        },
-                        new
-                        {
-                            Id = 5,
-                            DeckId = 1,
-                            Definition = "The ability to understand and share another person's feelings.",
-                            Example = "Good mentors listen with patience and empathy.",
-                            Term = "empathy"
-                        },
-                        new
-                        {
-                            Id = 6,
-                            DeckId = 1,
-                            Definition = "Showing careful and persistent effort in work or study.",
-                            Example = "A diligent student reviews notes every evening.",
-                            Term = "diligent"
-                        },
-                        new
-                        {
-                            Id = 7,
-                            DeckId = 1,
-                            Definition = "Open to more than one interpretation; not clearly defined.",
-                            Example = "The contract clause was too ambiguous to enforce.",
-                            Term = "ambiguous"
-                        },
-                        new
-                        {
-                            Id = 8,
-                            DeckId = 1,
-                            Definition = "Dealing with problems in a practical, realistic way.",
-                            Example = "She took a pragmatic approach and fixed the most urgent issue first.",
-                            Term = "pragmatic"
-                        },
-                        new
-                        {
-                            Id = 9,
-                            DeckId = 1,
-                            Definition = "Unwilling or hesitant to do something.",
-                            Example = "He was reluctant to speak in front of the class.",
-                            Term = "reluctant"
-                        },
-                        new
-                        {
-                            Id = 10,
-                            DeckId = 1,
-                            Definition = "Of considerable importance, size, or worth.",
-                            Example = "The project needs a substantial amount of extra time.",
-                            Term = "substantial"
-                        },
-                        new
-                        {
-                            Id = 11,
-                            DeckId = 1,
-                            Definition = "Possible and practical to do successfully.",
-                            Example = "Building a small prototype first is a feasible plan.",
-                            Term = "feasible"
-                        },
-                        new
-                        {
-                            Id = 12,
-                            DeckId = 1,
-                            Definition = "Honest and direct, even when the truth is uncomfortable.",
-                            Example = "Please be candid about what still does not work.",
-                            Term = "candid"
-                        },
-                        new
-                        {
-                            Id = 13,
-                            DeckId = 1,
-                            Definition = "Continue firmly despite difficulty or opposition.",
-                            Example = "If you persist with daily practice, the words will stick.",
-                            Term = "persist"
-                        },
-                        new
-                        {
-                            Id = 14,
-                            DeckId = 1,
-                            Definition = "Able to adapt to many different functions or activities.",
-                            Example = "English is a versatile skill across many careers.",
-                            Term = "versatile"
-                        },
-                        new
-                        {
-                            Id = 15,
-                            DeckId = 1,
-                            Definition = "Showing great attention to detail; very careful and precise.",
-                            Example = "Her meticulous notes made revision much easier.",
-                            Term = "meticulous"
-                        });
                 });
 
             modelBuilder.Entity("VocabApp.Api.Models.CardConfusion", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("CardId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("ConfusedWithCardId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("Count")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(1);
 
                     b.Property<DateTime>("LastConfusedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("UserId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -242,57 +132,59 @@ namespace VocabApp.Api.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("CardId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("CorrectCount")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<float>("EaseFactor")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("REAL")
+                        .HasColumnType("real")
                         .HasDefaultValue(2.5f);
 
                     b.Property<DateTime?>("FirstReviewedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("IncorrectCount")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<int>("Interval")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<DateTime?>("LastReviewedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("LearnedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("MarkedKnown")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("bit")
                         .HasDefaultValue(false);
 
                     b.Property<DateTime>("NextReviewDate")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("TEXT")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
 
                     b.Property<int>("Streak")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<DateTime?>("SuspendedUntil")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -309,217 +201,98 @@ namespace VocabApp.Api.Migrations
 
                             t.HasCheckConstraint("CK_CardProgress_Streak", "Streak >= 0");
                         });
+                });
 
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            CardId = 1,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 2,
-                            CardId = 2,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 3,
-                            CardId = 3,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 4,
-                            CardId = 4,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 5,
-                            CardId = 5,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 6,
-                            CardId = 6,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 7,
-                            CardId = 7,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 8,
-                            CardId = 8,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 9,
-                            CardId = 9,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 10,
-                            CardId = 10,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 11,
-                            CardId = 11,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 12,
-                            CardId = 12,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 13,
-                            CardId = 13,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 14,
-                            CardId = 14,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        },
-                        new
-                        {
-                            Id = 15,
-                            CardId = 15,
-                            CorrectCount = 0,
-                            EaseFactor = 2.5f,
-                            IncorrectCount = 0,
-                            Interval = 0,
-                            MarkedKnown = false,
-                            NextReviewDate = new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Streak = 0
-                        });
+            modelBuilder.Entity("VocabApp.Api.Models.CompositionAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("Coherent")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("GrammarCorrect")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ManuallyAccepted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("CompositionAttempts");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.CompositionAttemptWord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AttemptId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CardId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("UsedCorrectly")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttemptId");
+
+                    b.HasIndex("CardId");
+
+                    b.ToTable("CompositionAttemptWords");
                 });
 
             modelBuilder.Entity("VocabApp.Api.Models.Deck", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("ExampleLevel")
                         .HasMaxLength(2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(2)");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int?>("SourceSharedDeckId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int?>("SourceVersion")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("UserId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -534,16 +307,18 @@ namespace VocabApp.Api.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("CardId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<bool>("Knows")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<int>("UserId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -555,26 +330,76 @@ namespace VocabApp.Api.Migrations
                     b.ToTable("FreeStudyMarks");
                 });
 
+            modelBuilder.Entity("VocabApp.Api.Models.GrammarAttempt", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("CardId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("GrammarCorrect")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsCorrect")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ManuallyAccepted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Tense")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<bool>("TenseCorrect")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("TermUsedCorrectly")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId");
+
+                    b.HasIndex("UserId", "Tense");
+
+                    b.ToTable("GrammarAttempts");
+                });
+
             modelBuilder.Entity("VocabApp.Api.Models.SavedDefinition", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Definition")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Level")
                         .IsRequired()
                         .HasMaxLength(2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(2)");
 
                     b.Property<string>("TermKey")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 
@@ -588,34 +413,45 @@ namespace VocabApp.Api.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("DefinitionKey")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<byte[]>("KeyHash")
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasMaxLength(32)
+                        .HasColumnType("varbinary(32)")
+                        .HasComputedColumnSql("CONVERT(binary(32), HASHBYTES('SHA2_256', [TermKey] + N'|' + [DefinitionKey] + N'|' + [Level] + N'|' + [Sentence]))", true);
 
                     b.Property<string>("Level")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(2)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(2)")
                         .HasDefaultValue("B1");
 
                     b.Property<string>("Sentence")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("TermKey")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("TermKey", "DefinitionKey", "Level", "Sentence")
+                    b.HasIndex("KeyHash")
                         .IsUnique();
+
+                    b.HasIndex("TermKey", "DefinitionKey");
 
                     b.ToTable("SavedExamples");
                 });
@@ -624,43 +460,45 @@ namespace VocabApp.Api.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("ContentHash")
                         .IsRequired()
                         .HasMaxLength(64)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("Description")
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("ExampleLevel")
                         .HasMaxLength(2)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(2)");
 
                     b.Property<bool>("IsActive")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bit");
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<int>("OwnerId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("SharedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("SourceDeckId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("Version")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -676,32 +514,34 @@ namespace VocabApp.Api.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Definition")
                         .IsRequired()
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("Example")
                         .HasMaxLength(500)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<int>("SharedDeckId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<string>("Tags")
                         .HasMaxLength(200)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<string>("TargetMeanings")
                         .HasMaxLength(300)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("Term")
                         .IsRequired()
                         .HasMaxLength(100)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 
@@ -714,19 +554,21 @@ namespace VocabApp.Api.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<DateTime>("FirstSavedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime>("LastSavedAt")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("SharedDeckId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.Property<int>("UserId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -742,117 +584,145 @@ namespace VocabApp.Api.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("AcceptEnglishSynonyms")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<bool>("AcceptHungarianParaphrase")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("bit")
                         .HasDefaultValue(false);
+
+                    b.Property<bool>("AcceptPartialMeaningMatch")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<int>("AiCallCount")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<int>("AiFillBatchSize")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(5);
 
                     b.Property<string>("AiModel")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(64)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(64)")
                         .HasDefaultValue("google/gemini-3.6-flash");
 
                     b.Property<bool>("AutomaticAiCheck")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
-                        .HasDefaultValue(false);
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<int>("DailyNewCardGoal")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(20);
 
                     b.Property<string>("DisplayName")
                         .HasMaxLength(80)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(80)");
 
                     b.Property<string>("Email")
                         .IsRequired()
                         .HasMaxLength(256)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(256)");
 
                     b.Property<string>("ExampleLevel")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(2)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(2)")
                         .HasDefaultValue("B1");
 
                     b.Property<bool>("GenerateAlternateDefinitions")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<bool>("GrammarShowTranslation")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<DateTime?>("LastStudyDate")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("LeechThreshold")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(6);
 
                     b.Property<int>("LongestStudyDayStreak")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<int>("MinimumAnswerSeconds")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
-                        .HasColumnType("TEXT");
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("RepeatMistakes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("RequireAppealReason")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("bit")
                         .HasDefaultValue(true);
 
                     b.Property<bool>("ReuseSavedExamples")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("bit")
                         .HasDefaultValue(true);
 
                     b.Property<string>("SavedLevelPolicy")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(16)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(16)")
                         .HasDefaultValue("exact");
+
+                    b.Property<string>("SelectedGrammarTenses")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)")
+                        .HasDefaultValue("present_simple,past_simple");
 
                     b.Property<int>("StudyDayStreak")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<string>("TimeZoneId")
                         .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(128)
-                        .HasColumnType("TEXT")
+                        .HasColumnType("nvarchar(128)")
                         .HasDefaultValue("Europe/Budapest");
 
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(30)
-                        .HasColumnType("TEXT")
-                        .UseCollation("NOCASE");
+                        .HasColumnType("nvarchar(30)");
 
                     b.HasKey("Id");
 
@@ -874,18 +744,20 @@ namespace VocabApp.Api.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("Count")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<DateTime>("Day")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("UserId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -899,33 +771,35 @@ namespace VocabApp.Api.Migrations
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("AnswerCount")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<int>("CorrectCount")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<DateTime>("DayUtc")
-                        .HasColumnType("TEXT");
+                        .HasColumnType("datetime2");
 
                     b.Property<int>("IncorrectCount")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<int>("SecondsStudied")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER")
+                        .HasColumnType("int")
                         .HasDefaultValue(0);
 
                     b.Property<int>("UserId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("int");
 
                     b.HasKey("Id");
 
@@ -957,13 +831,13 @@ namespace VocabApp.Api.Migrations
                     b.HasOne("VocabApp.Api.Models.Card", "ConfusedWithCard")
                         .WithMany()
                         .HasForeignKey("ConfusedWithCardId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("VocabApp.Api.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Card");
@@ -984,12 +858,41 @@ namespace VocabApp.Api.Migrations
                     b.Navigation("Card");
                 });
 
+            modelBuilder.Entity("VocabApp.Api.Models.CompositionAttempt", b =>
+                {
+                    b.HasOne("VocabApp.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.CompositionAttemptWord", b =>
+                {
+                    b.HasOne("VocabApp.Api.Models.CompositionAttempt", "Attempt")
+                        .WithMany("Words")
+                        .HasForeignKey("AttemptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("VocabApp.Api.Models.Card", "Card")
+                        .WithMany()
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Attempt");
+
+                    b.Navigation("Card");
+                });
+
             modelBuilder.Entity("VocabApp.Api.Models.Deck", b =>
                 {
                     b.HasOne("VocabApp.Api.Models.SharedDeck", "SourceSharedDeck")
                         .WithMany()
                         .HasForeignKey("SourceSharedDeckId")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.NoAction);
 
                     b.HasOne("VocabApp.Api.Models.User", "User")
                         .WithMany("Decks")
@@ -1013,7 +916,25 @@ namespace VocabApp.Api.Migrations
                     b.HasOne("VocabApp.Api.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Card");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.GrammarAttempt", b =>
+                {
+                    b.HasOne("VocabApp.Api.Models.Card", "Card")
+                        .WithMany()
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("VocabApp.Api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("Card");
@@ -1026,7 +947,7 @@ namespace VocabApp.Api.Migrations
                     b.HasOne("VocabApp.Api.Models.User", "Owner")
                         .WithMany()
                         .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.HasOne("VocabApp.Api.Models.Deck", "SourceDeck")
@@ -1062,7 +983,7 @@ namespace VocabApp.Api.Migrations
                     b.HasOne("VocabApp.Api.Models.User", "User")
                         .WithMany()
                         .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.NoAction)
                         .IsRequired();
 
                     b.Navigation("SharedDeck");
@@ -1095,6 +1016,11 @@ namespace VocabApp.Api.Migrations
             modelBuilder.Entity("VocabApp.Api.Models.Card", b =>
                 {
                     b.Navigation("Progress");
+                });
+
+            modelBuilder.Entity("VocabApp.Api.Models.CompositionAttempt", b =>
+                {
+                    b.Navigation("Words");
                 });
 
             modelBuilder.Entity("VocabApp.Api.Models.Deck", b =>
