@@ -30,6 +30,13 @@ interface Deck {
   updateAvailable: boolean;
 }
 
+interface DeckSourceUpdateResult {
+  deck: Deck;
+  addedCount: number;
+  updatedCount: number;
+  localOnlyCount: number;
+}
+
 interface PublicDeck {
   id: number;
   name: string;
@@ -857,18 +864,18 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                   @if (deck.sourceVersion !== null) {
                     <section class="set-block">
                       <h3>Forrás</h3>
-                      <p class="help">Ezt a paklit a Közös paklik közül mentetted le (v{{ deck.sourceVersion }}). A tartalma nem változik, ha a készítő frissíti a megosztását.</p>
+                      <p class="help">Ezt a paklit a Közös paklik közül mentetted le (v{{ deck.sourceVersion }}). A tartalma magától nem változik, ha a készítő frissíti a megosztását.</p>
                       @if (deck.updateAvailable && deck.sourceSharedDeckId !== null) {
                         <div class="notice" role="status">
                           <app-icon name="info" />
                           <div><span><strong>Új verzió: v{{ deck.latestSharedVersion }}.</strong> A készítő újabb verziót tett közzé.</span></div>
                         </div>
                         <div>
-                          <button type="button" class="btn btn-sm" [disabled]="copyingDeckId === deck.sourceSharedDeckId" (click)="saveNewVersion(deck)">
-                            @if (copyingDeckId === deck.sourceSharedDeckId) {
+                          <button type="button" class="btn btn-sm" [disabled]="updatingSourceDeckId === deck.id" (click)="updateFromSource(deck)">
+                            @if (updatingSourceDeckId === deck.id) {
                               <span class="spinner spinner-sm"></span>
                             }
-                            Új verzió mentése új paklinak
+                            Frissítés a v{{ deck.latestSharedVersion }} verzióra
                           </button>
                         </div>
                       }
@@ -1439,6 +1446,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   sharingDeckId: number | null = null;
   publishingDeckId: number | null = null;
   copyingDeckId: number | null = null;
+  updatingSourceDeckId: number | null = null;
   savingLevelDeckId: number | null = null;
   readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
   publicLevelFilter = '';
@@ -1586,6 +1594,8 @@ export class DecksComponent implements OnInit, OnDestroy {
       this.pendingConfirm = null;
     } else if (this.pasteOpen && !this.pasteSaving) {
       this.requestClosePaste();
+    } else if (this.creating && !this.isSavingDeck) {
+      this.toggleCreate();
     }
   }
 
@@ -3001,10 +3011,40 @@ export class DecksComponent implements OnInit, OnDestroy {
     });
   }
 
-  saveNewVersion(deck: Deck): void {
-    if (deck.sourceSharedDeckId !== null) {
-      this.copyDeck({ id: deck.sourceSharedDeckId, name: deck.name });
-    }
+  updateFromSource(deck: Deck): void {
+    this.askConfirm(
+      'Pakli frissítése',
+      `A(z) „${deck.name}” pakli a v${deck.latestSharedVersion} verzióra frissül. A haladásod megmarad, de a szavak szövegét a forrás felülírja, a saját szerkesztéseiddel együtt.`,
+      'Frissítés',
+      false,
+      () => this.performSourceUpdate(deck),
+    );
+  }
+
+  private performSourceUpdate(deck: Deck): void {
+    this.errorMessage = null;
+    this.updatingSourceDeckId = deck.id;
+    this.http.post<DeckSourceUpdateResult>(`/api/decks/${deck.id}/update-from-source`, {}).pipe(
+      finalize(() => {
+        this.updatingSourceDeckId = null;
+      }),
+    ).subscribe({
+      next: (result) => {
+        this.decks = this.decks.map(item => item.id === result.deck.id ? result.deck : item);
+        if (this.selectedDeckId === result.deck.id) {
+          // A nyitva hagyott kártya űrlapja a régi szöveget tartja, a mentése felülírná a frissítést.
+          if (this.editingCardId !== null) {
+            this.closeEditor();
+          }
+          this.loadCards();
+        }
+        this.toast(`${result.addedCount} új, ${result.updatedCount} frissült, ${result.localOnlyCount} csak nálad van.`);
+      },
+      error: (error: HttpErrorResponse) => {
+        this.errorMessage = this.readError(error, 'A pakli frissítése sikertelen.');
+        this.loadDecks();
+      },
+    });
   }
 
   copyDeck(deck: { id: number; name: string }): void {

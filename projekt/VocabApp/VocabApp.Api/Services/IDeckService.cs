@@ -26,6 +26,8 @@ public interface IDeckService
 
     Task<DeckCardResult<DeckDto>> CopyAsync(int userId, int sharedDeckId, CancellationToken cancellationToken = default);
 
+    Task<DeckCardResult<DeckSourceUpdateResultDto>> UpdateFromSourceAsync(int userId, int deckId, CancellationToken cancellationToken = default);
+
     Task<DeckCardResult<DeckCsvFile>> ExportAsync(int userId, int deckId, CancellationToken cancellationToken = default);
 
     Task<DeckCardResult<ImportDeckResultDto>> ImportAsync(int userId, int deckId, string csv, CancellationToken cancellationToken = default);

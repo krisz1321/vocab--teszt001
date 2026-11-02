@@ -76,7 +76,7 @@ public static partial class DeckCsv
             return false;
         }
 
-        var contentRecords = records.Where(record => !string.IsNullOrWhiteSpace(record)).ToList();
+        var contentRecords = records.Where(record => !string.IsNullOrWhiteSpace(record.Text)).ToList();
         if (contentRecords.Count == 0)
         {
             error = HeaderError;
@@ -84,7 +84,7 @@ public static partial class DeckCsv
         }
 
         // A magyar területi beállítású Excel pontosvesszővel menti a CSV-t; a tagolót a fejléc dönti el.
-        var header = contentRecords[0].Trim();
+        var header = contentRecords[0].Text.Trim();
         var delimiter = header.Contains(';') && !header.Contains(',') ? ';' : ',';
         var columnCount = header.Replace(delimiter, ',') switch
         {
@@ -107,11 +107,11 @@ public static partial class DeckCsv
         }
 
         // A hibás sor nem buktatja meg az egész importot: kimarad, és a hibája a skipped listába kerül.
-        for (var index = 0; index < dataRecords.Count; index++)
+        foreach (var (record, line) in dataRecords)
         {
-            if (!TryParseRow(dataRecords[index], index + 1, columnCount, delimiter, out var row, out var rowError))
+            if (!TryParseRow(record, line, columnCount, delimiter, out var row, out var rowError))
             {
-                skipped.Add(rowError ?? $"CSV {index + 1}. sor: érvénytelen sor.");
+                skipped.Add(rowError ?? $"CSV {line}. sor: érvénytelen sor.");
                 continue;
             }
 
@@ -157,16 +157,19 @@ public static partial class DeckCsv
 
     // Egy le nem zárt idézőjel csak a saját sorát rontja el: az a fizikai sor egy rekord lesz (a mezőbontásnál
     // "érvénytelen idézőjelezés" hibával kimarad), és a bontás a következő sortöréstől folytatódik.
-    private static bool TrySplitRecords(string text, out List<string> records, out string? error)
+    // A Line a rekord első sorának száma a fájlban (1-től), hogy a hibaüzenet a valódi sorra mutasson.
+    private static bool TrySplitRecords(string text, out List<(string Text, int Line)> records, out string? error)
     {
         records = [];
         error = null;
         var start = 0;
+        var recordLine = 1;
         for (var restarts = 0; ; restarts++)
         {
             var current = new StringBuilder();
             var inQuotes = false;
             var recordStart = start;
+            var line = recordLine;
 
             for (var i = start; i < text.Length; i++)
             {
@@ -194,10 +197,17 @@ public static partial class DeckCsv
                         i++;
                     }
 
-                    records.Add(current.ToString());
+                    records.Add((current.ToString(), recordLine));
                     current.Clear();
                     recordStart = i + 1;
+                    recordLine = ++line;
                     continue;
+                }
+
+                // Idézett mezőn belüli sortörés: a \r\n egynek számít, a \n-nél.
+                if (character == '\n' || (character == '\r' && (i + 1 == text.Length || text[i + 1] != '\n')))
+                {
+                    line++;
                 }
 
                 current.Append(character);
@@ -205,7 +215,7 @@ public static partial class DeckCsv
 
             if (!inQuotes)
             {
-                records.Add(current.ToString());
+                records.Add((current.ToString(), recordLine));
                 return true;
             }
 
@@ -219,11 +229,12 @@ public static partial class DeckCsv
             var lineEnd = text.IndexOfAny(['\r', '\n'], recordStart);
             if (lineEnd < 0)
             {
-                records.Add(text[recordStart..]);
+                records.Add((text[recordStart..], recordLine));
                 return true;
             }
 
-            records.Add(text[recordStart..lineEnd]);
+            records.Add((text[recordStart..lineEnd], recordLine));
+            recordLine++;
             start = text[lineEnd] == '\r' && lineEnd + 1 < text.Length && text[lineEnd + 1] == '\n'
                 ? lineEnd + 2
                 : lineEnd + 1;

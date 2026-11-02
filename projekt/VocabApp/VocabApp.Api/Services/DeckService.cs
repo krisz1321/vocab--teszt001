@@ -390,26 +390,121 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Example = card.Example,
                 TargetMeanings = card.TargetMeanings,
                 Tags = card.Tags,
-                Progress = new CardProgress
-                {
-                    EaseFactor = 2.5f,
-                    Interval = 0,
-                    Streak = 0,
-                    IncorrectCount = 0,
-                    NextReviewDate = now
-                }
+                Progress = NewProgress(now)
             }).ToList()
         };
         dbContext.Decks.Add(copy);
 
-        // Felhasználónként egyetlen mentés számít, akárhányszor másolja le valaki a paklit.
+        await RecordSaveAsync(source.Id, userId, now, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return DeckCardResult<DeckDto>.Success(await ToDtoAsync(copy, cancellationToken));
+    }
+
+    public async Task<DeckCardResult<DeckSourceUpdateResultDto>> UpdateFromSourceAsync(
+        int userId,
+        int deckId,
+        CancellationToken cancellationToken = default)
+    {
+        var deck = await dbContext.Decks
+            .Include(candidate => candidate.Cards)
+            .FirstOrDefaultAsync(candidate => candidate.Id == deckId && candidate.UserId == userId, cancellationToken);
+        if (deck is null)
+        {
+            return DeckCardResult<DeckSourceUpdateResultDto>.Fail(StatusCodes.Status404NotFound, "A pakli nem található.");
+        }
+
+        var source = await dbContext.SharedDecks
+            .AsNoTracking()
+            .Include(share => share.Cards)
+            .FirstOrDefaultAsync(share => share.Id == deck.SourceSharedDeckId && share.IsActive, cancellationToken);
+        if (source is null)
+        {
+            return DeckCardResult<DeckSourceUpdateResultDto>.Fail(
+                StatusCodes.Status409Conflict,
+                "Ez a pakli nem közös pakliból származik, vagy a forrása már nem elérhető.");
+        }
+
+        if (deck.SourceVersion >= source.Version)
+        {
+            return DeckCardResult<DeckSourceUpdateResultDto>.Fail(StatusCodes.Status409Conflict, "A pakli már a legfrissebb verzión van.");
+        }
+
+        // Azonos szavak Id szerinti sorrendben párosulnak; a felesleg új kártya lesz, vagy a saját pakliban marad.
+        var ownCards = deck.Cards
+            .OrderBy(card => card.Id)
+            .GroupBy(card => card.Term.Trim(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => new Queue<Card>(group), StringComparer.OrdinalIgnoreCase);
+
+        var now = DateTime.UtcNow;
+        var addedCount = 0;
+        var updatedCount = 0;
+        foreach (var sourceCard in source.Cards.OrderBy(card => card.Id))
+        {
+            if (ownCards.TryGetValue(sourceCard.Term.Trim(), out var matches) && matches.TryDequeue(out var card))
+            {
+                // A CardProgress-hez nem nyúlunk: a szöveg frissül, a haladás megmarad.
+                updatedCount += ApplySourceText(card, sourceCard) ? 1 : 0;
+                continue;
+            }
+
+            deck.Cards.Add(new Card
+            {
+                Term = sourceCard.Term,
+                Definition = sourceCard.Definition,
+                Example = sourceCard.Example,
+                TargetMeanings = sourceCard.TargetMeanings,
+                Tags = sourceCard.Tags,
+                Progress = NewProgress(now)
+            });
+            addedCount++;
+        }
+
+        deck.SourceVersion = source.Version;
+        await RecordSaveAsync(source.Id, userId, now, cancellationToken);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        return DeckCardResult<DeckSourceUpdateResultDto>.Success(new DeckSourceUpdateResultDto
+        {
+            Deck = await ToDtoAsync(deck, cancellationToken),
+            AddedCount = addedCount,
+            UpdatedCount = updatedCount,
+            LocalOnlyCount = ownCards.Values.Sum(remaining => remaining.Count)
+        });
+    }
+
+    private static bool ApplySourceText(Card card, SharedDeckCard source)
+    {
+        var changed = card.Definition != source.Definition
+            || card.Example != source.Example
+            || card.TargetMeanings != source.TargetMeanings
+            || card.Tags != source.Tags;
+
+        card.Definition = source.Definition;
+        card.Example = source.Example;
+        card.TargetMeanings = source.TargetMeanings;
+        card.Tags = source.Tags;
+        return changed;
+    }
+
+    private static CardProgress NewProgress(DateTime now) => new()
+    {
+        EaseFactor = 2.5f,
+        Interval = 0,
+        Streak = 0,
+        IncorrectCount = 0,
+        NextReviewDate = now
+    };
+
+    // Felhasználónként egyetlen mentés számít, akárhányszor másolja le vagy frissíti valaki a paklit.
+    private async Task RecordSaveAsync(int sharedDeckId, int userId, DateTime now, CancellationToken cancellationToken)
+    {
         var save = await dbContext.SharedDeckSaves
-            .FirstOrDefaultAsync(candidate => candidate.SharedDeckId == source.Id && candidate.UserId == userId, cancellationToken);
+            .FirstOrDefaultAsync(candidate => candidate.SharedDeckId == sharedDeckId && candidate.UserId == userId, cancellationToken);
         if (save is null)
         {
             dbContext.SharedDeckSaves.Add(new SharedDeckSave
             {
-                SharedDeckId = source.Id,
+                SharedDeckId = sharedDeckId,
                 UserId = userId,
                 FirstSavedAt = now,
                 LastSavedAt = now
@@ -419,9 +514,6 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
         {
             save.LastSavedAt = now;
         }
-
-        await dbContext.SaveChangesAsync(cancellationToken);
-        return DeckCardResult<DeckDto>.Success(await ToDtoAsync(copy, cancellationToken));
     }
 
     public async Task<DeckCardResult<DeckCsvFile>> ExportAsync(
@@ -553,14 +645,7 @@ public sealed class DeckService(AppDbContext dbContext) : IDeckService
                 Example = row.Example,
                 TargetMeanings = row.TargetMeanings,
                 Tags = row.Tags,
-                Progress = new CardProgress
-                {
-                    EaseFactor = 2.5f,
-                    Interval = 0,
-                    Streak = 0,
-                    IncorrectCount = 0,
-                    NextReviewDate = now
-                }
+                Progress = NewProgress(now)
             });
         }
 

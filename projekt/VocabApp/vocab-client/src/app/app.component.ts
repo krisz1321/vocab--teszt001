@@ -201,8 +201,8 @@ interface AiModelOption {
       </div>
     } @else {
       <ng-template #avatarTpl>
-        @if (hasAvatar && avatarUrl) {
-          <img [src]="avatarUrl" alt="" width="36" height="36" class="avatar" (error)="hasAvatar = false">
+        @if (hasAvatar && avatarUrl && !avatarFailed) {
+          <img [src]="avatarUrl" alt="" width="36" height="36" class="avatar" (error)="avatarFailed = true">
         } @else {
           <span class="avatar" aria-hidden="true">{{ initial() }}</span>
         }
@@ -484,8 +484,8 @@ interface AiModelOption {
             <button type="button" class="btn" (click)="logout()"><app-icon name="logout" /> Kijelentkezés</button>
           </header>
           <section class="panel id-card">
-            @if (hasAvatar && avatarUrl) {
-              <img [src]="avatarUrl" alt="" width="76" height="76" class="avatar avatar-xl" (error)="hasAvatar = false">
+            @if (hasAvatar && avatarUrl && !avatarFailed) {
+              <img [src]="avatarUrl" alt="" width="76" height="76" class="avatar avatar-xl" (error)="avatarFailed = true">
             } @else {
               <span class="avatar avatar-xl" aria-hidden="true">{{ initial() }}</span>
             }
@@ -706,6 +706,7 @@ export class AppComponent implements OnInit {
   displayName = '';
   savedDisplayName = '';
   hasAvatar = false;
+  avatarFailed = false;
   avatarUrl: string | null = null;
   studyDayStreak = 0;
   profileError: string | null = null;
@@ -718,7 +719,7 @@ export class AppComponent implements OnInit {
   isDeletingAvatar = false;
   isChangingPassword = false;
   dailyNewCardGoal = 20;
-  minimumAnswerSeconds = 0;
+  minimumAnswerSeconds: number | null = 0;
   automaticAiCheck = true;
   acceptHungarianParaphrase = false;
   acceptPartialMeaningMatch = true;
@@ -1101,6 +1102,7 @@ export class AppComponent implements OnInit {
     const goal = Number(this.dailyNewCardGoal);
     const seconds = Number(this.minimumAnswerSeconds);
     if (!Number.isInteger(goal) || goal < 0 || goal > 100
+      || this.minimumAnswerSeconds === null
       || !Number.isInteger(seconds) || seconds < 0 || seconds > 120) {
       this.profileError = 'Napi új szó: 0–100, minimum idő: 0–120 másodperc.';
       return;
@@ -1302,6 +1304,7 @@ export class AppComponent implements OnInit {
         this.displayName = profile.displayName ?? '';
         this.savedDisplayName = this.displayName;
         this.hasAvatar = profile.hasAvatar;
+        this.avatarFailed = false;
         this.studyDayStreak = profile.studyDayStreak;
         this.avatarUrl = profile.hasAvatar && this.userId
           ? `/api/auth/avatar/${this.userId}?v=${Date.now()}`
@@ -1323,6 +1326,7 @@ export class AppComponent implements OnInit {
     this.displayName = '';
     this.savedDisplayName = '';
     this.hasAvatar = false;
+    this.avatarFailed = false;
     this.avatarUrl = null;
     this.studyDayStreak = 0;
     this.profileError = null;

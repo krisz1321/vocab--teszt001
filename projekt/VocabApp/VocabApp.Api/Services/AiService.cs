@@ -417,10 +417,16 @@ public sealed class AiService(
     }
 
     // Nyelvtan nézet: a tanuló mondata a kért igeidőben, a kártya szavával. A szót és a definíciót a szerver tölti be.
-    public async Task<GrammarCheckResponseDto?> CheckGrammarSentenceAsync(
+    public Task<GrammarCheckResponseDto?> CheckGrammarSentenceAsync(
         int userId,
         GrammarCheckRequestDto request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RetryOnInvalidResponseAsync(() => CheckGrammarSentenceCoreAsync(userId, request, cancellationToken));
+
+    private async Task<GrammarCheckResponseDto?> CheckGrammarSentenceCoreAsync(
+        int userId,
+        GrammarCheckRequestDto request,
+        CancellationToken cancellationToken)
     {
         var card = await dbContext.Cards
             .AsNoTracking()
@@ -450,7 +456,8 @@ public sealed class AiService(
             "acceptable; the feedback may then suggest a richer sentence." + HungarianFeedbackStyle + translationRule +
             $" Return only a JSON object with exactly {(card.GrammarShowTranslation ? "six" : "five")} properties: " +
             "termUsedCorrectly (boolean), tenseCorrect (boolean), grammarCorrect (boolean), " +
-            "feedback (a non-empty Hungarian string of at most three sentences addressed to the learner), " +
+            "feedback (a Hungarian string of at most three sentences addressed to the learner; required when any " +
+            "check fails, and it may be an empty string when all three checks pass), " +
             "correctedSentence (a corrected version of the learner's sentence in the requested tense, at most 300 " +
             "characters, or an empty string when all three checks pass)" +
             (card.GrammarShowTranslation ? ", and hungarianTranslation (string)." : ".");
@@ -492,7 +499,8 @@ public sealed class AiService(
             result.CorrectedSentence = string.Empty;
         }
 
-        if (string.IsNullOrWhiteSpace(result.Feedback) ||
+        // Helyes válasznál nincs mit javítani, ezért ott az üres visszajelzés is érvényes.
+        if ((!result.IsCorrect && string.IsNullOrWhiteSpace(result.Feedback)) ||
             result.Feedback.Length > 500 ||
             result.CorrectedSentence.Length > 500)
         {
@@ -629,10 +637,16 @@ public sealed class AiService(
     private sealed record GrammarCard(string Term, string Definition, string? TargetMeanings, string Level);
 
     // Mondatok nézet: 1-2 összefüggő mondat, amely a feladat összes szavát használja. A szavakat a szerver tölti be.
-    public async Task<CompositionCheckResponseDto?> CheckCompositionAsync(
+    public Task<CompositionCheckResponseDto?> CheckCompositionAsync(
         int userId,
         CompositionCheckRequestDto request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RetryOnInvalidResponseAsync(() => CheckCompositionCoreAsync(userId, request, cancellationToken));
+
+    private async Task<CompositionCheckResponseDto?> CheckCompositionCoreAsync(
+        int userId,
+        CompositionCheckRequestDto request,
+        CancellationToken cancellationToken)
     {
         var task = await FindCompositionCardsAsync(userId, request.CardIds, cancellationToken);
         if (task is null)
@@ -658,8 +672,9 @@ public sealed class AiService(
             $" Return only a JSON object with exactly {(task.ShowTranslation ? "six" : "five")} properties: " +
             "words (an array with exactly one object per term, each with the integer index copied from the input " +
             "and the boolean usedCorrectly), grammarCorrect (boolean), coherent (boolean), " +
-            "feedback (a non-empty Hungarian string of at most three sentences addressed to the learner that names " +
-            "every missing or misused term), correctedText (a corrected version of the learner's text that uses " +
+            "feedback (a Hungarian string of at most three sentences addressed to the learner that names every " +
+            "missing or misused term; required when any check fails, and it may be an empty string when every " +
+            "check passes), correctedText (a corrected version of the learner's text that uses " +
             "every term correctly in at most two connected sentences, at most 500 characters, or an empty string " +
             "when every check passes)" +
             (task.ShowTranslation ? ", and hungarianTranslation (string)." : ".");
@@ -713,7 +728,7 @@ public sealed class AiService(
             result.CorrectedText = string.Empty;
         }
 
-        if (string.IsNullOrWhiteSpace(result.Feedback) ||
+        if ((!result.IsCorrect && string.IsNullOrWhiteSpace(result.Feedback)) ||
             result.Feedback.Length > 500 ||
             result.CorrectedText.Length > 500 ||
             (task.ShowTranslation &&
@@ -1147,10 +1162,16 @@ public sealed class AiService(
         return stored is null ? result : DeserializeCached<GenerateTargetMeaningResponseDto>(stored);
     }
 
-    public async Task<ValidateAnswerResponseDto> ValidateAnswerAsync(
+    public Task<ValidateAnswerResponseDto> ValidateAnswerAsync(
         int userId,
         ValidateAnswerRequestDto request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RetryOnInvalidResponseAsync(() => ValidateAnswerCoreAsync(userId, request, cancellationToken));
+
+    private async Task<ValidateAnswerResponseDto> ValidateAnswerCoreAsync(
+        int userId,
+        ValidateAnswerRequestDto request,
+        CancellationToken cancellationToken)
     {
         var acceptHungarian = false;
         if (request.Paraphrase)
@@ -1178,7 +1199,8 @@ public sealed class AiService(
                   "Compare the learner's answer with the reference definition semantically. Accept the answer when " +
                   "its meaning matches, in either language. Accept minor grammar and spelling errors, but reject a " +
                   "substantially wrong or opposite meaning. Return only a JSON object with exactly three properties: " +
-                  "isCorrect (boolean), feedback (a non-empty Hungarian string of at most two sentences), and " +
+                  "isCorrect (boolean), feedback (a Hungarian string of at most two sentences; required when " +
+                  "isCorrect is false, and it may be empty when isCorrect is true), and " +
                   "englishAnswer (a string of at most 500 characters). When isCorrect is true, englishAnswer is the " +
                   "learner's own sentence rewritten as one English sentence, not a new definition. For the term " +
                   "\"cat\", the Hungarian answer \"egy háziállat ami dorombol\" can be correct, and englishAnswer " +
@@ -1188,7 +1210,8 @@ public sealed class AiService(
                   "errors, but reject a substantially wrong or opposite meaning. An answer in Hungarian is incorrect " +
                   "even when its meaning matches; in that case isCorrect is false and the feedback asks the learner " +
                   "to write the paraphrase in English. Return only a JSON object with exactly three properties: " +
-                  "isCorrect (boolean), feedback (a non-empty Hungarian string of at most two sentences), and " +
+                  "isCorrect (boolean), feedback (a Hungarian string of at most two sentences; required when " +
+                  "isCorrect is false, and it may be empty when isCorrect is true), and " +
                   "englishAnswer (an empty string)." + HungarianFeedbackStyle
             : request.ToEnglish
                 ? "The learner was shown the Hungarian meaning (referenceDefinition) of an English word and had to " +
@@ -1200,12 +1223,14 @@ public sealed class AiService(
                   "says that the answer is a synonym and names the term, without saying whether it is accepted. " +
                   "An answer in Hungarian, an answer with a different or opposite meaning, and an answer that is " +
                   "not a real English word have both flags false. Return only a JSON object with exactly three " +
-                  "properties: isCorrect (boolean), isSynonym (boolean), and feedback (a non-empty Hungarian string " +
-                  "of at most two sentences)." + HungarianFeedbackStyle
+                  "properties: isCorrect (boolean), isSynonym (boolean), and feedback (a Hungarian string of at " +
+                  "most two sentences; required when isCorrect is false, and it may be empty when isCorrect is " +
+                  "true)." + HungarianFeedbackStyle
                 : "Compare the learner's answer with the reference definition semantically. Accept minor grammar and " +
                   "spelling errors, but reject a substantially wrong or opposite meaning. Return only a JSON object " +
-                  "with exactly two properties: isCorrect (boolean) and feedback (a non-empty Hungarian string of at " +
-                  "most two sentences)." + HungarianFeedbackStyle;
+                  "with exactly two properties: isCorrect (boolean) and feedback (a Hungarian string of at most two " +
+                  "sentences; required when isCorrect is false, and it may be empty when isCorrect is true)." +
+                  HungarianFeedbackStyle;
         var userPrompt = JsonSerializer.Serialize(new
         {
             request.Term,
@@ -1242,7 +1267,7 @@ public sealed class AiService(
             };
         }
 
-        if (string.IsNullOrWhiteSpace(result.Feedback) || result.Feedback.Length > 500)
+        if ((!result.IsCorrect && string.IsNullOrWhiteSpace(result.Feedback)) || result.Feedback.Length > 500)
         {
             throw new AiServiceException(
                 AiServiceErrorKind.InvalidResponse,
@@ -1253,7 +1278,7 @@ public sealed class AiService(
         {
             result.EnglishAnswer = string.Empty;
         }
-        else if (string.IsNullOrWhiteSpace(result.EnglishAnswer) || result.EnglishAnswer.Length > 500)
+        else if (result.EnglishAnswer.Length > 500)
         {
             throw new AiServiceException(
                 AiServiceErrorKind.InvalidResponse,
@@ -1263,10 +1288,16 @@ public sealed class AiService(
         return result;
     }
 
-    public async Task<AppealAnswerResponseDto?> AppealAnswerAsync(
+    public Task<AppealAnswerResponseDto?> AppealAnswerAsync(
         int userId,
         AppealAnswerRequestDto request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RetryOnInvalidResponseAsync(() => AppealAnswerCoreAsync(userId, request, cancellationToken));
+
+    private async Task<AppealAnswerResponseDto?> AppealAnswerCoreAsync(
+        int userId,
+        AppealAnswerRequestDto request,
+        CancellationToken cancellationToken)
     {
         var requireAppealReason = await dbContext.Users
             .AsNoTracking()
@@ -1289,8 +1320,9 @@ public sealed class AiService(
             "A weak or unrelated justification does not make the answer correct. " +
             "For the term \"cat\", the Hungarian answer \"egy háziállat ami dorombol\" can be accepted when the justification " +
             "shows that this meaning matches the reference. " +
-            "Return only a JSON object with exactly two properties: accepted (boolean) and feedback (a non-empty Hungarian " +
-            "string of at most two sentences)." + HungarianFeedbackStyle;
+            "Return only a JSON object with exactly two properties: accepted (boolean) and feedback (a Hungarian string of " +
+            "at most two sentences; required when accepted is false, and it may be empty when accepted is true)." +
+            HungarianFeedbackStyle;
         var userPrompt = JsonSerializer.Serialize(new
         {
             request.Term,
@@ -1302,7 +1334,7 @@ public sealed class AiService(
         var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
         var parsed = DeserializeContent<AppealContent>(content);
         var feedback = parsed.Feedback?.Trim() ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(feedback) || feedback.Length > 500)
+        if ((!parsed.Accepted && string.IsNullOrWhiteSpace(feedback)) || feedback.Length > 500)
         {
             throw new AiServiceException(
                 AiServiceErrorKind.InvalidResponse,
@@ -1316,10 +1348,16 @@ public sealed class AiService(
         };
     }
 
-    public async Task<ExplainAnswerResponseDto> ExplainAnswerAsync(
+    public Task<ExplainAnswerResponseDto> ExplainAnswerAsync(
         int userId,
         ExplainAnswerRequestDto request,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default) =>
+        RetryOnInvalidResponseAsync(() => ExplainAnswerCoreAsync(userId, request, cancellationToken));
+
+    private async Task<ExplainAnswerResponseDto> ExplainAnswerCoreAsync(
+        int userId,
+        ExplainAnswerRequestDto request,
+        CancellationToken cancellationToken)
     {
         var recentMessages = (request.Messages ?? [])
             .Select(message => new
@@ -1966,6 +2004,21 @@ public sealed class AiService(
                     "The AI provider returned an invalid response envelope.",
                     exception);
             }
+        }
+    }
+
+    // Az értékelő végpontok védelme: az érvénytelen MI-válasz (hibás JSON, szerződésszegés) véletlenszerű, ezért
+    // egyszer újrakérjük. Szolgáltatói és konfigurációs hibánál az újrakérés nem segítene.
+    private async Task<T> RetryOnInvalidResponseAsync<T>(Func<Task<T>> call)
+    {
+        try
+        {
+            return await call();
+        }
+        catch (AiServiceException exception) when (exception.Kind == AiServiceErrorKind.InvalidResponse)
+        {
+            logger.LogWarning(exception, "The AI response was invalid, retrying once.");
+            return await call();
         }
     }
 

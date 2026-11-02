@@ -980,11 +980,6 @@ const emptyAnswerMessage = 'Írj be valamit.';
               @if (recognitionCorrect !== null) {
                 <div class="feedback" [class.ok]="recognitionCorrect" [class.bad]="!recognitionCorrect" role="status">
                   <div class="fb-title"><app-icon [name]="recognitionCorrect ? 'check' : 'x'" /> {{ recognitionCorrect ? 'Helyes válasz.' : 'Még nem pontos.' }}</div>
-                  @if (!recognitionCorrect) {
-                    @if (updatedProgress?.confusedWithTerm; as confusedWithTerm) {
-                      <div>Összekevested ezzel: „{{ confusedWithTerm }}”.</div>
-                    }
-                  }
                 </div>
               }
               <div class="actions ai-tools">
@@ -1172,6 +1167,22 @@ const emptyAnswerMessage = 'Írj be valamit.';
             </div>
           }
 
+          @if (failedSubmit && !updatedProgress) {
+            <div class="actions">
+              <button
+                type="button"
+                class="btn btn-primary btn-lg"
+                (click)="retrySubmit()"
+                data-next-card
+                [disabled]="isSubmitting">
+                @if (isSubmitting) {
+                  <span class="spinner spinner-sm"></span>
+                }
+                Mentés újra
+              </button>
+            </div>
+          }
+
           @if (updatedProgress) {
             <div class="next-row">
               @if (isRetry) {
@@ -1331,6 +1342,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
   private answerUnlockTimer: ReturnType<typeof setInterval> | null = null;
   private loadGeneration = 0;
   private continueAfterMeaningSubmit = false;
+  failedSubmit: { isCorrect: boolean; evaluatedByAi: boolean; typedAnswer?: string } | null = null;
   private freeKeyListener: ((event: KeyboardEvent) => void) | null = null;
   private lastNextButton: Element | null = null;
   private lastFocusedAnswerInput: Element | null = null;
@@ -2946,8 +2958,10 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       return true;
     }
 
+    const answerPieces = this.targetMeaningPieces(answer);
     return this.acceptPartialMeaningMatch
-      && this.targetMeaningPieces(answer).some(piece => accepted.includes(piece));
+      ? answerPieces.some(piece => accepted.includes(piece))
+      : answerPieces.length > 0 && answerPieces.every(piece => accepted.includes(piece));
   }
 
   // A zárójeles megjegyzés nélküli alak is elfogadott: "jobb (irány)" → "jobb" és "jobb irany".
@@ -3069,6 +3083,17 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       });
   }
 
+  retrySubmit(): void {
+    const failed = this.failedSubmit;
+    if (!failed || this.isSubmitting) {
+      return;
+    }
+
+    this.errorMessage = null;
+    this.failedSubmit = null;
+    this.submitResult(failed.isCorrect, failed.evaluatedByAi, failed.typedAnswer);
+  }
+
   private submitResult(isCorrect: boolean, evaluatedByAi: boolean, typedAnswer?: string): void {
     if (this.isRetry && this.card && !this.updatedProgress) {
       this.finishRetryRound(isCorrect);
@@ -3097,9 +3122,14 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           this.definitionPenaltyPending = null;
           this.continueAfterSave = false;
           this.pendingIncorrect = false;
+          this.failedSubmit = null;
           this.updatedProgress = progress;
           this.lastSavedProgress = progress;
           this.sessionAnswered++;
+          // A hibás válasz után rögtön új kártya jön, ezért az összetévesztés a következő kártyán jelenik meg.
+          if (progress.confusedWithTerm && this.card) {
+            this.pendingCardNotice = `Az előző szó „${this.card.term}” volt, ezzel keverted össze: „${progress.confusedWithTerm}”.`;
+          }
           if (isCorrect) {
             this.sessionCorrect++;
           } else if (this.repeatMistakes && this.mode === 'meaning' && this.card) {
@@ -3118,6 +3148,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           }
         },
         error: (error: HttpErrorResponse) => {
+          const hadPenalty = this.definitionPenaltyPending !== null;
           this.definitionPenaltyPending = null;
           this.continueAfterSave = false;
           // A szerver két 400-at ad: a túl korai válasz újrapróbálható, a lejárt válasz-azonosító nem.
@@ -3152,6 +3183,9 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
           if (this.continueAfterMeaningSubmit) {
             this.continueAfterMeaningSubmit = false;
             this.meaningAwaitingGrade = true;
+          } else if (!hadPenalty && !this.pendingIncorrect) {
+            // A többi ágon marad gomb a folytatáshoz; itt a mentés újrapróbálása nélkül a kártya zsákutca lenne.
+            this.failedSubmit = { isCorrect, evaluatedByAi, typedAnswer };
           }
 
           this.setHttpError(error, 'Az eredmény mentése');
@@ -3208,6 +3242,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     this.meaningCorrect = null;
     this.meaningAwaitingGrade = false;
     this.continueAfterMeaningSubmit = false;
+    this.failedSubmit = null;
     this.recognitionCorrect = null;
     this.validationResult = null;
     this.updatedProgress = null;
