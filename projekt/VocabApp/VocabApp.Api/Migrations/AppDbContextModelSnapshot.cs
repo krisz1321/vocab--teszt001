@@ -716,6 +716,11 @@ namespace VocabApp.Api.Migrations
                         .HasColumnType("nvarchar(128)")
                         .HasDefaultValue("Europe/Budapest");
 
+                    b.Property<int>("TokenVersion")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(30)

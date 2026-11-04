@@ -20,6 +20,10 @@ public sealed class AuthService(
 {
     private const int MaxEmailLength = 256;
     private const int MaxDisplayNameLength = 80;
+
+    /// <summary>A tokenbe írt jelszóverzió claim neve; a Program.cs OnTokenValidated olvassa.</summary>
+    public const string TokenVersionClaim = "tv";
+
     private const int UniqueIndexViolation = 2601;
     private const int UniqueConstraintViolation = 2627;
     private const string InvalidCredentials = "Hibás email vagy jelszó.";
@@ -246,7 +250,7 @@ public sealed class AuthService(
         return StatusResult.Success();
     }
 
-    public async Task<StatusResult> ChangePasswordAsync(
+    public async Task<AuthResult> ChangePasswordAsync(
         int userId,
         string? currentPassword,
         string? newPassword,
@@ -255,25 +259,27 @@ public sealed class AuthService(
         var user = await dbContext.Users.FirstOrDefaultAsync(candidate => candidate.Id == userId, cancellationToken);
         if (user is null)
         {
-            return StatusResult.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.");
+            return AuthResult.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.");
         }
 
         var passwordError = ValidateNewPassword(newPassword, user.Email);
         if (passwordError is not null)
         {
-            return StatusResult.Fail(StatusCodes.Status400BadRequest, passwordError);
+            return AuthResult.Fail(StatusCodes.Status400BadRequest, passwordError);
         }
 
         // A hibás jelenlegi jelszó nem hitelesítési hiba (a felhasználó be van jelentkezve), ezért 400.
         if (string.IsNullOrEmpty(currentPassword)
             || passwordHasher.VerifyHashedPassword(user, user.PasswordHash, currentPassword) == PasswordVerificationResult.Failed)
         {
-            return StatusResult.Fail(StatusCodes.Status400BadRequest, "Hibás jelszó.");
+            return AuthResult.Fail(StatusCodes.Status400BadRequest, "Hibás jelszó.");
         }
 
         user.PasswordHash = passwordHasher.HashPassword(user, newPassword!);
+        // A régi tokenek (más eszközön, másik fülön) érvénytelenek lesznek; a cserélő munkamenet új tokent kap.
+        user.TokenVersion++;
         await dbContext.SaveChangesAsync(cancellationToken);
-        return StatusResult.Success();
+        return AuthResult.Success(CreateResponse(user));
     }
 
     public async Task<StatusResult> SaveAvatarAsync(
@@ -379,7 +385,8 @@ public sealed class AuthService(
         var claims = new[]
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email)
+            new Claim(JwtRegisteredClaimNames.Email, user.Email),
+            new Claim(TokenVersionClaim, user.TokenVersion.ToString())
         };
 
         var credentials = new SigningCredentials(

@@ -80,20 +80,38 @@ public class Program
                     IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey))
                 };
                 // A törölt fiók még érvényes tokenje ne érje el a végpontokat (különben pl. a CardService SingleAsync-je
-                // 500-at adna): a token csak akkor fogadható el, ha a "sub" felhasználó létezik. Ez 401-et ad, amire a
-                // kliens kijelentkeztet.
+                // 500-at adna): a token csak akkor fogadható el, ha a "sub" felhasználó létezik. Jelszócsere után a régi
+                // tokenek is érvénytelenek: a "tv" claim a User.TokenVersion-nel egyezzen (a hiányzó claim 0-nak számít,
+                // így a bevezetés előtt kiadott tokenek addig élnek, amíg nincs jelszócsere). Mindkettő 401-et ad, amire
+                // a kliens kijelentkeztet.
                 options.Events = new JwtBearerEvents
                 {
                     OnTokenValidated = async context =>
                     {
                         var sub = context.Principal?.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
                         var dbContext = context.HttpContext.RequestServices.GetRequiredService<AppDbContext>();
-                        if (!int.TryParse(sub, out var userId) ||
-                            !await dbContext.Users
-                                .AsNoTracking()
-                                .AnyAsync(user => user.Id == userId, context.HttpContext.RequestAborted))
+                        if (!int.TryParse(sub, out var userId))
                         {
                             context.Fail("A felhasználó nem létezik.");
+                            return;
+                        }
+
+                        var currentVersion = await dbContext.Users
+                            .AsNoTracking()
+                            .Where(user => user.Id == userId)
+                            .Select(user => (int?)user.TokenVersion)
+                            .SingleOrDefaultAsync(context.HttpContext.RequestAborted);
+                        if (currentVersion is null)
+                        {
+                            context.Fail("A felhasználó nem létezik.");
+                            return;
+                        }
+
+                        var tokenVersionClaim = context.Principal?.FindFirst(AuthService.TokenVersionClaim)?.Value;
+                        var tokenVersion = int.TryParse(tokenVersionClaim, out var parsed) ? parsed : 0;
+                        if (tokenVersion != currentVersion.Value)
+                        {
+                            context.Fail("A bejelentkezés lejárt (jelszócsere történt).");
                         }
                     }
                 };

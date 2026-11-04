@@ -18,7 +18,7 @@ public interface IAuthService
 
     Task<StatusResult> UpdateUsernameAsync(int userId, string? username, CancellationToken cancellationToken = default);
 
-    Task<StatusResult> ChangePasswordAsync(
+    Task<AuthResult> ChangePasswordAsync(
         int userId,
         string? currentPassword,
         string? newPassword,

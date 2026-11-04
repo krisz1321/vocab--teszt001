@@ -16,6 +16,9 @@ public sealed class User
     [Required]
     public string PasswordHash { get; set; } = string.Empty;
 
+    /// <summary>Jelszócserénél nő; a "tv" claim eltérő tokenje érvénytelen (a hiányzó claim 0-nak számít).</summary>
+    public int TokenVersion { get; set; }
+
     [MaxLength(80)]
     public string? DisplayName { get; set; }
 

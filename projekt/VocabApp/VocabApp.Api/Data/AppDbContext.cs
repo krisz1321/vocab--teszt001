@@ -43,6 +43,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         user.Property(u => u.Email).IsRequired().HasMaxLength(256);
         user.Property(u => u.Username).IsRequired().HasMaxLength(Usernames.MaxLength);
         user.Property(u => u.PasswordHash).IsRequired();
+        user.Property(u => u.TokenVersion).HasDefaultValue(0);
         user.Property(u => u.DisplayName).HasMaxLength(80);
         user.Property(u => u.DailyNewCardGoal).HasDefaultValue(20);
         user.Property(u => u.MinimumAnswerSeconds).HasDefaultValue(0);

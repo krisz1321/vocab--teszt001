@@ -1194,7 +1194,7 @@ export class AppComponent implements OnInit {
     this.profileError = null;
     this.profileMessage = null;
     this.isChangingPassword = true;
-    this.http.put('/api/auth/password', {
+    this.http.put<AuthResponse>('/api/auth/password', {
       currentPassword: this.currentPassword,
       newPassword: this.newPassword,
     }).pipe(
@@ -1202,7 +1202,9 @@ export class AppComponent implements OnInit {
         this.isChangingPassword = false;
       }),
     ).subscribe({
-      next: () => {
+      next: (response) => {
+        // A csere érvénytelenítette a régi tokent: a válasz új tokenjével ez a munkamenet belépve marad.
+        this.session.setSession(response.token, response.email);
         this.currentPassword = '';
         this.newPassword = '';
         this.profileMessage = 'A jelszó megváltozott.';

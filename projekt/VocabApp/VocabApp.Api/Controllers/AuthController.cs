@@ -86,7 +86,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
     [Authorize]
     [EnableRateLimiting("auth")]
     [HttpPut("password")]
-    public async Task<IActionResult> ChangePassword(ChangePasswordDto request, CancellationToken cancellationToken)
+    public async Task<ActionResult<AuthResponseDto>> ChangePassword(ChangePasswordDto request, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
         if (userId is null)
@@ -94,7 +94,7 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
             return Unauthorized();
         }
 
-        return ToStatus(await authService.ChangePasswordAsync(
+        return ToActionResult(await authService.ChangePasswordAsync(
             userId.Value,
             request.CurrentPassword,
             request.NewPassword,
