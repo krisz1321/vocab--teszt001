@@ -1042,7 +1042,10 @@ const emptyAnswerMessage = 'Írj be valamit.';
                 <div>Angolul: <em>{{ validationResult.englishAnswer }}</em></div>
               }
               @if (appealFeedback && !validationResult.isCorrect) {
-                <div>{{ appealFeedback }}</div>
+                <div class="ai-note">
+                  <span class="ai-tag"><app-icon name="sparkle" /> Válasz a fellebbezésre</span>
+                  <p>{{ appealFeedback }}</p>
+                </div>
               }
             </div>
           }
@@ -2818,6 +2821,8 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
         definition: this.heldDefinition,
         answer: this.heldAnswer,
         reason,
+        // Az első elutasítás indoklása, hogy a válasz a fellebbezésre ne ismételje meg.
+        previousFeedback: this.validationResult?.feedback?.trim() || undefined,
       },
     )
       .pipe(finalize(() => {
@@ -3036,6 +3041,11 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     }
   }
 
+  // Biztonsági háló: ha az MI mégis Markdown-kiemelést ír, a **…** és __…__ párok jelei elmaradnak.
+  private stripEmphasisMarkers(text: string): string {
+    return text.replace(/\*\*([\s\S]+?)\*\*/g, '$1').replace(/__([\s\S]+?)__/g, '$1');
+  }
+
   private requestExplanation(messages: ExplanationMessage[], pendingQuestion?: string): void {
     if (!this.card || this.explanationClosed || this.isExplaining) {
       return;
@@ -3073,7 +3083,7 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
             this.followUpQuestion = '';
           }
 
-          const text = result.onTopic ? result.text : 'Ez nem kapcsolódik a tárgyhoz.';
+          const text = result.onTopic ? this.stripEmphasisMarkers(result.text) : 'Ez nem kapcsolódik a tárgyhoz.';
           this.explanationMessages = [
             ...this.explanationMessages,
             { role: 'assistant', content: text },
