@@ -16,7 +16,7 @@ Csak a kliens: `npm install`, majd
 npm start
 ```
 
-**Ne sima `ng serve`-et használj.** A `npm start` a `proxy.conf.json`-nal indít, ami az `/api` hívásokat az 5152-es portra továbbítja. Proxy nélkül ezek elhasalnak.
+Az `npm start` és a sima `ng serve` is a `proxy.conf.json`-nal fut (az `angular.json` `proxyConfig` beállítása miatt), ami az `/api` hívásokat az 5152-es portra továbbítja.
 
 ## Demo felhasználók
 
@@ -31,7 +31,7 @@ Az API minden induláskor létrehozza őket, ha hiányoznak:
 ng build --configuration development
 ```
 
-A production build (`npm run build`) jelenleg elbukik: a `decks.component.ts` stílusa átlépi az `angular.json`-ban megadott 8 kB-os hibahatárt.
+A production build (`npm run build`) sikeres.
 
 ## Tesztek
 

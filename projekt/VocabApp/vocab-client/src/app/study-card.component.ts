@@ -1613,10 +1613,6 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     return this.freeCards.filter(card => card.knows === false).length;
   }
 
-  get freeUnmarkedCount(): number {
-    return this.freeCards.filter(card => card.knows == null).length;
-  }
-
   ngOnInit(): void {
     this.loadFreeSettings();
     this.loadDecks();
