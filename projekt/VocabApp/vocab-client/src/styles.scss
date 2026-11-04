@@ -279,7 +279,8 @@ button.chip { cursor: pointer; }
 .input-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .input-row > :is(input, select) { flex: 1 1 180px; min-width: 0; }
 .form-grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-.form-grid > .field-wide { grid-column: 1 / -1; }.form-stack { display: flex; flex-direction: column; gap: 14px; }
+.form-grid > .field-wide { grid-column: 1 / -1; }
+.remember-row { display: flex; align-items: center; gap: 10px; font-size: 14px; cursor: pointer; }.form-stack { display: flex; flex-direction: column; gap: 14px; }
 .counter { align-self: flex-end; font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--muted); }
 .range-row { display: flex; align-items: center; gap: 12px; }
 .range-row output { min-width: 2.5em; text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }

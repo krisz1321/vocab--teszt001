@@ -182,6 +182,10 @@ interface AiModelOption {
                   }
                 </div>
               }
+              <label class="remember-row" for="rememberMe">
+                <input id="rememberMe" name="rememberMe" type="checkbox" [(ngModel)]="rememberMe" [disabled]="isSubmitting">
+                <span>Maradjak bejelentkezve</span>
+              </label>
               @if (errorMessage) {
                 <div class="notice notice-bad" role="alert"><app-icon name="warn" /><div>{{ errorMessage }}</div></div>
               }
@@ -688,6 +692,8 @@ export class AppComponent implements OnInit {
     .map(id => this.navItems.find(item => item.id === id)!);
   menuOpen = false;
   mode: AuthMode = 'login';
+  // Alapból kikapcsolva: a munkamenet a fül bezárásáig tart (sessionStorage).
+  rememberMe = false;
   email = '';
   registerUsername = '';
   password = '';
@@ -889,7 +895,7 @@ export class AppComponent implements OnInit {
         this.passwordConfirm = '';
         this.registerUsername = '';
         this.resetAvailability();
-        this.session.setSession(response.token, response.email);
+        this.session.setSession(response.token, response.email, this.rememberMe);
         this.loadProfile();
       },
       error: (error: HttpErrorResponse) => {
@@ -1352,6 +1358,11 @@ export class AppComponent implements OnInit {
 
   private clearProfile(): void {
     this.view = 'study';
+    // Kijelentkezés (vagy 401-es kiléptetés) után a Bejelentkezés fül nyíljon, ne a korábban használt Regisztráció.
+    this.mode = 'login';
+    this.passwordConfirm = '';
+    this.registerUsername = '';
+    this.resetAvailability();
     this.profileEmail = null;
     this.username = '';
     this.savedUsername = '';
