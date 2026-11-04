@@ -14,11 +14,11 @@ public sealed class GenerateDeckFillRequestDto
 
 public sealed class DeckFillItemDto
 {
-    [Required, MaxLength(100)]
+    [Required, MaxLength(CardLimits.MaxTermLength)]
     public string Term { get; set; } = string.Empty;
 
     // A beillesztett magyar jelentés: csak a szó értelmét pontosítja a promptban.
-    [MaxLength(300)]
+    [MaxLength(CardLimits.MaxTargetMeaningsLength)]
     public string? TargetMeanings { get; set; }
 
     public bool NeedDefinition { get; set; }
@@ -29,7 +29,7 @@ public sealed class DeckFillItemDto
     public bool SimplifyMeaning { get; set; }
 
     // Ha csak a példa hiányzik, a már meglévő definíció, hogy a mondat ahhoz az értelemhez illeszkedjen.
-    [MaxLength(500)]
+    [MaxLength(CardLimits.MaxDefinitionLength)]
     public string? Definition { get; set; }
 }
 

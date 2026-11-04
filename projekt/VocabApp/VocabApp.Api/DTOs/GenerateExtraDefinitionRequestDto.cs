@@ -1,13 +1,14 @@
 using System.ComponentModel.DataAnnotations;
+using VocabApp.Api.Models;
 
 namespace VocabApp.Api.DTOs;
 
 public sealed class GenerateExtraDefinitionRequestDto
 {
-    [Required, MaxLength(100)]
+    [Required, MaxLength(CardLimits.MaxTermLength)]
     public string Term { get; set; } = string.Empty;
 
-    [Required, MaxLength(500)]
+    [Required, MaxLength(CardLimits.MaxDefinitionLength)]
     public string AvoidDefinition { get; set; } = string.Empty;
 
     [Range(1, int.MaxValue)]

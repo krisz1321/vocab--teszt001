@@ -63,19 +63,7 @@ public sealed class AiService(
             };
         }
 
-        string level;
-        if (ExampleLevels.IsAllowed(owned.DeckLevel))
-        {
-            level = owned.DeckLevel;
-        }
-        else if (ExampleLevels.IsAllowed(owned.AccountLevel))
-        {
-            level = owned.AccountLevel;
-        }
-        else
-        {
-            level = ExampleLevels.Default;
-        }
+        var level = ResolveLevel(owned.DeckLevel, owned.AccountLevel);
 
         var termKey = request.Term.Trim().ToLowerInvariant();
         if (owned.ReuseSavedExamples)
@@ -112,7 +100,7 @@ public sealed class AiService(
         var definition = generated.Definition.Trim();
 
         if (string.IsNullOrWhiteSpace(definition) ||
-            definition.Length > 500 ||
+            definition.Length > CardLimits.MaxDefinitionLength ||
             !DefinitionAvoidsTerm(definition, request.Term))
         {
             throw new AiServiceException(
@@ -149,19 +137,7 @@ public sealed class AiService(
             return null;
         }
 
-        string level;
-        if (ExampleLevels.IsAllowed(owned.DeckLevel))
-        {
-            level = owned.DeckLevel;
-        }
-        else if (ExampleLevels.IsAllowed(owned.AccountLevel))
-        {
-            level = owned.AccountLevel;
-        }
-        else
-        {
-            level = ExampleLevels.Default;
-        }
+        var level = ResolveLevel(owned.DeckLevel, owned.AccountLevel);
 
         var termKey = request.Term.Trim().ToLowerInvariant();
         if (owned.ReuseSavedExamples)
@@ -197,7 +173,7 @@ public sealed class AiService(
         var definition = generated.Definition.Trim();
 
         if (string.IsNullOrWhiteSpace(definition) ||
-            definition.Length > 500 ||
+            definition.Length > CardLimits.MaxDefinitionLength ||
             !DefinitionAvoidsTerm(definition, request.Term))
         {
             throw new AiServiceException(
@@ -244,19 +220,7 @@ public sealed class AiService(
             };
         }
 
-        string level;
-        if (ExampleLevels.IsAllowed(owned.DeckLevel))
-        {
-            level = owned.DeckLevel;
-        }
-        else if (ExampleLevels.IsAllowed(owned.AccountLevel))
-        {
-            level = owned.AccountLevel;
-        }
-        else
-        {
-            level = ExampleLevels.Default;
-        }
+        var level = ResolveLevel(owned.DeckLevel, owned.AccountLevel);
 
         var termKey = request.Term.Trim().ToLowerInvariant();
         var avoidDefinition = request.AvoidDefinition.Trim();
@@ -344,19 +308,7 @@ public sealed class AiService(
             return null;
         }
 
-        string level;
-        if (ExampleLevels.IsAllowed(owned.DeckLevel))
-        {
-            level = owned.DeckLevel;
-        }
-        else if (ExampleLevels.IsAllowed(owned.AccountLevel))
-        {
-            level = owned.AccountLevel;
-        }
-        else
-        {
-            level = ExampleLevels.Default;
-        }
+        var level = ResolveLevel(owned.DeckLevel, owned.AccountLevel);
 
         var termKey = request.Term.Trim().ToLowerInvariant();
         var definitionKey = request.Definition.Trim();
@@ -400,7 +352,7 @@ public sealed class AiService(
         var sentence = generated.Example.Trim();
 
         if (string.IsNullOrWhiteSpace(sentence) ||
-            sentence.Length > 500 ||
+            sentence.Length > CardLimits.MaxExampleLength ||
             !ExampleContainsTerm(sentence, request.Term))
         {
             throw new AiServiceException(
@@ -617,19 +569,7 @@ public sealed class AiService(
             return null;
         }
 
-        string level;
-        if (ExampleLevels.IsAllowed(card.DeckLevel))
-        {
-            level = card.DeckLevel;
-        }
-        else if (ExampleLevels.IsAllowed(card.AccountLevel))
-        {
-            level = card.AccountLevel;
-        }
-        else
-        {
-            level = ExampleLevels.Default;
-        }
+        var level = ResolveLevel(card.DeckLevel, card.AccountLevel);
 
         return new GrammarCard(card.Term, card.Definition, card.TargetMeanings, level);
     }
@@ -856,19 +796,7 @@ public sealed class AiService(
             .SingleAsync(cancellationToken);
 
         var deckLevels = cards.Select(card => card.DeckLevel).Distinct().ToList();
-        string level;
-        if (deckLevels.Count == 1 && ExampleLevels.IsAllowed(deckLevels[0]))
-        {
-            level = deckLevels[0]!;
-        }
-        else if (ExampleLevels.IsAllowed(account.ExampleLevel))
-        {
-            level = account.ExampleLevel;
-        }
-        else
-        {
-            level = ExampleLevels.Default;
-        }
+        var level = ResolveLevel(deckLevels.Count == 1 ? deckLevels[0] : null, account.ExampleLevel);
 
         var ordered = ids
             .Select(id => cards.Single(card => card.Id == id))
@@ -901,11 +829,7 @@ public sealed class AiService(
             return null;
         }
 
-        var level = ExampleLevels.IsAllowed(owned.DeckLevel)
-            ? owned.DeckLevel
-            : ExampleLevels.IsAllowed(owned.AccountLevel)
-                ? owned.AccountLevel
-                : ExampleLevels.Default;
+        var level = ResolveLevel(owned.DeckLevel, owned.AccountLevel);
 
         // A napi keret alapból csak számolva van; az EnforceDailyLimit bekapcsolásáig nem tilt.
         if (aiFillUsage.EnforceDailyLimit)
@@ -1016,7 +940,7 @@ public sealed class AiService(
                     {
                         problems[index] = "The definition was empty.";
                     }
-                    else if (definition.Length > 500)
+                    else if (definition.Length > CardLimits.MaxDefinitionLength)
                     {
                         problems[index] = "The definition was longer than 500 characters; make it shorter.";
                     }
@@ -1037,7 +961,7 @@ public sealed class AiService(
                 if (needExample[index] && !needDefinition[index])
                 {
                     var example = generatedItem.Example?.Trim() ?? string.Empty;
-                    if (example.Length > 0 && example.Length <= 500 && ExampleContainsTerm(example, term))
+                    if (example.Length > 0 && example.Length <= CardLimits.MaxExampleLength && ExampleContainsTerm(example, term))
                     {
                         results[index].Example = example;
                         needExample[index] = false;
@@ -1150,7 +1074,7 @@ public sealed class AiService(
         result.Meanings = result.Meanings.Trim();
 
         if (string.IsNullOrWhiteSpace(result.Meanings) ||
-            result.Meanings.Length > 300 ||
+            result.Meanings.Length > CardLimits.MaxTargetMeaningsLength ||
             ContainsTokenSequence(result.Meanings, request.Term))
         {
             throw new AiServiceException(
@@ -1446,19 +1370,7 @@ public sealed class AiService(
             return new RecognizeAmbiguityResponseDto();
         }
 
-        string level;
-        if (ExampleLevels.IsAllowed(owned.DeckLevel))
-        {
-            level = owned.DeckLevel;
-        }
-        else if (ExampleLevels.IsAllowed(owned.AccountLevel))
-        {
-            level = owned.AccountLevel;
-        }
-        else
-        {
-            level = ExampleLevels.Default;
-        }
+        var level = ResolveLevel(owned.DeckLevel, owned.AccountLevel);
 
         var hint = await CreateNarrowingHintAsync(
             userId,
@@ -1852,6 +1764,17 @@ public sealed class AiService(
 
             throw;
         }
+    }
+
+    // Feloldási sorrend: a pakli szintje, a fiók szintje, végül az alapértelmezett.
+    private static string ResolveLevel(string? deckLevel, string? accountLevel)
+    {
+        if (ExampleLevels.IsAllowed(deckLevel))
+        {
+            return deckLevel;
+        }
+
+        return ExampleLevels.IsAllowed(accountLevel) ? accountLevel : ExampleLevels.Default;
     }
 
     private static T DeserializeCached<T>(string responseText) =>

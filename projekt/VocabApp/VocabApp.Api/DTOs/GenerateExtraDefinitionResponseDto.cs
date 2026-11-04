@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using VocabApp.Api.Models;
 
 namespace VocabApp.Api.DTOs;
 
@@ -10,7 +11,7 @@ public sealed class GenerateExtraDefinitionResponseDto
 
     public bool Available { get; set; }
 
-    [MaxLength(500)]
+    [MaxLength(CardLimits.MaxDefinitionLength)]
     public string Definition { get; set; } = string.Empty;
 
     public string? Reason { get; set; }

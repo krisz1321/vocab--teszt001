@@ -105,10 +105,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         studyDay.Property(day => day.IncorrectCount).HasDefaultValue(0);
 
         var savedExample = modelBuilder.Entity<SavedExample>();
-        savedExample.Property(item => item.TermKey).IsRequired().HasMaxLength(100);
-        savedExample.Property(item => item.DefinitionKey).IsRequired().HasMaxLength(500);
+        savedExample.Property(item => item.TermKey).IsRequired().HasMaxLength(CardLimits.MaxTermLength);
+        savedExample.Property(item => item.DefinitionKey).IsRequired().HasMaxLength(CardLimits.MaxDefinitionLength);
         savedExample.Property(item => item.Level).IsRequired().HasMaxLength(2).HasDefaultValue(ExampleLevels.Default);
-        savedExample.Property(item => item.Sentence).IsRequired().HasMaxLength(500);
+        savedExample.Property(item => item.Sentence).IsRequired().HasMaxLength(CardLimits.MaxExampleLength);
         // A négy oszlop együtt meghaladná az indexkulcs 1700 bájtos korlátját, ezért az egyediség a lenyomatukon van.
         savedExample.Property<byte[]>("KeyHash")
             .IsRequired()
@@ -120,9 +120,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         savedExample.HasIndex(item => new { item.TermKey, item.DefinitionKey });
 
         var savedDefinition = modelBuilder.Entity<SavedDefinition>();
-        savedDefinition.Property(item => item.TermKey).IsRequired().HasMaxLength(100);
+        savedDefinition.Property(item => item.TermKey).IsRequired().HasMaxLength(CardLimits.MaxTermLength);
         savedDefinition.Property(item => item.Level).IsRequired().HasMaxLength(2);
-        savedDefinition.Property(item => item.Definition).IsRequired().HasMaxLength(500);
+        savedDefinition.Property(item => item.Definition).IsRequired().HasMaxLength(CardLimits.MaxDefinitionLength);
         savedDefinition.HasIndex(item => new { item.TermKey, item.Level, item.Definition }).IsUnique();
 
         var deck = modelBuilder.Entity<Deck>();
@@ -154,10 +154,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .OnDelete(DeleteBehavior.Cascade);
 
         var sharedCard = modelBuilder.Entity<SharedDeckCard>();
-        sharedCard.Property(c => c.Term).IsRequired().HasMaxLength(100);
-        sharedCard.Property(c => c.Definition).IsRequired().HasMaxLength(500);
-        sharedCard.Property(c => c.Example).HasMaxLength(500);
-        sharedCard.Property(c => c.TargetMeanings).HasMaxLength(300);
+        sharedCard.Property(c => c.Term).IsRequired().HasMaxLength(CardLimits.MaxTermLength);
+        sharedCard.Property(c => c.Definition).IsRequired().HasMaxLength(CardLimits.MaxDefinitionLength);
+        sharedCard.Property(c => c.Example).HasMaxLength(CardLimits.MaxExampleLength);
+        sharedCard.Property(c => c.TargetMeanings).HasMaxLength(CardLimits.MaxTargetMeaningsLength);
         sharedCard.Property(c => c.Tags).HasMaxLength(CardTags.MaxStoredLength);
         sharedCard.HasOne(c => c.SharedDeck)
             .WithMany(s => s.Cards)
@@ -180,10 +180,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             .OnDelete(DeleteBehavior.NoAction);
 
         var card = modelBuilder.Entity<Card>();
-        card.Property(c => c.Term).IsRequired().HasMaxLength(100);
-        card.Property(c => c.Definition).IsRequired().HasMaxLength(500);
-        card.Property(c => c.Example).HasMaxLength(500);
-        card.Property(c => c.TargetMeanings).HasMaxLength(300);
+        card.Property(c => c.Term).IsRequired().HasMaxLength(CardLimits.MaxTermLength);
+        card.Property(c => c.Definition).IsRequired().HasMaxLength(CardLimits.MaxDefinitionLength);
+        card.Property(c => c.Example).HasMaxLength(CardLimits.MaxExampleLength);
+        card.Property(c => c.TargetMeanings).HasMaxLength(CardLimits.MaxTargetMeaningsLength);
         card.Property(c => c.Tags).HasMaxLength(CardTags.MaxStoredLength);
         card.HasOne(c => c.Deck)
             .WithMany(d => d.Cards)

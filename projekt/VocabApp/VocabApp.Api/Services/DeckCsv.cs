@@ -19,9 +19,6 @@ public static partial class DeckCsv
     public const string HeaderWithTargetMeanings = "term,definition,example,targetMeanings";
     public const string HeaderWithTags = "term,definition,example,targetMeanings,tags";
     public const int MaxDataRows = 10000;
-    private const int MaxTermLength = 100;
-    private const int MaxTextLength = 500;
-    private const int MaxTargetMeaningsLength = 300;
     // Ennyi le nem zárt idézőjelig a hibás sor kimarad; utána az egész fájl érvénytelen (minden újrakezdés a fájl végéig olvas).
     private const int MaxUnterminatedQuotes = 10;
     private const string HeaderError =
@@ -296,9 +293,9 @@ public static partial class DeckCsv
             return false;
         }
 
-        if (term.Length > MaxTermLength)
+        if (term.Length > CardLimits.MaxTermLength)
         {
-            error = $"{rowLabel}: a szó legfeljebb 100 karakter lehet.";
+            error = $"{rowLabel}: a szó legfeljebb {CardLimits.MaxTermLength} karakter lehet.";
             return false;
         }
 
@@ -308,23 +305,23 @@ public static partial class DeckCsv
             return false;
         }
 
-        if (definition.Length > MaxTextLength)
+        if (definition.Length > CardLimits.MaxDefinitionLength)
         {
-            error = $"{rowLabel}: a definíció legfeljebb 500 karakter lehet.";
+            error = $"{rowLabel}: a definíció legfeljebb {CardLimits.MaxDefinitionLength} karakter lehet.";
             return false;
         }
 
         example = example?.Trim() ?? string.Empty;
-        if (example.Length > MaxTextLength)
+        if (example.Length > CardLimits.MaxExampleLength)
         {
-            error = $"{rowLabel}: a példa legfeljebb 500 karakter lehet.";
+            error = $"{rowLabel}: a példa legfeljebb {CardLimits.MaxExampleLength} karakter lehet.";
             return false;
         }
 
         var meanings = targetMeanings?.Trim() ?? string.Empty;
-        if (meanings.Length > MaxTargetMeaningsLength)
+        if (meanings.Length > CardLimits.MaxTargetMeaningsLength)
         {
-            error = $"{rowLabel}: a célnyelvi jelentés legfeljebb 300 karakter lehet.";
+            error = $"{rowLabel}: a célnyelvi jelentés legfeljebb {CardLimits.MaxTargetMeaningsLength} karakter lehet.";
             return false;
         }
 

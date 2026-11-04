@@ -741,13 +741,9 @@ export class AppComponent implements OnInit {
   aiFillRemainingToday = 100;
   readonly exampleLevels = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
   exampleLevel = 'B1';
-  readonly aiModels: AiModelOption[] = [
-    { id: 'google/gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
-    { id: 'google/gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
-    { id: 'google/gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
-    { id: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
-  ];
-  aiModel = 'google/gemini-3.6-flash';
+  // A választható modellek listája a szerverről jön (GET /api/ai/models); addig a kiválasztott érték szerepel benne.
+  aiModels: AiModelOption[] = [];
+  aiModel = '';
   timeZoneId = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Europe/Budapest';
   isSavingStudySettings = false;
   // A PUT /api/study/settings teljes csere: csak a szerverről sikeresen betöltött értékek menthetők vissza,
@@ -755,6 +751,7 @@ export class AppComponent implements OnInit {
   studySettingsLoaded = false;
   isLoadingStudySettings = false;
   private studySettingsRequest = 0;
+  private aiModelsLoaded = false;
   private userId: number | null = null;
   @ViewChild(DecksComponent) private decksView?: DecksComponent;
 
@@ -1175,6 +1172,8 @@ export class AppComponent implements OnInit {
         this.applyAiFillSettings(settings);
         this.exampleLevel = settings.exampleLevel;
         this.aiModel = settings.aiModel;
+        this.ensureAiModelOption();
+        this.loadAiModels();
         this.timeZoneId = settings.timeZoneId || this.timeZoneId;
         this.profileMessage = 'A tanulási beállítások mentve.';
       },
@@ -1241,6 +1240,28 @@ export class AppComponent implements OnInit {
     this.aiFillRemainingToday = settings.aiFillRemainingToday ?? this.aiFillDailyLimit;
   }
 
+  private ensureAiModelOption(): void {
+    if (this.aiModel && !this.aiModels.some((model) => model.id === this.aiModel)) {
+      this.aiModels = [...this.aiModels, { id: this.aiModel, label: this.aiModel }];
+    }
+  }
+
+  private loadAiModels(): void {
+    if (this.aiModelsLoaded) {
+      return;
+    }
+
+    this.http.get<{ default: string; models: AiModelOption[] }>('/api/ai/models').subscribe({
+      next: (response) => {
+        this.aiModelsLoaded = true;
+        this.aiModels = response.models;
+        this.ensureAiModelOption();
+      },
+      // Hiba esetén a jelenlegi kiválasztott érték marad választható (ensureAiModelOption).
+      error: () => this.ensureAiModelOption(),
+    });
+  }
+
   private applySavedLevelPolicy(policy: string): void {
     if (policy === 'all' || policy === 'noHarder' || policy === 'noEasier') {
       this.allowOtherSavedLevels = true;
@@ -1284,6 +1305,8 @@ export class AppComponent implements OnInit {
         this.applyAiFillSettings(settings);
         this.exampleLevel = settings.exampleLevel;
         this.aiModel = settings.aiModel;
+        this.ensureAiModelOption();
+        this.loadAiModels();
         this.timeZoneId = settings.timeZoneId || this.timeZoneId;
       },
       error: (error: HttpErrorResponse) => {

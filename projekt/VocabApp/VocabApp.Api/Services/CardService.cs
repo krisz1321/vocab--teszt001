@@ -7,9 +7,6 @@ namespace VocabApp.Api.Services;
 
 public sealed class CardService(AppDbContext dbContext) : ICardService
 {
-    private const int MaxTermLength = 100;
-    private const int MaxTextLength = 500;
-    private const int MaxTargetMeaningsLength = 300;
     private const int KnownStreak = 3;
     private const int KnownIntervalDays = 15;
     private const int MinSearchLength = 2;
@@ -417,9 +414,9 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             return "A szó megadása kötelező.";
         }
 
-        if (normalizedTerm.Length > MaxTermLength)
+        if (normalizedTerm.Length > CardLimits.MaxTermLength)
         {
-            return "A szó legfeljebb 100 karakter lehet.";
+            return $"A szó legfeljebb {CardLimits.MaxTermLength} karakter lehet.";
         }
 
         var normalizedDefinition = definition?.Trim();
@@ -428,21 +425,21 @@ public sealed class CardService(AppDbContext dbContext) : ICardService
             return "A definíció megadása kötelező.";
         }
 
-        if (normalizedDefinition.Length > MaxTextLength)
+        if (normalizedDefinition.Length > CardLimits.MaxDefinitionLength)
         {
-            return "A definíció legfeljebb 500 karakter lehet.";
+            return $"A definíció legfeljebb {CardLimits.MaxDefinitionLength} karakter lehet.";
         }
 
         var normalizedExample = example?.Trim();
-        if (!string.IsNullOrEmpty(normalizedExample) && normalizedExample.Length > MaxTextLength)
+        if (!string.IsNullOrEmpty(normalizedExample) && normalizedExample.Length > CardLimits.MaxExampleLength)
         {
-            return "A példa legfeljebb 500 karakter lehet.";
+            return $"A példa legfeljebb {CardLimits.MaxExampleLength} karakter lehet.";
         }
 
         var normalizedMeanings = targetMeanings?.Trim();
-        if (!string.IsNullOrEmpty(normalizedMeanings) && normalizedMeanings.Length > MaxTargetMeaningsLength)
+        if (!string.IsNullOrEmpty(normalizedMeanings) && normalizedMeanings.Length > CardLimits.MaxTargetMeaningsLength)
         {
-            return "A célnyelvi jelentés legfeljebb 300 karakter lehet.";
+            return $"A célnyelvi jelentés legfeljebb {CardLimits.MaxTargetMeaningsLength} karakter lehet.";
         }
 
         return null;

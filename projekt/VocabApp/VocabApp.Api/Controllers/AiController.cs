@@ -18,6 +18,14 @@ public sealed class AiController(
     IGrammarService grammarService,
     ICompositionService compositionService) : ControllerBase
 {
+    // Nem hív MI-t: a választható modellek listája (a Beállítások nézet ebből építi a legördülőt).
+    [HttpGet("models")]
+    public ActionResult<AiModelsDto> GetModels() => Ok(new AiModelsDto
+    {
+        Default = AiModels.Default,
+        Models = AiModels.All.Select(model => new AiModelDto { Id = model.Id, Label = model.Label }).ToList()
+    });
+
     [HttpPost("generate/definition")]
     public async Task<ActionResult<GenerateDefinitionResponseDto>> GenerateDefinition(
         GenerateDefinitionRequestDto request,

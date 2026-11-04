@@ -6,15 +6,15 @@ public sealed class SavedExample
 {
     public int Id { get; set; }
 
-    [Required, MaxLength(100)]
+    [Required, MaxLength(CardLimits.MaxTermLength)]
     public string TermKey { get; set; } = string.Empty;
 
-    [Required, MaxLength(500)]
+    [Required, MaxLength(CardLimits.MaxDefinitionLength)]
     public string DefinitionKey { get; set; } = string.Empty;
 
     [Required, MaxLength(2)]
     public string Level { get; set; } = ExampleLevels.Default;
 
-    [Required, MaxLength(500)]
+    [Required, MaxLength(CardLimits.MaxExampleLength)]
     public string Sentence { get; set; } = string.Empty;
 }

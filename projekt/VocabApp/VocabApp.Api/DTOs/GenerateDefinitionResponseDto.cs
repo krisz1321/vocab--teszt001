@@ -1,10 +1,11 @@
 using System.ComponentModel.DataAnnotations;
+using VocabApp.Api.Models;
 
 namespace VocabApp.Api.DTOs;
 
 public sealed class GenerateDefinitionResponseDto
 {
-    [MaxLength(500)]
+    [MaxLength(CardLimits.MaxDefinitionLength)]
     public string Definition { get; set; } = string.Empty;
 
     public bool FromCard { get; set; }

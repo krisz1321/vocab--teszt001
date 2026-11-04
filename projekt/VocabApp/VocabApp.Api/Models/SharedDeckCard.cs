@@ -8,16 +8,16 @@ public sealed class SharedDeckCard
 
     public int SharedDeckId { get; set; }
 
-    [Required, MaxLength(100)]
+    [Required, MaxLength(CardLimits.MaxTermLength)]
     public string Term { get; set; } = string.Empty;
 
-    [Required, MaxLength(500)]
+    [Required, MaxLength(CardLimits.MaxDefinitionLength)]
     public string Definition { get; set; } = string.Empty;
 
-    [MaxLength(500)]
+    [MaxLength(CardLimits.MaxExampleLength)]
     public string? Example { get; set; }
 
-    [MaxLength(300)]
+    [MaxLength(CardLimits.MaxTargetMeaningsLength)]
     public string? TargetMeanings { get; set; }
 
     [MaxLength(CardTags.MaxStoredLength)]
