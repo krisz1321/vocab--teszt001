@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Component, EventEmitter, HostListener, Injector, OnDestroy, OnInit, Output, afterNextRender, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription, finalize } from 'rxjs';
+import { FocusTrapDirective } from './focus-trap.directive';
 import { IconComponent } from './icon.component';
 
 interface SharedInfo {
@@ -152,7 +153,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
 @Component({
   selector: 'app-decks',
   standalone: true,
-  imports: [CommonModule, FormsModule, IconComponent],
+  imports: [CommonModule, FormsModule, IconComponent, FocusTrapDirective],
   template: `
     <div class="page page-wide decks-ui">
       <header class="page-head">
@@ -167,10 +168,10 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
         }
       </header>
       <div class="tabs page-tabs" role="tablist" aria-label="Paklik">
-        <button type="button" role="tab" [class.is-on]="section === 'mine'" [attr.aria-selected]="section === 'mine'" (click)="setSection('mine')">
+        <button type="button" role="tab" id="decks-tab-mine" [attr.aria-controls]="section === 'mine' ? 'decks-panel-mine' : null" [class.is-on]="section === 'mine'" [attr.aria-selected]="section === 'mine'" (click)="setSection('mine')">
           Paklijaim <span class="count">{{ decks.length }}</span>
         </button>
-        <button type="button" role="tab" [class.is-on]="section === 'public'" [attr.aria-selected]="section === 'public'" (click)="setSection('public')">
+        <button type="button" role="tab" id="decks-tab-public" [attr.aria-controls]="section === 'public' ? 'decks-panel-public' : null" [class.is-on]="section === 'public'" [attr.aria-selected]="section === 'public'" (click)="setSection('public')">
           Közös paklik <span class="count">{{ publicDecks.length }}</span>
         </button>
       </div>
@@ -184,7 +185,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
       }
 
       @if (section === 'mine') {
-        <div class="decks-layout" [class.show-detail]="mobileDetailOpen">
+        <div class="decks-layout" id="decks-panel-mine" role="tabpanel" aria-labelledby="decks-tab-mine" [class.show-detail]="mobileDetailOpen">
           <aside class="deck-list" aria-label="Paklijaim">
             @if (decks.length > 0) {
               <div class="search-mini search-full">
@@ -306,7 +307,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
             }
           </aside>
 
-          <section class="panel deck-detail" aria-live="polite">
+          <section class="panel deck-detail">
             @if (importMessage) {
               <div class="notice notice-info" role="status">
                 <app-icon name="info" />
@@ -434,20 +435,21 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                   <button type="button" class="btn" [disabled]="isImporting" (click)="openPasteImport()"><app-icon name="clipboard" /> Beillesztés</button>
                 </div>
               </div>
-              <div class="tabs tabs-sm" role="tablist">
-                <button type="button" role="tab" [class.is-on]="detailTab === 'cards'" [attr.aria-selected]="detailTab === 'cards'" (click)="detailTab = 'cards'">
+              <div class="tabs tabs-sm" role="tablist" aria-label="Pakli részletei">
+                <button type="button" role="tab" id="deck-tab-cards" [attr.aria-controls]="detailTab === 'cards' ? 'deck-panel-cards' : null" [class.is-on]="detailTab === 'cards'" [attr.aria-selected]="detailTab === 'cards'" (click)="detailTab = 'cards'">
                   Kártyák <span class="count">{{ cards.length }}</span>
                 </button>
-                <button type="button" role="tab" [class.is-on]="detailTab === 'settings'" [attr.aria-selected]="detailTab === 'settings'" (click)="openSettings()">
+                <button type="button" role="tab" id="deck-tab-settings" [attr.aria-controls]="detailTab === 'settings' ? 'deck-panel-settings' : null" [class.is-on]="detailTab === 'settings'" [attr.aria-selected]="detailTab === 'settings'" (click)="openSettings()">
                   Beállítások és megosztás
                 </button>
               </div>
 
               @if (detailTab === 'cards') {
+<div class="tab-panel" id="deck-panel-cards" role="tabpanel" aria-labelledby="deck-tab-cards">
                 @if (cardEditorOpen) {
                   <div class="overlay overlay-side">
                     <div class="scrim"></div>
-                    <form class="dlg dlg-full editor" (ngSubmit)="saveCard()" role="dialog" aria-modal="true" aria-label="Kártya szerkesztő">
+                    <form class="dlg dlg-full editor" (ngSubmit)="saveCard()" role="dialog" aria-modal="true" aria-label="Kártya szerkesztő" appFocusTrap>
                       <span class="dlg-grab" aria-hidden="true"></span>
                       <header class="dlg-head">
                         <div class="ph-text">
@@ -715,7 +717,9 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     </ul>
                   }
                 }
+              </div>
               } @else {
+<div class="tab-panel" id="deck-panel-settings" role="tabpanel" aria-labelledby="deck-tab-settings">
                 <div class="set-blocks">
                   <section class="set-block">
                     <h3>Pakli neve</h3>
@@ -920,6 +924,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
                     </div>
                   </section>
                 </div>
+              </div>
               }
             } @else if (!isLoadingDecks) {
               <div class="empty">
@@ -935,7 +940,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
           </section>
         </div>
       } @else {
-        <section class="stack public-section" aria-label="Közös paklik">
+        <section class="stack public-section" id="decks-panel-public" role="tabpanel" aria-labelledby="decks-tab-public">
           <p class="muted">Más felhasználók megosztott paklijai. Nézd meg a tartalmukat, és másold a sajátjaid közé, ha tetszik.</p>
           <form class="filter-row public-filters" (ngSubmit)="searchPublicDecks()">
             <div class="search-mini search-wide">
@@ -1088,7 +1093,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
     @if (creating) {
       <div class="overlay">
         <div class="scrim" (click)="toggleCreate()"></div>
-        <form class="dlg" (ngSubmit)="createDeck()" role="dialog" aria-modal="true" aria-labelledby="create-title">
+        <form class="dlg" (ngSubmit)="createDeck()" role="dialog" aria-modal="true" aria-labelledby="create-title" appFocusTrap>
           <span class="dlg-grab" aria-hidden="true"></span>
           <header class="dlg-head">
             <div class="ph-text"><h2 class="h2" id="create-title">Új pakli</h2></div>
@@ -1148,7 +1153,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
     @if (pasteOpen) {
       <div class="overlay">
         <div class="scrim" (click)="requestClosePaste()"></div>
-        <section class="dlg dlg-xl dlg-full paste-dialog" role="dialog" aria-modal="true" aria-labelledby="paste-title">
+        <section class="dlg dlg-xl dlg-full paste-dialog" role="dialog" aria-modal="true" aria-labelledby="paste-title" appFocusTrap>
           <span class="dlg-grab" aria-hidden="true"></span>
           <header class="dlg-head">
             <div class="ph-text">
@@ -1340,7 +1345,7 @@ type CardSuspension = 'none' | 'suspended' | 'buried';
     @if (pendingConfirm; as confirmation) {
       <div class="overlay confirm-overlay">
         <div class="scrim" (click)="pendingConfirm = null"></div>
-        <section class="dlg dlg-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+        <section class="dlg dlg-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text" appFocusTrap>
           <span class="dlg-grab" aria-hidden="true"></span>
           <header class="dlg-head">
             <div class="ph-text"><h2 class="h2" id="confirm-title">{{ confirmation.title }}</h2></div>

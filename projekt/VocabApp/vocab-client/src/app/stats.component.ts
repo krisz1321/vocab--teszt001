@@ -64,6 +64,8 @@ const PAGE_SIZE = 25;
               <button
                 type="button"
                 role="tab"
+                [id]="'stats-tab-' + item.id"
+                [attr.aria-controls]="tab() === item.id ? 'stats-panel-' + item.id : null"
                 [class.is-on]="tab() === item.id"
                 [attr.aria-selected]="tab() === item.id"
                 (click)="selectTab(item.id)">{{ item.label }}</button>
@@ -72,6 +74,7 @@ const PAGE_SIZE = 25;
 
           <!-- ============================== ÁTTEKINTÉS ============================== -->
           @if (tab() === 'overview') {
+            <div class="tab-panel" id="stats-panel-overview" role="tabpanel" aria-labelledby="stats-tab-overview">
             <section class="panel today-panel" aria-labelledby="stats-today">
               <div class="chart-head">
                 <h2 class="h2" id="stats-today">Mai nap</h2>
@@ -159,10 +162,12 @@ const PAGE_SIZE = 25;
             <p class="help">
               MI-hívások: {{ s.aiCallCount }} · Hibás válaszok összesen: {{ s.totalIncorrect }}
             </p>
+            </div>
           }
 
           <!-- ============================== HALADÁS ============================== -->
           @if (tab() === 'progress') {
+            <div class="tab-panel" id="stats-panel-progress" role="tabpanel" aria-labelledby="stats-tab-progress">
             <div class="stats-grid">
               <section class="panel" aria-labelledby="stats-heat">
                 <div class="chart-head">
@@ -392,10 +397,12 @@ const PAGE_SIZE = 25;
                 <p class="muted">Még nem gyakoroltál nyelvtant vagy mondatokat. Az ellenőrzött próbálkozásaid itt jelennek meg.</p>
               }
             </section>
+            </div>
           }
 
           <!-- ============================== SZAVAK ============================== -->
           @if (tab() === 'words') {
+            <div class="tab-panel" id="stats-panel-words" role="tabpanel" aria-labelledby="stats-tab-words">
             <div class="stats-grid">
               @if (v.decks.length > 0) {
                 <section class="panel" aria-labelledby="stats-decks">
@@ -547,6 +554,7 @@ const PAGE_SIZE = 25;
                 </div>
               }
             </section>
+            </div>
           }
         }
       }

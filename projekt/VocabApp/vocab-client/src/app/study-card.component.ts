@@ -4,6 +4,7 @@ import { AfterViewChecked, Component, DoCheck, ElementRef, EventEmitter, HostLis
 import { FormsModule } from '@angular/forms';
 import { finalize, switchMap, throwError } from 'rxjs';
 import { AuthSessionService } from './auth-session.service';
+import { FocusTrapDirective } from './focus-trap.directive';
 import { IconComponent, IconName } from './icon.component';
 import { SpeakButtonComponent } from './speak-button.component';
 import { SpeechService } from './speech.service';
@@ -167,7 +168,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
 @Component({
   selector: 'app-study-card',
   standalone: true,
-  imports: [CommonModule, FormsModule, SpeakButtonComponent, IconComponent],
+  imports: [CommonModule, FormsModule, SpeakButtonComponent, IconComponent, FocusTrapDirective],
   template: `
     <div class="page page-study">
       <!-- A módcsempék és az irányválasztó az indító képernyőn és a "Mód váltása" panelen is ugyanez. -->
@@ -285,7 +286,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
         @if (modePickerOpen) {
           <div class="overlay">
             <div class="scrim" (click)="closeModePicker()"></div>
-            <section class="dlg dlg-lg sheet" role="dialog" aria-modal="true" aria-labelledby="mode-sheet-title">
+            <section class="dlg dlg-lg sheet" role="dialog" aria-modal="true" aria-labelledby="mode-sheet-title" appFocusTrap>
               <span class="dlg-grab" aria-hidden="true"></span>
               <header class="dlg-head">
                 <div class="ph-text">
@@ -463,7 +464,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
           </div>
 
           @if (freeSettingsOpen) {
-            <div class="panel free-settings-panel" role="dialog" aria-label="Kártyázás beállításai">
+            <div class="panel free-settings-panel" role="dialog" aria-modal="true" aria-label="Kártyázás beállításai" appFocusTrap>
               <div class="free-settings-heading">
                 <strong>Tanulási nézet</strong>
                 <button type="button" class="icon-btn" aria-label="Bezárás" (click)="freeSettingsOpen = false"><app-icon name="x" /></button>
@@ -491,6 +492,8 @@ const emptyAnswerMessage = 'Írj be valamit.';
               (pointermove)="onFreePointerMove($event)"
               (pointerup)="onFreePointerUp($event)"
               (pointercancel)="onFreePointerCancel($event)"
+              (keydown.enter)="onFreeCardKey($event)"
+              (keydown.space)="onFreeCardKey($event)"
               role="button"
               tabindex="0"
               [attr.aria-label]="freeShowingTerm ? 'A kártya eleje, a megfordításhoz kattints vagy nyomj Space-t' : 'A kártya hátulja'">
@@ -564,7 +567,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
             <button type="button" class="btn btn-ghost btn-sm" (click)="askRestartFree()" [disabled]="isSavingFreeMark || isClearingFreeMarks"><app-icon name="refresh" /> Újrakezdés</button>
           </div>
           @if (freeRestartConfirm) {
-            <div class="notice" role="alertdialog" aria-label="Jelölések törlése">
+            <div class="notice" role="alertdialog" aria-label="Jelölések törlése" appFocusTrap>
               <app-icon name="warn" />
               <div>
                 <span>Biztosan törlöd a jelöléseket?</span>
@@ -3543,6 +3546,18 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
       return;
     }
 
+    this.flipFree();
+  }
+
+  /** Billentyűs megfordítás: csak ha maga a kártya van fókuszban (a benne lévő gombok Entere ne fordítson). */
+  onFreeCardKey(event: Event): void {
+    if (event.target !== event.currentTarget) {
+      return;
+    }
+
+    // A dokumentumszintű Space-kezelő (onFreeKeyDown) is megfordítaná: kétszer fordítva semmi nem történne.
+    event.preventDefault();
+    event.stopPropagation();
     this.flipFree();
   }
 
