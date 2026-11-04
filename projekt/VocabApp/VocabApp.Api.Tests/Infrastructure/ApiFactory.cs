@@ -150,6 +150,22 @@ public sealed class RealAiApiFactory : ApiFactory
     protected override bool UseRealAiService => true;
 }
 
+/// <summary>Ugyanaz bekapcsolt sebességkorlátozással (<c>RateLimiting:Enabled</c>); a számlálók példányonként külön élnek.</summary>
+public sealed class RateLimitedApiFactory : ApiFactory
+{
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    {
+        base.ConfigureWebHost(builder);
+        builder.UseSetting("RateLimiting:Enabled", "true");
+    }
+}
+
+[CollectionDefinition(Name)]
+public sealed class RateLimitedCollection : ICollectionFixture<RateLimitedApiFactory>
+{
+    public const string Name = "RateLimited";
+}
+
 [CollectionDefinition(Name)]
 public sealed class ApiCollection : ICollectionFixture<ApiFactory>
 {
