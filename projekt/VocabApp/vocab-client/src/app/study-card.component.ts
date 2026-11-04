@@ -249,7 +249,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
             [attr.aria-expanded]="modePickerOpen"
             (click)="openModePicker()"
             [disabled]="!canChangeMode"
-            [title]="canChangeMode || isInteractionLocked ? 'Mód váltása' : 'Előbb fejezd be ezt a kártyát.'">
+            [title]="modeButtonTitle">
             <app-icon [name]="modeIcons[mode]" />
             <span>{{ activeModeOption.label }}@if (activeDirectionLabel) { · {{ activeDirectionLabel }}}</span>
             <app-icon name="chev" />
@@ -370,7 +370,7 @@ const emptyAnswerMessage = 'Írj be valamit.';
                     }
                   </select>
                 </div>
-                <div class="field">
+                <div class="field field-wide">
                   <label for="study-focus">Gyakorlás típusa</label>
                   <select
                     id="study-focus"
@@ -1474,7 +1474,10 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     }
 
     if (this.studyStatus === 'ready') {
-      parts.push(`még ${this.availableCards > 0 ? this.availableCards - 1 : 0} kártya választható`);
+      // A javító kör alatt az availableCards nullázva van (resetCardState), ezért a hátralévő ismétlendő kártyákat mutatjuk.
+      parts.push(this.isRetry
+        ? `javító kör: még ${1 + (this.retryCard?.retriesLeft ?? 0)} kártya`
+        : `még ${this.availableCards > 0 ? this.availableCards - 1 : 0} kártya választható`);
     }
 
     if (this.sessionAnswered > 0) {
@@ -1564,6 +1567,17 @@ export class StudyCardComponent implements OnInit, OnDestroy, AfterViewChecked, 
     }
 
     return this.card === null || this.updatedProgress !== null || !this.hasUnsavedAnswer;
+  }
+
+  /** A tiltott gomb mindig megmondja az okot: függő/mentetlen válasznál a kártyát kell befejezni, egyébként a műveletet kell kivárni. */
+  get modeButtonTitle(): string {
+    if (this.canChangeMode) {
+      return 'Mód váltása';
+    }
+
+    return this.isInteractionLocked && !this.pendingIncorrect
+      ? 'Várj, amíg a művelet befejeződik.'
+      : 'Előbb fejezd be ezt a kártyát.';
   }
 
   get hasUnsavedAnswer(): boolean {
