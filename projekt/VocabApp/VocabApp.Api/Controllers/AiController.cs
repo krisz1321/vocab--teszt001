@@ -29,11 +29,6 @@ public sealed class AiController(
             return Unauthorized();
         }
 
-        if (!RequireText(request.Term, nameof(request.Term)))
-        {
-            return ValidationProblem(ModelState);
-        }
-
         try
         {
             var result = await aiService.GenerateDefinitionAsync(userId.Value, request, cancellationToken);
@@ -60,11 +55,6 @@ public sealed class AiController(
         if (userId is null)
         {
             return Unauthorized();
-        }
-
-        if (!RequireText(request.Term, nameof(request.Term)))
-        {
-            return ValidationProblem(ModelState);
         }
 
         try
@@ -95,13 +85,6 @@ public sealed class AiController(
             return Unauthorized();
         }
 
-        var isValid = RequireText(request.Term, nameof(request.Term));
-        isValid &= RequireText(request.AvoidDefinition, nameof(request.AvoidDefinition));
-        if (!isValid)
-        {
-            return ValidationProblem(ModelState);
-        }
-
         try
         {
             var result = await aiService.GenerateExtraDefinitionAsync(userId.Value, request, cancellationToken);
@@ -128,13 +111,6 @@ public sealed class AiController(
         if (userId is null)
         {
             return Unauthorized();
-        }
-
-        var isValid = RequireText(request.Term, nameof(request.Term));
-        isValid &= RequireText(request.Definition, nameof(request.Definition));
-        if (!isValid)
-        {
-            return ValidationProblem(ModelState);
         }
 
         try
@@ -167,17 +143,6 @@ public sealed class AiController(
             return Unauthorized();
         }
 
-        var isValid = true;
-        foreach (var item in request.Items)
-        {
-            isValid &= RequireText(item.Term, nameof(item.Term));
-        }
-
-        if (!isValid)
-        {
-            return ValidationProblem(ModelState);
-        }
-
         try
         {
             var result = await aiService.GenerateDeckFillAsync(userId.Value, request, cancellationToken);
@@ -206,13 +171,6 @@ public sealed class AiController(
             return Unauthorized();
         }
 
-        var isValid = RequireText(request.Term, nameof(request.Term));
-        isValid &= RequireText(request.Definition, nameof(request.Definition));
-        if (!isValid)
-        {
-            return ValidationProblem(ModelState);
-        }
-
         try
         {
             return Ok(await aiService.GenerateTargetMeaningAsync(userId.Value, request, cancellationToken));
@@ -232,13 +190,6 @@ public sealed class AiController(
         if (userId is null)
         {
             return Unauthorized();
-        }
-
-        var isValid = RequireText(request.Definition, nameof(request.Definition));
-        isValid &= RequireText(request.Guess, nameof(request.Guess));
-        if (!isValid)
-        {
-            return ValidationProblem(ModelState);
         }
 
         try
@@ -269,14 +220,6 @@ public sealed class AiController(
             return Unauthorized();
         }
 
-        var isValid = RequireText(request.Term, nameof(request.Term));
-        isValid &= RequireText(request.Definition, nameof(request.Definition));
-        isValid &= RequireText(request.Answer, nameof(request.Answer));
-        if (!isValid)
-        {
-            return ValidationProblem(ModelState);
-        }
-
         try
         {
             return Ok(await aiService.ValidateAnswerAsync(userId.Value, request, cancellationToken));
@@ -296,14 +239,6 @@ public sealed class AiController(
         if (userId is null)
         {
             return Unauthorized();
-        }
-
-        var isValid = RequireText(request.Term, nameof(request.Term));
-        isValid &= RequireText(request.Definition, nameof(request.Definition));
-        isValid &= RequireText(request.Answer, nameof(request.Answer));
-        if (!isValid)
-        {
-            return ValidationProblem(ModelState);
         }
 
         try
@@ -337,13 +272,10 @@ public sealed class AiController(
             return Unauthorized();
         }
 
-        var isValid = RequireText(request.Term, nameof(request.Term));
-        isValid &= RequireText(request.Definition, nameof(request.Definition));
-        isValid &= RequireText(request.Answer, nameof(request.Answer));
-        isValid &= RequireMessages(request.Messages);
+        var isValid = RequireMessages(request.Messages);
         if (!isValid)
         {
-            return ValidationProblem(ModelState);
+            return HungarianValidationProblem();
         }
 
         try
@@ -368,11 +300,10 @@ public sealed class AiController(
             return Unauthorized();
         }
 
-        var isValid = RequireText(request.Sentence, nameof(request.Sentence));
-        isValid &= RequireTense(request.Tense, nameof(request.Tense));
+        var isValid = RequireTense(request.Tense, nameof(request.Tense));
         if (!isValid)
         {
-            return ValidationProblem(ModelState);
+            return HungarianValidationProblem();
         }
 
         try
@@ -409,7 +340,7 @@ public sealed class AiController(
 
         if (!RequireTense(request.Tense, nameof(request.Tense)))
         {
-            return ValidationProblem(ModelState);
+            return HungarianValidationProblem();
         }
 
         try
@@ -442,7 +373,7 @@ public sealed class AiController(
 
         if (!RequireTense(request.Tense, nameof(request.Tense)))
         {
-            return ValidationProblem(ModelState);
+            return HungarianValidationProblem();
         }
 
         try
@@ -474,11 +405,10 @@ public sealed class AiController(
             return Unauthorized();
         }
 
-        var isValid = RequireText(request.Text, nameof(request.Text));
-        isValid &= RequireCardIds(request.CardIds, nameof(request.CardIds));
+        var isValid = RequireCardIds(request.CardIds, nameof(request.CardIds));
         if (!isValid)
         {
-            return ValidationProblem(ModelState);
+            return HungarianValidationProblem();
         }
 
         try
@@ -515,7 +445,7 @@ public sealed class AiController(
 
         if (!RequireCardIds(request.CardIds, nameof(request.CardIds)))
         {
-            return ValidationProblem(ModelState);
+            return HungarianValidationProblem();
         }
 
         try
@@ -548,7 +478,7 @@ public sealed class AiController(
 
         if (!RequireCardIds(request.CardIds, nameof(request.CardIds)))
         {
-            return ValidationProblem(ModelState);
+            return HungarianValidationProblem();
         }
 
         try
@@ -580,6 +510,17 @@ public sealed class AiController(
         return false;
     }
 
+    // A beépített modellvalidáció címével azonos magyar cím (lásd Program.cs InvalidModelStateResponseFactory).
+    private BadRequestObjectResult HungarianValidationProblem() => new(
+        new ValidationProblemDetails(ModelState)
+        {
+            Title = "A megadott adatok hiányosak vagy érvénytelenek.",
+            Status = StatusCodes.Status400BadRequest
+        })
+    {
+        ContentTypes = { "application/problem+json" }
+    };
+
     private bool RequireTense(string value, string propertyName)
     {
         if (GrammarTenses.IsAllowed(value))
@@ -595,17 +536,6 @@ public sealed class AiController(
     {
         var sub = User.FindFirstValue(JwtRegisteredClaimNames.Sub);
         return int.TryParse(sub, out var userId) ? userId : null;
-    }
-
-    private bool RequireText(string value, string propertyName)
-    {
-        if (!string.IsNullOrWhiteSpace(value))
-        {
-            return true;
-        }
-
-        ModelState.AddModelError(propertyName, $"{propertyName} must not be empty or whitespace.");
-        return false;
     }
 
     private bool RequireMessages(IReadOnlyList<ExplainMessageDto>? messages)

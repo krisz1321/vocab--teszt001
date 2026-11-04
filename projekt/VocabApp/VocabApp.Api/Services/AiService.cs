@@ -1299,15 +1299,9 @@ public sealed class AiService(
         AppealAnswerRequestDto request,
         CancellationToken cancellationToken)
     {
-        var requireAppealReason = await dbContext.Users
-            .AsNoTracking()
-            .Where(user => user.Id == userId)
-            .Select(user => (bool?)user.RequireAppealReason)
-            .SingleOrDefaultAsync(cancellationToken);
-
+        // A DTO Reason mezője [Required], az indoklás nélküli fellebbezést a kliens (acceptAppealWithoutReason) intézi el.
         var reason = request.Reason?.Trim() ?? string.Empty;
-        var requiresReason = requireAppealReason is null || requireAppealReason.Value;
-        if (requiresReason && reason.Length == 0)
+        if (reason.Length == 0)
         {
             return null;
         }

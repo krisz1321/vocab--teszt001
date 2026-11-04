@@ -96,7 +96,7 @@ public sealed class AuthService(
         }
 
         var user = new User { Email = email, Username = username! };
-        user.PasswordHash = passwordHasher.HashPassword(user, request.Password);
+        user.PasswordHash = passwordHasher.HashPassword(user, request.Password!);
         dbContext.Users.Add(user);
         dbContext.Decks.Add(new Deck { User = user, Name = "Saját pakli" });
 
@@ -272,7 +272,7 @@ public sealed class AuthService(
             return StatusResult.Fail(StatusCodes.Status400BadRequest, "Hibás jelszó.");
         }
 
-        user.PasswordHash = passwordHasher.HashPassword(user, newPassword);
+        user.PasswordHash = passwordHasher.HashPassword(user, newPassword!);
         await dbContext.SaveChangesAsync(cancellationToken);
         return StatusResult.Success();
     }
