@@ -276,13 +276,29 @@ interface AiModelOption {
       @if (view === 'study') {
         <app-study-card [initialDeckId]="studyDeckId" (openDecks)="goTo('decks')" />
       } @else if (view === 'grammar') {
-        <app-grammar (openDecks)="goTo('decks')" />
+        @defer (on immediate) {
+          <app-grammar (openDecks)="goTo('decks')" />
+        } @placeholder {
+          <div class="loading" role="status"><div class="spinner"></div></div>
+        }
       } @else if (view === 'composition') {
-        <app-composition (openDecks)="goTo('decks')" />
+        @defer (on immediate) {
+          <app-composition (openDecks)="goTo('decks')" />
+        } @placeholder {
+          <div class="loading" role="status"><div class="spinner"></div></div>
+        }
       } @else if (view === 'stats') {
-        <app-stats (startStudy)="goTo('study')" />
+        @defer (on immediate) {
+          <app-stats (startStudy)="goTo('study')" />
+        } @placeholder {
+          <div class="loading" role="status"><div class="spinner"></div></div>
+        }
       } @else if (view === 'decks') {
-        <app-decks (studyDeck)="studyDeck($event)" />
+        @defer (on immediate) {
+          <app-decks #decksView (studyDeck)="studyDeck($event)" />
+        } @placeholder {
+          <div class="loading" role="status"><div class="spinner"></div></div>
+        }
       } @else if (view === 'settings') {
         <main class="page page-narrow">
           <header class="page-head">
@@ -759,7 +775,8 @@ export class AppComponent implements OnInit {
   private studySettingsRequest = 0;
   private aiModelsLoaded = false;
   private userId: number | null = null;
-  @ViewChild(DecksComponent) private decksView?: DecksComponent;
+  // Sablonváltozóval érjük el (nem osztályreferenciával), hogy a Paklik komponens külön csomagba kerülhessen (@defer).
+  @ViewChild('decksView') private decksView?: { hasUnsavedPaste: boolean };
 
   constructor() {
     // A 401 miatti kijelentkezés (interceptor) is takarítsa a profilt és a nézetet, ne csak a Kijelentkezés gomb.
