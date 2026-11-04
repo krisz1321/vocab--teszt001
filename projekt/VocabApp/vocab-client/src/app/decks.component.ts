@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
-import { Component, EventEmitter, HostListener, OnDestroy, OnInit, Output, inject } from '@angular/core';
+import { Component, EventEmitter, HostListener, Injector, OnDestroy, OnInit, Output, afterNextRender, inject } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Subscription, finalize } from 'rxjs';
 import { IconComponent } from './icon.component';
@@ -1376,6 +1376,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   @Output() readonly studyDeck = new EventEmitter<number>();
 
   private readonly http = inject(HttpClient);
+  private readonly injector = inject(Injector);
 
   section: Section = 'mine';
   detailTab: DetailTab = 'cards';
@@ -1417,6 +1418,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   readonly maxTagLength = 24;
   editingCardId: number | null = null;
   cardEditorOpen = false;
+  private lastDecksLoadAt = 0;
   // A szerkesztő megnyitásakor, kártyaváltáskor és bezáráskor nő: a korábbi kártyához indult MI-válasz nem íródhat az új űrlapba.
   private editorGeneration = 0;
   errorMessage: string | null = null;
@@ -1696,6 +1698,21 @@ export class DecksComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (this.hasDeckNamed(name)) {
+      this.askConfirm(
+        'Már van ilyen nevű paklid',
+        `Már van „${name}” nevű paklid. Biztosan létrehozol még egyet ugyanezzel a névvel?`,
+        'Létrehozás mégis',
+        false,
+        () => this.performCreateDeck(name),
+      );
+      return;
+    }
+
+    this.performCreateDeck(name);
+  }
+
+  private performCreateDeck(name: string): void {
     this.errorMessage = null;
     this.isSavingDeck = true;
     this.http.post<Deck>('/api/decks', {
@@ -2041,11 +2058,12 @@ export class DecksComponent implements OnInit, OnDestroy {
   }
 
   private focusTerm(): void {
-    setTimeout(() => {
+    // A fókusz közvetlenül a megjelenés után kerül a mezőre (nem vár időzítőre), a görgetés utána, simán megy.
+    afterNextRender(() => {
       const input = document.getElementById('card-term');
-      input?.scrollIntoView({ block: 'center', behavior: 'smooth' });
       input?.focus({ preventScroll: true });
-    }, 60);
+      input?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    }, { injector: this.injector });
   }
 
   saveCard(): void {
@@ -3151,6 +3169,7 @@ export class DecksComponent implements OnInit, OnDestroy {
   }
 
   private loadDecks(initial = false): void {
+    this.lastDecksLoadAt = Date.now();
     this.isLoadingDecks = initial;
     this.http.get<Deck[]>('/api/decks').pipe(
       finalize(() => {
@@ -3174,6 +3193,20 @@ export class DecksComponent implements OnInit, OnDestroy {
   /** Csendes frissítés: a számlálók naprakészek, de a lista nem villan fel. */
   private refreshDecks(): void {
     this.loadDecks(false);
+  }
+
+  /** Láthatóvá váláskor vagy fókuszkor frissít (legfeljebb 30 mp-enként), ha nincs megnyitott szerkesztés vagy mentetlen beillesztés. */
+  @HostListener('document:visibilitychange')
+  @HostListener('window:focus')
+  onReturnToPage(): void {
+    if (document.visibilityState !== 'visible'
+      || this.cardEditorOpen
+      || this.hasUnsavedPaste
+      || Date.now() - this.lastDecksLoadAt < 30000) {
+      return;
+    }
+
+    this.refreshDecks();
   }
 
   private loadCards(): void {
