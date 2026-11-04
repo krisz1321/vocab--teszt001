@@ -402,7 +402,9 @@ public sealed class AiService(
             "in the meaning given by the definition. Judge three things separately. termUsedCorrectly: the sentence " +
             "contains the term (an inflected form such as a plural noun or a conjugated verb is fine) and uses it in " +
             "the meaning of the definition. tenseCorrect: the main verb phrase of the sentence is in the requested " +
-            "tense; when the term is a stative verb that does not normally take a continuous form, a continuous " +
+            "tense; tenseCorrect judges only whether the requested tense is formed (auxiliary + verb form). " +
+            "A subject–verb agreement error (e.g. \"She have packed\") makes grammarCorrect false but tenseCorrect stays " +
+            "true when the requested tense is recognisable; when the term is a stative verb that does not normally take a continuous form, a continuous " +
             "tense is incorrect and the feedback explains why. grammarCorrect: the sentence is grammatical English; " +
             "ignore capitalisation and the final punctuation mark. A short or simple but correct sentence is " +
             "acceptable; the feedback may then suggest a richer sentence." + HungarianFeedbackStyle + translationRule +
@@ -984,13 +986,13 @@ public sealed class AiService(
                     {
                         meaningProblems[index] = "The meaning was too long; keep it under 120 characters.";
                     }
-                    else if (ContainsTokenSequence(meaning, term))
+                    else if (RemoveTermParts(meaning, term) is not { } cleanedMeaning)
                     {
                         meaningProblems[index] = "The meaning must be Hungarian and must not contain the English term.";
                     }
                     else
                     {
-                        results[index].TargetMeanings = meaning;
+                        results[index].TargetMeanings = cleanedMeaning;
                         needMeaning[index] = false;
                         meaningProblems[index] = null;
                     }
@@ -1059,6 +1061,18 @@ public sealed class AiService(
             return cached;
         }
 
+        var result = await RetryOnInvalidResponseAsync(
+            () => GenerateTargetMeaningCoreAsync(userId, request, model, cancellationToken));
+        var stored = await SaveCacheAsync(promptHash, JsonSerializer.Serialize(result, SerializerOptions), cancellationToken);
+        return stored is null ? result : DeserializeCached<GenerateTargetMeaningResponseDto>(stored);
+    }
+
+    private async Task<GenerateTargetMeaningResponseDto> GenerateTargetMeaningCoreAsync(
+        int userId,
+        GenerateTargetMeaningRequestDto request,
+        string model,
+        CancellationToken cancellationToken)
+    {
         const string systemPrompt =
             "The learner's target language is Hungarian. Give two to five short Hungarian equivalents " +
             "of the English term, separated by commas. Do not include any English text. " +
@@ -1071,19 +1085,28 @@ public sealed class AiService(
 
         var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken, model);
         var result = DeserializeContent<GenerateTargetMeaningResponseDto>(content);
-        result.Meanings = result.Meanings.Trim();
-
-        if (string.IsNullOrWhiteSpace(result.Meanings) ||
-            result.Meanings.Length > CardLimits.MaxTargetMeaningsLength ||
-            ContainsTokenSequence(result.Meanings, request.Term))
+        // Az angol szót tartalmazó részeket (pl. „fedezeti alap, hedge fund”) elhagyjuk; csak akkor hiba, ha semmi nem marad.
+        var meanings = RemoveTermParts(result.Meanings.Trim(), request.Term);
+        if (meanings is null || meanings.Length > CardLimits.MaxTargetMeaningsLength)
         {
             throw new AiServiceException(
                 AiServiceErrorKind.InvalidResponse,
                 "The AI target meaning did not satisfy the response contract.");
         }
 
-        var stored = await SaveCacheAsync(promptHash, JsonSerializer.Serialize(result, SerializerOptions), cancellationToken);
-        return stored is null ? result : DeserializeCached<GenerateTargetMeaningResponseDto>(stored);
+        result.Meanings = meanings;
+        return result;
+    }
+
+    // A magyar jelentéslistát vesszőnél és pontosvesszőnél bontja, elhagyja az angol szót tartalmazó részeket,
+    // a maradékot ", "-szel fűzi vissza. Null, ha üres a lista vagy semmi nem marad.
+    private static string? RemoveTermParts(string meanings, string term)
+    {
+        var kept = meanings
+            .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(part => !ContainsTokenSequence(part, term))
+            .ToList();
+        return kept.Count == 0 ? null : string.Join(", ", kept);
     }
 
     public Task<ValidateAnswerResponseDto> ValidateAnswerAsync(
@@ -1238,6 +1261,8 @@ public sealed class AiService(
             "A weak or unrelated justification does not make the answer correct. " +
             "For the term \"cat\", the Hungarian answer \"egy háziállat ami dorombol\" can be accepted when the justification " +
             "shows that this meaning matches the reference. " +
+            "When previousFeedback is present, it already told the learner why the answer was rejected; do not repeat it, " +
+            "respond only to the justification. " +
             "Return only a JSON object with exactly two properties: accepted (boolean) and feedback (a Hungarian string of " +
             "at most two sentences; required when accepted is false, and it may be empty when accepted is true)." +
             HungarianFeedbackStyle;
@@ -1246,7 +1271,8 @@ public sealed class AiService(
             request.Term,
             referenceDefinition = request.Definition,
             learnerAnswer = request.Answer,
-            justification = reason
+            justification = reason,
+            previousFeedback = string.IsNullOrWhiteSpace(request.PreviousFeedback) ? null : request.PreviousFeedback.Trim()
         });
 
         var content = await SendChatRequestAsync(userId, systemPrompt, userPrompt, cancellationToken);
@@ -1297,7 +1323,9 @@ public sealed class AiService(
             "Refuse topics that are independent of this word and of language learning. Space travel and other unrelated subjects are not allowed. " +
             "Return only a JSON object with exactly two properties: onTopic (boolean) and text (a non-empty Hungarian string of at most 1500 characters). " +
             "When the latest question is unrelated, onTopic is false and text is exactly: Ez nem kapcsolódik a tárgyhoz. " +
-            "When onTopic is true, text answers in Hungarian." + HungarianFeedbackStyle;
+            "When onTopic is true, text answers in Hungarian. " +
+            "Write plain text only; do not use Markdown (no asterisks, underscores, hashes, backticks or bullet lists)." +
+            HungarianFeedbackStyle;
         var userPrompt = JsonSerializer.Serialize(new
         {
             term = request.Term.Trim(),

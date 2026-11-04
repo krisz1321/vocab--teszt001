@@ -16,4 +16,8 @@ public sealed class AppealAnswerRequestDto
 
     [Required, MaxLength(1000)]
     public string Reason { get; set; } = string.Empty;
+
+    /// <summary>Az első elutasítás indoklása (az MI eredeti visszajelzése), hogy a válasz ne ismételje meg.</summary>
+    [MaxLength(500)]
+    public string? PreviousFeedback { get; set; }
 }
