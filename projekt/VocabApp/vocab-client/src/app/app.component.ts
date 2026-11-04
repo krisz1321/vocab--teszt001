@@ -1050,6 +1050,13 @@ export class AppComponent implements OnInit {
       return;
     }
 
+    // A szerver korlátja (AvatarLimits.MaxBytes): 1 MB.
+    if (file.size > 1024 * 1024) {
+      this.profileMessage = null;
+      this.profileError = 'Csak JPEG, PNG vagy WebP kép tölthető fel, legfeljebb 1 MB.';
+      return;
+    }
+
     const body = new FormData();
     body.append('file', file);
     this.profileError = null;

@@ -20,7 +20,6 @@ public sealed class AuthService(
 {
     private const int MaxEmailLength = 256;
     private const int MaxDisplayNameLength = 80;
-    private const int MaxAvatarBytes = 1024 * 1024;
     private const int UniqueIndexViolation = 2601;
     private const int UniqueConstraintViolation = 2627;
     private const string InvalidCredentials = "Hibás email vagy jelszó.";
@@ -287,8 +286,7 @@ public sealed class AuthService(
             return StatusResult.Fail(StatusCodes.Status404NotFound, "A felhasználó nem található.");
         }
 
-        var extension = ExtensionFor(file?.ContentType);
-        if (file is null || file.Length <= 0 || file.Length > MaxAvatarBytes || extension is null)
+        if (file is null || file.Length <= 0 || file.Length > AvatarLimits.MaxBytes)
         {
             return StatusResult.Fail(StatusCodes.Status400BadRequest, InvalidAvatar);
         }
@@ -301,7 +299,7 @@ public sealed class AuthService(
         while ((read = await input.ReadAsync(chunk, cancellationToken)) > 0)
         {
             total += read;
-            if (total > MaxAvatarBytes)
+            if (total > AvatarLimits.MaxBytes)
             {
                 return StatusResult.Fail(StatusCodes.Status400BadRequest, InvalidAvatar);
             }
@@ -309,7 +307,10 @@ public sealed class AuthService(
             buffer.Write(chunk, 0, read);
         }
 
-        if (total == 0)
+        // A típust a tartalom elejéből állapítjuk meg, a kérés Content-Type fejlécében nem bízunk.
+        var bytes = buffer.ToArray();
+        var extension = ExtensionFor(bytes);
+        if (extension is null)
         {
             return StatusResult.Fail(StatusCodes.Status400BadRequest, InvalidAvatar);
         }
@@ -318,7 +319,7 @@ public sealed class AuthService(
         Directory.CreateDirectory(directory);
         var tempPath = Path.Combine(directory, $"{userId}{extension}.tmp");
         var targetPath = Path.Combine(directory, $"{userId}{extension}");
-        await File.WriteAllBytesAsync(tempPath, buffer.ToArray(), cancellationToken);
+        await File.WriteAllBytesAsync(tempPath, bytes, cancellationToken);
         File.Move(tempPath, targetPath, overwrite: true);
 
         foreach (var (otherExtension, _) in AvatarTypes)
@@ -450,20 +451,24 @@ public sealed class AuthService(
         }
     }
 
-    private static string? ExtensionFor(string? contentType)
+    // JPEG: FF D8 FF · PNG: 89 50 4E 47 0D 0A 1A 0A · WebP: "RIFF" + 4 bájt méret + "WEBP".
+    private static string? ExtensionFor(ReadOnlySpan<byte> bytes)
     {
-        if (string.IsNullOrWhiteSpace(contentType))
+        if (bytes.StartsWith(new byte[] { 0xFF, 0xD8, 0xFF }))
         {
-            return null;
+            return ".jpg";
         }
 
-        var mediaType = contentType.Split(';', 2)[0].Trim();
-        foreach (var (extension, type) in AvatarTypes)
+        if (bytes.StartsWith(new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A }))
         {
-            if (string.Equals(mediaType, type, StringComparison.OrdinalIgnoreCase))
-            {
-                return extension;
-            }
+            return ".png";
+        }
+
+        if (bytes.Length >= 12
+            && bytes[..4].SequenceEqual("RIFF"u8)
+            && bytes.Slice(8, 4).SequenceEqual("WEBP"u8))
+        {
+            return ".webp";
         }
 
         return null;

@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using VocabApp.Api.DTOs;
+using VocabApp.Api.Models;
 using VocabApp.Api.Services;
 
 namespace VocabApp.Api.Controllers;
@@ -102,8 +103,8 @@ public sealed class AuthController(IAuthService authService) : ControllerBase
 
     [Authorize]
     [HttpPut("avatar")]
-    [RequestSizeLimit(8 * 1024 * 1024)]
-    [RequestFormLimits(MultipartBodyLengthLimit = 8 * 1024 * 1024)]
+    [RequestSizeLimit(AvatarLimits.MaxRequestBytes)]
+    [RequestFormLimits(MultipartBodyLengthLimit = AvatarLimits.MaxRequestBytes)]
     public async Task<IActionResult> UploadAvatar([FromForm] IFormFile? file, CancellationToken cancellationToken)
     {
         var userId = GetUserId();
